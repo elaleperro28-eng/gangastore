@@ -311,7 +311,7 @@ export default function GangaStore() {
       {/* ── TIENDA ── */}
       {vista==="tienda"&&<>
         <div className="hero">
-          <h1>PRODUCTOS<br/><span>IMPORTADOS</span></h1>
+          <h1>Ganga Store<br/><span>Bahia Blanca</span></h1>
           <p>Tecnología y accesorios al mejor precio. En stock o por pedido, te lo conseguimos.</p>
           <div className="hero-tags">
             <span className="tag hot">🔥 Stock disponible</span>
