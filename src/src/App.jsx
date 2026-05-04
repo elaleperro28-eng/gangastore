@@ -417,7 +417,7 @@ export default function GangaStore() {
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:14}}>
               <h1>PANEL ADMIN</h1>
               <div style={{display:"flex",gap:8}}>
-                <button className="btn sm ghost" onClick={()=>setAdminOk(false);sessionStorage.removeItem("gsAdmin")}>Cerrar sesión</button>
+                <button className="btn sm ghost" onClick={()=>{setAdminOk(false);sessionStorage.removeItem("gsAdmin")}}>Cerrar sesión</button>
                 <button className="btn sm ghost" onClick={()=>setVista("tienda")}>← Tienda</button>
               </div>
             </div>
