@@ -302,7 +302,7 @@ export default function GangaStore() {
       <nav className="nav">
         <div className="logo" onClick={()=>setVista("tienda")}>GANGA<span>STORE</span></div>
         <div className="nav-r">
-          {(window.location.search.includes("ganga")||sessionStorage.getItem("gsAdmin"))&&<button className="btn sm ghost" onClick={()=>{setVista("admin");setAdminTab("pedidos")}}>Admin</button>}
+          {(window.location.search.includes("ganga")||sessionStorage.getItem("gsAdmin"))&&{(window.location.search.includes("ganga")||sessionStorage.getItem("gsAdmin"))&&<button className="btn sm ghost" onClick={()=>{setVista("admin");setAdminTab("pedidos")}}>Admin</button>}}
           <button className="btn sm primary" onClick={()=>setCarritoOpen(true)}>
             🛒 Carrito {carrito.length>0&&<span className="cart-badge">{carrito.reduce((s,i)=>s+i.cantidad,0)}</span>}
           </button>
@@ -411,7 +411,7 @@ export default function GangaStore() {
               <label>Contraseña</label>
               <input type="password" value={aPass} onChange={e=>setAPass(e.target.value)} placeholder="••••••••" onKeyDown={e=>{if(e.key==="Enter"&&aPass===PASS_ADMIN){setAdminOk(true);sessionStorage.setItem("gsAdmin","1")}}} />
             </div>
-            <button className="btn primary full" onClick={()=>{if(aPass===PASS_ADMIN)setAdminOk(true);else showToast("Contraseña incorrecta","error")}}>Ingresar</button>
+            <button className="btn primary full" onClick={()=>{if(aPass===PASS_ADMIN)(setAdminOk(true),sessionStorage.setItem("gsAdmin","1"));else showToast("Contraseña incorrecta","error")}}>Ingresar</button>
           </div>
           :<div className="aw">
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:14}}>
