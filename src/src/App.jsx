@@ -530,6 +530,7 @@ export default function GangaStore() {
             <button className="btn primary full" style={{padding:"13px",fontSize:15}} onClick={()=>{setCarritoOpen(false);setVista("checkout")}}>Finalizar compra →</button>
           </div>}
         </div>
+      </div>
       </>}
     </>
   );
