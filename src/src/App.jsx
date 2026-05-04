@@ -5,10 +5,10 @@ const WHATSAPP   = "5491112345678";
 const PASS_ADMIN = "admin123";
 
 const PRODUCTOS_INICIALES = [
-  { id: 1, nombre: "Auriculares Bluetooth Pro", tipo: "Electrónica", precio: 18500, foto: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80", stock: true,  cantidadStock: 3, categoria: "ElectrÃ³nica", descripcion: "Auriculares inalÃ¡mbricos con cancelaciÃ³n de ruido, 30hs de baterÃ­a.", diasEstimados: "" },
-  { id: 2, nombre: "Smartwatch Serie 9", tipo: "Electrónica",        precio: 42000, foto: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80", stock: true,  cantidadStock: 2, categoria: "ElectrÃ³nica", descripcion: "Reloj inteligente con GPS, monitor cardÃ­aco y 7 dÃ­as de baterÃ­a.",    diasEstimados: "" },
-  { id: 3, nombre: "Cargador InalÃ¡mbrico 15W",  precio: 9800,  foto: "https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&q=80", stock: false, cantidadStock: 0, categoria: "Accesorios",  descripcion: "Carga rÃ¡pida inalÃ¡mbrica compatible con todos los dispositivos Qi.", diasEstimados: "7 a 10" },
-  { id: 4, nombre: "Power Bank 20000mAh",        precio: 14500, foto: "https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=400&q=80", stock: true,  cantidadStock: 5, categoria: "Accesorios",  descripcion: "BaterÃ­a portÃ¡til con carga rÃ¡pida USB-C, 3 salidas simultÃ¡neas.",  diasEstimados: "" },
+  { id: 1, nombre: "Auriculares Bluetooth Pro", tipo: "Electr�nica", precio: 18500, foto: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80", stock: true,  cantidadStock: 3, categoria: "Electrónica", descripcion: "Auriculares inalámbricos con cancelación de ruido, 30hs de batería.", diasEstimados: "" },
+  { id: 2, nombre: "Smartwatch Serie 9", tipo: "Electr�nica",        precio: 42000, foto: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80", stock: true,  cantidadStock: 2, categoria: "Electrónica", descripcion: "Reloj inteligente con GPS, monitor cardíaco y 7 días de batería.",    diasEstimados: "" },
+  { id: 3, nombre: "Cargador Inalámbrico 15W",  precio: 9800,  foto: "https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&q=80", stock: false, cantidadStock: 0, categoria: "Accesorios",  descripcion: "Carga rápida inalámbrica compatible con todos los dispositivos Qi.", diasEstimados: "7 a 10" },
+  { id: 4, nombre: "Power Bank 20000mAh",        precio: 14500, foto: "https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=400&q=80", stock: true,  cantidadStock: 5, categoria: "Accesorios",  descripcion: "Batería portátil con carga rápida USB-C, 3 salidas simultáneas.",  diasEstimados: "" },
 ];
 
 const fmt = (n) => new Intl.NumberFormat("es-AR", { style:"currency", currency:"ARS", maximumFractionDigits:0 }).format(n);
@@ -57,7 +57,7 @@ export default function GangaStore() {
   const filtrados  = productos.filter(p=>(catActiva==="Todas"||(catActiva==="En Stock"?p.stock===true:p.stock===false))&&p.nombre.toLowerCase().includes(busqueda.toLowerCase()));
 
   const confirmarPedido = () => {
-    if (!form.nombre||!form.telefono||!form.direccion||!form.ciudad){ showToast("CompletÃ¡ los campos obligatorios","error"); return; }
+    if (!form.nombre||!form.telefono||!form.direccion||!form.ciudad){ showToast("Completá los campos obligatorios","error"); return; }
     const numero = `GS-${Date.now().toString().slice(-6)}`;
     const nuevo  = { numero, fecha:new Date().toLocaleString("es-AR"), cliente:form, items:carrito, total, estado:"esperando_pago" };
     setPedidos(prev=>[nuevo,...prev]);
@@ -67,24 +67,24 @@ export default function GangaStore() {
     setVista("confirmacion");
   };
 
-  const marcarPagado     = (n) => { setPedidos(prev=>prev.map(p=>p.numero===n?{...p,estado:"pagado"}:p));     showToast("Marcado como pagado â"); };
-  const marcarDespachado = (n) => { setPedidos(prev=>prev.map(p=>p.numero===n?{...p,estado:"despachado"}:p)); showToast("Marcado como despachado ð¦"); };
+  const marcarPagado     = (n) => { setPedidos(prev=>prev.map(p=>p.numero===n?{...p,estado:"pagado"}:p));     showToast("Marcado como pagado ✓"); };
+  const marcarDespachado = (n) => { setPedidos(prev=>prev.map(p=>p.numero===n?{...p,estado:"despachado"}:p)); showToast("Marcado como despachado 📦"); };
 
   const abrirNuevo  = ()  => { setFormProd(PROD_VACIO); setEditId(null); setModalProd(true); };
   const abrirEditar = (p) => { setFormProd({...p, precio:String(p.precio), cantidadStock:String(p.cantidadStock)}); setEditId(p.id); setModalProd(true); };
 
   const guardarProducto = () => {
-    if (!formProd.nombre||!formProd.precio){ showToast("Nombre, precio y categorÃ­a son obligatorios","error"); return; }
+    if (!formProd.nombre||!formProd.precio){ showToast("Nombre, precio y categoría son obligatorios","error"); return; }
     const stockBool = formProd.stock===true||formProd.stock==="true";
     const prod = { ...formProd, id:editId??uid(), precio:parseFloat(formProd.precio)||0, cantidadStock:parseInt(formProd.cantidadStock)||0, stock:stockBool, categoria:stockBool?"En Stock":"Por Pedido", tipo:formProd.tipo||formProd.categoria||"" };
-    if (editId) { setProductos(prev=>prev.map(p=>p.id===editId?prod:p)); showToast("Producto actualizado â"); }
-    else        { setProductos(prev=>[...prev,prod]);                     showToast("Producto agregado â"); }
+    if (editId) { setProductos(prev=>prev.map(p=>p.id===editId?prod:p)); showToast("Producto actualizado ✓"); }
+    else        { setProductos(prev=>[...prev,prod]);                     showToast("Producto agregado ✓"); }
     setModalProd(false);
   };
 
   const eliminarProducto = (id) => { setProductos(prev=>prev.filter(p=>p.id!==id)); setBorrarConf(null); showToast("Producto eliminado"); };
 
-  // ââ CSS ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── CSS ──────────────────────────────────────────────────────────────────
   const css = `
     @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap');
     *{box-sizing:border-box;margin:0;padding:0}
@@ -240,13 +240,13 @@ export default function GangaStore() {
     }
   `;
 
-  // ââ Modal Producto ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Modal Producto ────────────────────────────────────────────────────────
   const ModalProd = () => (
     <div className="modal-ov" onClick={e=>{if(e.target.classList.contains("modal-ov"))setModalProd(false)}}>
       <div className="modal">
         <div className="mh">
           <h2>{editId?"Editar producto":"Nuevo producto"}</h2>
-          <button className="btn sm ghost" onClick={()=>setModalProd(false)}>â</button>
+          <button className="btn sm ghost" onClick={()=>setModalProd(false)}>✕</button>
         </div>
         <div className="mb">
           <div className="fg">
@@ -255,10 +255,10 @@ export default function GangaStore() {
             <div className="fgr"><label>Tipo de producto</label><input type="text" value={formProd.tipo||""} onChange={e=>setFormProd({...formProd,tipo:e.target.value})} placeholder="Ej: Celulares, Auriculares..." /></div>
             <div className="fgr full"><label>URL de la foto (link de imagen)</label><input type="text" value={formProd.foto} onChange={e=>setFormProd({...formProd,foto:e.target.value})} placeholder="https://..." /></div>
             {formProd.foto && <div className="fgr full" style={{textAlign:"center"}}><img src={formProd.foto} alt="preview" style={{maxHeight:130,borderRadius:8,objectFit:"cover",border:"1px solid var(--bd)"}} onError={e=>e.target.style.display="none"} /></div>}
-            <div className="fgr full"><label>DescripciÃ³n</label><textarea value={formProd.descripcion} onChange={e=>setFormProd({...formProd,descripcion:e.target.value})} placeholder="Breve descripciÃ³n del producto..." /></div>
+            <div className="fgr full"><label>Descripción</label><textarea value={formProd.descripcion} onChange={e=>setFormProd({...formProd,descripcion:e.target.value})} placeholder="Breve descripción del producto..." /></div>
             <div className="fgr full">
               <div className="trow">
-                <span style={{fontSize:14,fontWeight:500}}>{formProd.stock?"â En stock":"ð¦ Solo por pedido"}</span>
+                <span style={{fontSize:14,fontWeight:500}}>{formProd.stock?"✓ En stock":"📦 Solo por pedido"}</span>
                 <label className="tgl">
                   <input type="checkbox" checked={!!formProd.stock} onChange={e=>setFormProd({...formProd,stock:e.target.checked})} />
                   <span className="ttrack" />
@@ -268,7 +268,7 @@ export default function GangaStore() {
             </div>
             {formProd.stock
               ? <div className="fgr full"><label>Cantidad en stock</label><input type="number" value={formProd.cantidadStock} onChange={e=>setFormProd({...formProd,cantidadStock:e.target.value})} placeholder="0" min="0" /></div>
-              : <div className="fgr full"><label>DÃ­as estimados de entrega</label><input type="text" value={formProd.diasEstimados} onChange={e=>setFormProd({...formProd,diasEstimados:e.target.value})} placeholder="Ej: 7 a 10" /></div>
+              : <div className="fgr full"><label>Días estimados de entrega</label><input type="text" value={formProd.diasEstimados} onChange={e=>setFormProd({...formProd,diasEstimados:e.target.value})} placeholder="Ej: 7 a 10" /></div>
             }
           </div>
         </div>
@@ -288,11 +288,11 @@ export default function GangaStore() {
       {borrarConf && (
         <div className="modal-ov">
           <div className="cdialog">
-            <div style={{fontSize:40,marginBottom:12}}>ðï¸</div>
-            <p>Â¿Eliminar <strong>"{borrarConf.nombre}"</strong>? No se puede deshacer.</p>
+            <div style={{fontSize:40,marginBottom:12}}>🗑️</div>
+            <p>¿Eliminar <strong>"{borrarConf.nombre}"</strong>? No se puede deshacer.</p>
             <div style={{display:"flex",gap:10,justifyContent:"center"}}>
               <button className="btn sm ghost" onClick={()=>setBorrarConf(null)}>Cancelar</button>
-              <button className="btn sm danger" onClick={()=>eliminarProducto(borrarConf.id)}>SÃ­, eliminar</button>
+              <button className="btn sm danger" onClick={()=>eliminarProducto(borrarConf.id)}>Sí, eliminar</button>
             </div>
           </div>
         </div>
@@ -304,33 +304,33 @@ export default function GangaStore() {
         <div className="nav-r">
           <button className="btn sm ghost" onClick={()=>{setVista("admin");setAdminTab("pedidos")}}>Admin</button>
           <button className="btn sm primary" onClick={()=>setCarritoOpen(true)}>
-            ð Carrito {carrito.length>0&&<span className="cart-badge">{carrito.reduce((s,i)=>s+i.cantidad,0)}</span>}
+            🛒 Carrito {carrito.length>0&&<span className="cart-badge">{carrito.reduce((s,i)=>s+i.cantidad,0)}</span>}
           </button>
         </div>
       </nav>
 
-      {/* ââ TIENDA ââ */}
+      {/* ── TIENDA ── */}
       {vista==="tienda"&&<>
         <div className="hero">
           <h1>Ganga Store<br/><span>Bahia Blanca</span></h1>
-          <p>TecnologÃ­a y accesorios al mejor precio. En stock o por pedido, te lo conseguimos.</p>
+          <p>Tecnología y accesorios al mejor precio. En stock o por pedido, te lo conseguimos.</p>
           <div className="hero-tags">
-            <span className="tag hot">ð¥ Stock disponible</span>
-            <span className="tag">ð¦ Por pedido</span>
-            <span className="tag">ð EnvÃ­o a todo el paÃ­s</span>
-            <span className="tag">ð³ Transferencia bancaria</span>
+            <span className="tag hot">🔥 Stock disponible</span>
+            <span className="tag">📦 Por pedido</span>
+            <span className="tag">🚚 Envío a todo el país</span>
+            <span className="tag">💳 Transferencia bancaria</span>
           </div>
         </div>
         <div className="filtros">
-          <input placeholder="ð Buscar producto..." value={busqueda} onChange={e=>setBusqueda(e.target.value)} />
+          <input placeholder="🔍 Buscar producto..." value={busqueda} onChange={e=>setBusqueda(e.target.value)} />
           {categorias.map(c=><button key={c} className={`chip${catActiva===c?" on":""}`} onClick={()=>setCatActiva(c)}>{c}</button>)}
         </div>
         {filtrados.length===0
-          ?<div className="empty"><h3>No encontramos productos</h3><p>ProbÃ¡ con otra bÃºsqueda o categorÃ­a.</p></div>
+          ?<div className="empty"><h3>No encontramos productos</h3><p>Probá con otra búsqueda o categoría.</p></div>
           :<div className="grid">
             {filtrados.map(p=>(
               <div className="card" key={p.id}>
-                {p.foto?<img src={p.foto} alt={p.nombre} onError={e=>{e.target.style.display="none"}} />:<div className="card-img-ph">ð¦</div>}
+                {p.foto?<img src={p.foto} alt={p.nombre} onError={e=>{e.target.style.display="none"}} />:<div className="card-img-ph">📦</div>}
                 <div className="card-body">
                   <div className="card-cat">{p.categoria}</div>
                   <div className="card-name">{p.nombre}</div>
@@ -338,8 +338,8 @@ export default function GangaStore() {
                   <div className="card-foot">
                     <div>
                       <div className="price">{fmt(p.precio)}</div>
-                      <span className={`bs ${p.stock?"in":"out"}`}>{p.stock?`â En stock (${p.cantidadStock})`:"ð¦ Por pedido"}</span>
-                      {!p.stock&&p.diasEstimados&&<div className="days">â± {p.diasEstimados} dÃ­as hÃ¡biles</div>}
+                      <span className={`bs ${p.stock?"in":"out"}`}>{p.stock?`✓ En stock (${p.cantidadStock})`:"📦 Por pedido"}</span>
+                      {!p.stock&&p.diasEstimados&&<div className="days">⏱ {p.diasEstimados} días hábiles</div>}
                     </div>
                     <button className="btn sm primary" onClick={()=>addCart(p)}>Agregar</button>
                   </div>
@@ -350,102 +350,102 @@ export default function GangaStore() {
         }
       </>}
 
-      {/* ââ CHECKOUT ââ */}
+      {/* ── CHECKOUT ── */}
       {vista==="checkout"&&<div className="page">
-        <button className="btn sm ghost" style={{marginBottom:22}} onClick={()=>setVista("tienda")}>â Volver</button>
+        <button className="btn sm ghost" style={{marginBottom:22}} onClick={()=>setVista("tienda")}>← Volver</button>
         <h1>TU PEDIDO</h1>
         <div className="stitle">Resumen</div>
-        {carrito.map(i=><div className="ri" key={i.id}><span>{i.nombre} Ã {i.cantidad}</span><span>{fmt(i.precio*i.cantidad)}</span></div>)}
+        {carrito.map(i=><div className="ri" key={i.id}><span>{i.nombre} × {i.cantidad}</span><span>{fmt(i.precio*i.cantidad)}</span></div>)}
         <div className="rtot"><span style={{fontWeight:600}}>Total a pagar</span><span>{fmt(total)}</span></div>
         <div className="stitle">Tus datos</div>
         <div className="fg">
-          <div className="fgr"><label>Nombre completo <span>*</span></label><input type="text" value={form.nombre} onChange={e=>setForm({...form,nombre:e.target.value})} placeholder="Juan GarcÃ­a" /></div>
-          <div className="fgr"><label>TelÃ©fono / WhatsApp <span>*</span></label><input type="tel" value={form.telefono} onChange={e=>setForm({...form,telefono:e.target.value})} placeholder="011 1234-5678" /></div>
+          <div className="fgr"><label>Nombre completo <span>*</span></label><input type="text" value={form.nombre} onChange={e=>setForm({...form,nombre:e.target.value})} placeholder="Juan García" /></div>
+          <div className="fgr"><label>Teléfono / WhatsApp <span>*</span></label><input type="tel" value={form.telefono} onChange={e=>setForm({...form,telefono:e.target.value})} placeholder="011 1234-5678" /></div>
           <div className="fgr full"><label>Email</label><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="juan@ejemplo.com" /></div>
-          <div className="fgr full"><label>DirecciÃ³n de entrega <span>*</span></label><input type="text" value={form.direccion} onChange={e=>setForm({...form,direccion:e.target.value})} placeholder="Av. Corrientes 1234, Piso 3 Dto B" /></div>
+          <div className="fgr full"><label>Dirección de entrega <span>*</span></label><input type="text" value={form.direccion} onChange={e=>setForm({...form,direccion:e.target.value})} placeholder="Av. Corrientes 1234, Piso 3 Dto B" /></div>
           <div className="fgr"><label>Ciudad / Localidad <span>*</span></label><input type="text" value={form.ciudad} onChange={e=>setForm({...form,ciudad:e.target.value})} placeholder="Buenos Aires" /></div>
-          <div className="fgr"><label>CÃ³digo postal</label><input type="text" value={form.cp} onChange={e=>setForm({...form,cp:e.target.value})} placeholder="1043" /></div>
-          <div className="fgr full"><label>Notas adicionales</label><textarea value={form.notas} onChange={e=>setForm({...form,notas:e.target.value})} placeholder="Aclaraciones sobre el envÃ­o, horarios, etc." /></div>
+          <div className="fgr"><label>Código postal</label><input type="text" value={form.cp} onChange={e=>setForm({...form,cp:e.target.value})} placeholder="1043" /></div>
+          <div className="fgr full"><label>Notas adicionales</label><textarea value={form.notas} onChange={e=>setForm({...form,notas:e.target.value})} placeholder="Aclaraciones sobre el envío, horarios, etc." /></div>
         </div>
         <div style={{marginTop:26}}>
           <div style={{background:"var(--card)",border:"1px solid var(--bd)",borderRadius:10,padding:"15px 17px",marginBottom:16,fontSize:14,color:"#aaa",lineHeight:1.6}}>
-            ð³ <strong style={{color:"#f0ede8"}}>Pago:</strong> Transferencia bancaria o Mercado Pago al alias <strong style={{color:"var(--ac2)"}}>{ALIAS}</strong>. Te mandamos los datos al confirmar.
+            💳 <strong style={{color:"#f0ede8"}}>Pago:</strong> Transferencia bancaria o Mercado Pago al alias <strong style={{color:"var(--ac2)"}}>{ALIAS}</strong>. Te mandamos los datos al confirmar.
           </div>
-          <button className="btn primary full" style={{padding:"15px",fontSize:15}} onClick={confirmarPedido}>â Confirmar pedido</button>
+          <button className="btn primary full" style={{padding:"15px",fontSize:15}} onClick={confirmarPedido}>✓ Confirmar pedido</button>
         </div>
       </div>}
 
-      {/* ââ CONFIRMACIÃN ââ */}
+      {/* ── CONFIRMACIÓN ── */}
       {vista==="confirmacion"&&pedidoOk&&<div className="cp">
-        <div className="cp-icon">ð</div>
-        <h1>Â¡PEDIDO RECIBIDO!</h1>
-        <p>Tu pedido fue registrado. RealizÃ¡ la transferencia y envianos el comprobante para confirmar el despacho.</p>
+        <div className="cp-icon">🎉</div>
+        <h1>¡PEDIDO RECIBIDO!</h1>
+        <p>Tu pedido fue registrado. Realizá la transferencia y envianos el comprobante para confirmar el despacho.</p>
         <div className="pbox">
-          <h3>ð² CÃ³mo pagar</h3>
-          <div className="ps"><div className="pn">1</div><p>AbrÃ­ tu app bancaria o Mercado Pago â <strong>Transferir</strong>.</p></div>
-          <div className="ps"><div className="pn">2</div><p>TransferÃ­ el total al alias:</p></div>
+          <h3>📲 Cómo pagar</h3>
+          <div className="ps"><div className="pn">1</div><p>Abrí tu app bancaria o Mercado Pago → <strong>Transferir</strong>.</p></div>
+          <div className="ps"><div className="pn">2</div><p>Transferí el total al alias:</p></div>
           <div className="alias"><span>{ALIAS}</span></div>
-          <div className="ps"><div className="pn">3</div><p>PonÃ© como concepto tu nÃºmero de pedido: <strong style={{color:"var(--ac2)"}}>{pedidoOk.numero}</strong></p></div>
+          <div className="ps"><div className="pn">3</div><p>Poné como concepto tu número de pedido: <strong style={{color:"var(--ac2)"}}>{pedidoOk.numero}</strong></p></div>
           <div className="ps"><div className="pn">4</div><p>Mandanos el comprobante por WhatsApp y confirmamos el despacho.</p></div>
         </div>
         <div className="pbox">
-          <h3>ð¦ Detalle</h3>
-          <div className="ir"><span>NÃºmero de pedido</span><span style={{fontWeight:600}}>{pedidoOk.numero}</span></div>
+          <h3>📦 Detalle</h3>
+          <div className="ir"><span>Número de pedido</span><span style={{fontWeight:600}}>{pedidoOk.numero}</span></div>
           <div className="ir"><span>Cliente</span><span>{pedidoOk.cliente.nombre}</span></div>
-          <div className="ir"><span>DirecciÃ³n</span><span>{pedidoOk.cliente.direccion}, {pedidoOk.cliente.ciudad}</span></div>
+          <div className="ir"><span>Dirección</span><span>{pedidoOk.cliente.direccion}, {pedidoOk.cliente.ciudad}</span></div>
           <div className="ir"><span>Total</span><span style={{color:"var(--ac2)",fontFamily:"Bebas Neue",fontSize:22}}>{fmt(pedidoOk.total)}</span></div>
-          {pedidoOk.items.some(i=>!i.stock)&&<div style={{marginTop:12,padding:"9px 13px",background:"rgba(255,184,0,.08)",borderRadius:8,fontSize:13,color:"#aaa"}}>â± Algunos productos son por pedido. Te avisamos el tiempo estimado por WhatsApp.</div>}
+          {pedidoOk.items.some(i=>!i.stock)&&<div style={{marginTop:12,padding:"9px 13px",background:"rgba(255,184,0,.08)",borderRadius:8,fontSize:13,color:"#aaa"}}>⏱ Algunos productos son por pedido. Te avisamos el tiempo estimado por WhatsApp.</div>}
         </div>
         <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
-          <a href={`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(`Hola! Pedido ${pedidoOk.numero} por ${fmt(pedidoOk.total)}. Te mando el comprobante.`)}`} target="_blank" rel="noreferrer" className="btn gold">ð¬ Enviar comprobante por WhatsApp</a>
+          <a href={`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(`Hola! Pedido ${pedidoOk.numero} por ${fmt(pedidoOk.total)}. Te mando el comprobante.`)}`} target="_blank" rel="noreferrer" className="btn gold">💬 Enviar comprobante por WhatsApp</a>
           <button className="btn ghost" onClick={()=>setVista("tienda")}>Seguir comprando</button>
         </div>
       </div>}
 
-      {/* ââ ADMIN ââ */}
+      {/* ── ADMIN ── */}
       {vista==="admin"&&(
         !adminOk
           ?<div className="alogin">
-            <h2>ð Panel admin</h2>
+            <h2>🔐 Panel admin</h2>
             <div className="fgr" style={{marginBottom:14}}>
-              <label>ContraseÃ±a</label>
-              <input type="password" value={aPass} onChange={e=>setAPass(e.target.value)} placeholder="â¢â¢â¢â¢â¢â¢â¢â¢" onKeyDown={e=>{if(e.key==="Enter"&&aPass===PASS_ADMIN)setAdminOk(true)}} />
+              <label>Contraseña</label>
+              <input type="password" value={aPass} onChange={e=>setAPass(e.target.value)} placeholder="••••••••" onKeyDown={e=>{if(e.key==="Enter"&&aPass===PASS_ADMIN)setAdminOk(true)}} />
             </div>
-            <button className="btn primary full" onClick={()=>{if(aPass===PASS_ADMIN)setAdminOk(true);else showToast("ContraseÃ±a incorrecta","error")}}>Ingresar</button>
+            <button className="btn primary full" onClick={()=>{if(aPass===PASS_ADMIN)setAdminOk(true);else showToast("Contraseña incorrecta","error")}}>Ingresar</button>
           </div>
           :<div className="aw">
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:14}}>
               <h1>PANEL ADMIN</h1>
               <div style={{display:"flex",gap:8}}>
-                <button className="btn sm ghost" onClick={()=>setAdminOk(false)}>Cerrar sesiÃ³n</button>
-                <button className="btn sm ghost" onClick={()=>setVista("tienda")}>â Tienda</button>
+                <button className="btn sm ghost" onClick={()=>setAdminOk(false)}>Cerrar sesión</button>
+                <button className="btn sm ghost" onClick={()=>setVista("tienda")}>← Tienda</button>
               </div>
             </div>
             <div className="atabs">
-              {[["pedidos","ð Pedidos"],["productos","ð¦ Productos"]].map(([k,l])=>(
+              {[["pedidos","📋 Pedidos"],["productos","📦 Productos"]].map(([k,l])=>(
                 <button key={k} className={`atab${adminTab===k?" on":""}`} onClick={()=>setAdminTab(k)}>{l}</button>
               ))}
             </div>
 
             {adminTab==="pedidos"&&(
               pedidos.length===0
-                ?<div className="empty"><h3>No hay pedidos todavÃ­a</h3><p>AparecerÃ¡n acÃ¡ cuando la gente compre.</p></div>
+                ?<div className="empty"><h3>No hay pedidos todavía</h3><p>Aparecerán acá cuando la gente compre.</p></div>
                 :pedidos.map(p=>(
                   <div className="pc" key={p.numero}>
                     <div className="ph">
                       <strong style={{fontFamily:"Bebas Neue",fontSize:20}}>{p.numero}</strong>
-                      <span className={`eb ${p.estado}`}>{p.estado==="esperando_pago"?"â³ Esperando pago":p.estado==="pagado"?"â Pagado":"ð¦ Despachado"}</span>
+                      <span className={`eb ${p.estado}`}>{p.estado==="esperando_pago"?"⏳ Esperando pago":p.estado==="pagado"?"✓ Pagado":"📦 Despachado"}</span>
                       <span style={{fontSize:13,color:"#666",marginLeft:"auto"}}>{p.fecha}</span>
                     </div>
-                    <div style={{fontSize:13,color:"#aaa",marginBottom:10}}>{p.items.map(i=>`${i.nombre} Ã ${i.cantidad}`).join(" | ")}</div>
-                    <div className="ir"><span>Cliente</span><span>{p.cliente.nombre} Â· {p.cliente.telefono}</span></div>
-                    <div className="ir"><span>DirecciÃ³n</span><span>{p.cliente.direccion}, {p.cliente.ciudad} {p.cliente.cp}</span></div>
+                    <div style={{fontSize:13,color:"#aaa",marginBottom:10}}>{p.items.map(i=>`${i.nombre} × ${i.cantidad}`).join(" | ")}</div>
+                    <div className="ir"><span>Cliente</span><span>{p.cliente.nombre} · {p.cliente.telefono}</span></div>
+                    <div className="ir"><span>Dirección</span><span>{p.cliente.direccion}, {p.cliente.ciudad} {p.cliente.cp}</span></div>
                     {p.cliente.notas&&<div className="ir"><span>Notas</span><span>{p.cliente.notas}</span></div>}
                     <div className="ir"><span>Total</span><span style={{fontFamily:"Bebas Neue",fontSize:20,color:"var(--ac2)"}}>{fmt(p.total)}</span></div>
                     <div className="pa">
-                      {p.estado==="esperando_pago"&&<button className="btn sm green" onClick={()=>marcarPagado(p.numero)}>â Marcar pagado</button>}
-                      {p.estado==="pagado"&&<button className="btn sm purple" onClick={()=>marcarDespachado(p.numero)}>ð¦ Marcar despachado</button>}
-                      <a href={`https://wa.me/${p.cliente.telefono.replace(/\D/g,"")}`} target="_blank" rel="noreferrer" className="btn sm ghost">ð¬ WhatsApp</a>
+                      {p.estado==="esperando_pago"&&<button className="btn sm green" onClick={()=>marcarPagado(p.numero)}>✓ Marcar pagado</button>}
+                      {p.estado==="pagado"&&<button className="btn sm purple" onClick={()=>marcarDespachado(p.numero)}>📦 Marcar despachado</button>}
+                      <a href={`https://wa.me/${p.cliente.telefono.replace(/\D/g,"")}`} target="_blank" rel="noreferrer" className="btn sm ghost">💬 WhatsApp</a>
                     </div>
                   </div>
                 ))
@@ -457,7 +457,7 @@ export default function GangaStore() {
                 <button className="btn sm primary" onClick={abrirNuevo}>+ Agregar producto</button>
               </div>
               {productos.length===0
-                ?<div className="empty"><h3>No hay productos</h3><p>AgregÃ¡ el primero con el botÃ³n de arriba.</p></div>
+                ?<div className="empty"><h3>No hay productos</h3><p>Agregá el primero con el botón de arriba.</p></div>
                 :<div style={{background:"var(--card)",border:"1px solid var(--bd)",borderRadius:"var(--r)",overflow:"hidden"}}>
                   <table className="ptable">
                     <thead>
@@ -466,28 +466,28 @@ export default function GangaStore() {
                         <th>Nombre</th>
                         <th>Precio</th>
                         <th>Estado</th>
-                        <th>CategorÃ­a</th>
+                        <th>Categoría</th>
                         <th style={{width:110}}>Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
                       {productos.map(p=>(
                         <tr key={p.id}>
-                          <td>{p.foto?<img src={p.foto} className="thumb" alt={p.nombre} onError={e=>{e.target.style.display="none"}} />:<div className="thumb-ph">ð¦</div>}</td>
+                          <td>{p.foto?<img src={p.foto} className="thumb" alt={p.nombre} onError={e=>{e.target.style.display="none"}} />:<div className="thumb-ph">📦</div>}</td>
                           <td>
                             <strong>{p.nombre}</strong>
-                            {p.descripcion&&<div style={{fontSize:11,color:"#666",marginTop:2}}>{p.descripcion.slice(0,55)}{p.descripcion.length>55?"â¦":""}</div>}
+                            {p.descripcion&&<div style={{fontSize:11,color:"#666",marginTop:2}}>{p.descripcion.slice(0,55)}{p.descripcion.length>55?"…":""}</div>}
                           </td>
                           <td style={{fontFamily:"Bebas Neue",fontSize:18,color:"var(--ac2)"}}>{fmt(p.precio)}</td>
                           <td>
-                            <span className={`bs ${p.stock?"in":"out"}`}>{p.stock?`â (${p.cantidadStock})`:"ð¦ Pedido"}</span>
-                            {!p.stock&&p.diasEstimados&&<div style={{fontSize:11,color:"var(--mu)",marginTop:2}}>{p.diasEstimados} dÃ­as</div>}
+                            <span className={`bs ${p.stock?"in":"out"}`}>{p.stock?`✓ (${p.cantidadStock})`:"📦 Pedido"}</span>
+                            {!p.stock&&p.diasEstimados&&<div style={{fontSize:11,color:"var(--mu)",marginTop:2}}>{p.diasEstimados} días</div>}
                           </td>
                           <td style={{color:"#888",fontSize:13}}>{p.categoria}</td>
                           <td>
                             <div style={{display:"flex",gap:5}}>
-                              <button className="btn sm yellow" onClick={()=>abrirEditar(p)} title="Editar">âï¸</button>
-                              <button className="btn sm danger" onClick={()=>setBorrarConf(p)} title="Eliminar">ð</button>
+                              <button className="btn sm yellow" onClick={()=>abrirEditar(p)} title="Editar">✏️</button>
+                              <button className="btn sm danger" onClick={()=>setBorrarConf(p)} title="Eliminar">🗑</button>
                             </div>
                           </td>
                         </tr>
@@ -500,25 +500,25 @@ export default function GangaStore() {
           </div>
       )}
 
-      {/* ââ CARRITO DRAWER ââ */}
+      {/* ── CARRITO DRAWER ── */}
       {carritoOpen&&<>
         <div className="overlay" onClick={()=>setCarritoOpen(false)} />
         <div className="drawer">
-          <div className="dh"><h2>ð Carrito</h2><button className="btn sm ghost" onClick={()=>setCarritoOpen(false)}>â</button></div>
+          <div className="dh"><h2>🛒 Carrito</h2><button className="btn sm ghost" onClick={()=>setCarritoOpen(false)}>✕</button></div>
           <div className="db">
             {carrito.length===0
-              ?<div style={{textAlign:"center",padding:"60px 0",color:"#555"}}><div style={{fontSize:44,marginBottom:10}}>ð</div><p>Tu carrito estÃ¡ vacÃ­o</p></div>
+              ?<div style={{textAlign:"center",padding:"60px 0",color:"#555"}}><div style={{fontSize:44,marginBottom:10}}>🛒</div><p>Tu carrito está vacío</p></div>
               :carrito.map(i=>(
                 <div className="ci" key={i.id}>
-                  {i.foto?<img src={i.foto} alt={i.nombre} onError={e=>{e.target.style.display="none"}} />:<div className="ci-ph">ð¦</div>}
+                  {i.foto?<img src={i.foto} alt={i.nombre} onError={e=>{e.target.style.display="none"}} />:<div className="ci-ph">📦</div>}
                   <div style={{flex:1}}>
                     <div className="ci-name">{i.nombre}</div>
                     <div className="ci-price">{fmt(i.precio)} c/u</div>
                     <div className="qc">
-                      <button className="qb" onClick={()=>qtyCart(i.id,-1)}>â</button>
+                      <button className="qb" onClick={()=>qtyCart(i.id,-1)}>−</button>
                       <span className="qn">{i.cantidad}</span>
                       <button className="qb" onClick={()=>qtyCart(i.id,1)}>+</button>
-                      <button className="rb" onClick={()=>removeCart(i.id)}>ð</button>
+                      <button className="rb" onClick={()=>removeCart(i.id)}>🗑</button>
                     </div>
                   </div>
                 </div>
@@ -527,7 +527,7 @@ export default function GangaStore() {
           </div>
           {carrito.length>0&&<div className="df">
             <div className="tr"><span style={{color:"#aaa",fontSize:14}}>Total</span><span className="ta">{fmt(total)}</span></div>
-            <button className="btn primary full" style={{padding:"13px",fontSize:15}} onClick={()=>{setCarritoOpen(false);setVista("checkout")}}>Finalizar compra â</button>
+            <button className="btn primary full" style={{padding:"13px",fontSize:15}} onClick={()=>{setCarritoOpen(false);setVista("checkout")}}>Finalizar compra →</button>
           </div>}
         </div>
       </>}
