@@ -5,7 +5,7 @@ const WHATSAPP   = "5491112345678";
 const PASS_ADMIN = "admin123";
 
 const PRODUCTOS_INICIALES = [
-  { id: 1, nombre: "Auriculares Bluetooth Pro", tipo: "Electr�nica", precio: 18500, foto: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80", stock: true,  cantidadStock: 3, categoria: "Electrónica", descripcion: "Auriculares inalámbricos con cancelación de ruido, 30hs de batería.", diasEstimados: "" },
+  { id: 1, nombre: "Auriculares Bluetoot Pro", tipo: "Electr�nica", precio: 18500, foto: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80", stock: true,  cantidadStock: 3, categoria: "Electrónica", descripcion: "Auriculares inalámbricos con cancelación de ruido, 30hs de batería.", diasEstimados: "" },
   { id: 2, nombre: "Smartwatch Serie 9", tipo: "Electr�nica",        precio: 42000, foto: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80", stock: true,  cantidadStock: 2, categoria: "Electrónica", descripcion: "Reloj inteligente con GPS, monitor cardíaco y 7 días de batería.",    diasEstimados: "" },
   { id: 3, nombre: "Cargador Inalámbrico 15W",  precio: 9800,  foto: "https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&q=80", stock: false, cantidadStock: 0, categoria: "Accesorios",  descripcion: "Carga rápida inalámbrica compatible con todos los dispositivos Qi.", diasEstimados: "7 a 10" },
   { id: 4, nombre: "Power Bank 20000mAh",        precio: 14500, foto: "https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=400&q=80", stock: true,  cantidadStock: 5, categoria: "Accesorios",  descripcion: "Batería portátil con carga rápida USB-C, 3 salidas simultáneas.",  diasEstimados: "" },
@@ -411,7 +411,7 @@ export default function GangaStore() {
               <label>Contraseña</label>
               <input type="password" value={aPass} onChange={e=>setAPass(e.target.value)} placeholder="••••••••" onKeyDown={e=>{if(e.key==="Enter"&&aPass===PASS_ADMIN)setAdminOk(true)}} />
             </div>
-            <button className="btn primary full" onClick={()=>{if(aPass===PASS_ADMIN){setAdminOk(true);sessionStorage.setItem("gsAdmin","1")};else showToast("Contraseña incorrecta","error")}}>Ingresar</button>
+            <button className="btn primary full" onClick={()=>{if(aPass===PASS_ADMIN){setAdminOk(true);sessionStorage.setItem("gsAdmin","1")}else showToast("Contraseña incorrecta","error")}}>Ingresar</button>
           </div>
           :<div className="aw">
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10,marginBottom:14}}>
