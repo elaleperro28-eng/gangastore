@@ -8,7 +8,7 @@ const PRODUCTOS_INICIALES = [
   { id: 1, nombre: "Auriculares Bluetoot Pro", tipo: "Electr�nica", precio: 18500, foto: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80", stock: true,  cantidadStock: 3, categoria: "Electrónica", descripcion: "Auriculares inalámbricos con cancelación de ruido, 30hs de batería.", diasEstimados: "" },
   { id: 2, nombre: "Smartwatch Serie 9", tipo: "Electr�nica",        precio: 42000, foto: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80", stock: true,  cantidadStock: 2, categoria: "Electrónica", descripcion: "Reloj inteligente con GPS, monitor cardíaco y 7 días de batería.",    diasEstimados: "" },
   { id: 3, nombre: "Cargador Inalámbrico 15W",  precio: 9800,  foto: "https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=400&q=80", stock: false, cantidadStock: 0, categoria: "Accesorios",  descripcion: "Carga rápida inalámbrica compatible con todos los dispositivos Qi.", diasEstimados: "7 a 10" },
-  { id: 4, nombre: "Power Bank 20000mAh",        precio: 14500, foto: "https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=400&q=80", stock: true,  cantidadStock: 5, categoria: "Accesorios",  descripcion: "Batería portátil con carga rápida USB-C, 3 salidas simultáneas.",  diasEstimados: "" },
+  { id: 4, nombre: "Power Bank 20000mAh",        precio: 14500, foo: "https://images.unsplash.com/photo-1609091839311-d5365f9ff1c5?w=400&q=80", stock: true,  cantidadStock: 5, categoria: "Accesorios",  descripcion: "Batería portátil con carga rápida USB-C, 3 salidas simultáneas.",  diasEstimados: "" },
 ];
 
 const fmt = (n) => new Intl.NumberFormat("es-AR", { style:"currency", currency:"ARS", maximumFractionDigits:0 }).format(n);
@@ -386,7 +386,7 @@ export default function GangaStore() {
           <div className="ps"><div className="pn">2</div><p>Transferí el total al alias:</p></div>
           <div className="alias"><span>{ALIAS}</span></div>
           <div className="ps"><div className="pn">3</div><p>Poné como concepto tu número de pedido: <strong style={{color:"var(--ac2)"}}>{pedidoOk.numero}</strong></p></div>
-          <div className="ps"><div className="pn">4</div><p>Mandanos el comprobante por WhatsApp y confirmamos el despacho.</p></div>
+          <div className="ps"><div className="pn">4</div><p>Mandanos el comprobante por Instagram y confirmamos el despacho.</p></div>
         </div>
         <div className="pbox">
           <h3>📦 Detalle</h3>
@@ -397,7 +397,7 @@ export default function GangaStore() {
           {pedidoOk.items.some(i=>!i.stock)&&<div style={{marginTop:12,padding:"9px 13px",background:"rgba(255,184,0,.08)",borderRadius:8,fontSize:13,color:"#aaa"}}>⏱ Algunos productos son por pedido. Te avisamos el tiempo estimado por WhatsApp.</div>}
         </div>
         <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
-          <a href={`https://wa.me/${WHATSAPP}?text=${encodeURIComponent(`Hola! Pedido ${pedidoOk.numero} por ${fmt(pedidoOk.total)}. Te mando el comprobante.`)}`} target="_blank" rel="noreferrer" className="btn gold">💬 Enviar comprobante por WhatsApp</a>
+          <a href="https://www.instagram.com/gangastorebb/" target="_blank" rel="noreferrer" className="btn gold">📩 Enviar comprobante por Instagram</a>
           <button className="btn ghost" onClick={()=>setVista("tienda")}>Seguir comprando</button>
         </div>
       </div>}
