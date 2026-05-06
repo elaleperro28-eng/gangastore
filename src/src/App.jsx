@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 
 const ALIAS      = "gangastore.bb";
-const WHATSAPP   = "5491112345678";
+const WHATSAPP   = "5492914261941";
 const PASS_ADMIN = "admin123";
 
 const PRODUCTOS_INICIALES = [
