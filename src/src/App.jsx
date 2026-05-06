@@ -129,7 +129,7 @@ export default function GangaStore() {
     .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(265px,1fr));gap:18px;padding:22px}
     .card{background:var(--card);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;transition:all .2s}
     .card:hover{border-color:#333;transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,.5)}
-    .card img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:#1a1a1a}
+    .card img{width:100%;aspect-ratio:4/3;object-fit:contain;display:block;background:#1a1a1a}
     .card-img-ph{width:100%;aspect-ratio:4/3;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:48px}
     .card-body{padding:14px}
     .card-cat{font-size:11px;color:var(--mu);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
