@@ -7,12 +7,12 @@ import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc } from "fi
 // Ver README para instrucciones de configuracion
 // ============================================================
 const firebaseConfig = {
-  apiKey: "REEMPLAZAR_API_KEY",
-  authDomain: "REEMPLAZAR.firebaseapp.com",
-  projectId: "REEMPLAZAR_PROJECT_ID",
-  storageBucket: "REEMPLAZAR.appspot.com",
-  messagingSenderId: "REEMPLAZAR",
-  appId: "REEMPLAZAR"
+  apiKey: "AIzaSyAQlmsNO4bF9SVfwrcK6_-HJ_KFrcjTINg",
+    authDomain: "gangastore.firebaseapp.com",
+    projectId: "gangastore",
+    storageBucket: "gangastore.firebasestorage.app",
+    messagingSenderId: "167884959340",
+    appId: "1:167884959340:web:0cd7f22b3506eff1c3b249"
 };
 const _app = initializeApp(firebaseConfig);
 const db = getFirestore(_app);
