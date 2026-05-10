@@ -570,7 +570,7 @@ const styles = `
         const reader = await new Promise((resolve) => {
           const r = new FileReader();
           r.onload = (e) => resolve(e.target.result);
-          r.readAsDataURL(files[i]);
+          r.readAsDataURL(files[i].file);
         });
         const base64 = reader.split(",")[1];
         const res = await fetch("https://api.imgur.com/3/image", {
