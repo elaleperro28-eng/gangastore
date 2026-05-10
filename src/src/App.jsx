@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy } from "firebase/firestore";
-import { getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+// Firebase Storage removido - usando Imgur para subida de imágenes
 
 const firebaseConfig = {
     apiKey: "AIzaSyAQlmsNO4bF9SVfwrcK6_-HJ_KFrcjTINg",
@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const storage = getStorage(app);
+// storage removido
 
 const ADMIN_PASSWORD = "ganga2024";
 
@@ -557,48 +557,59 @@ const styles = `
   });
   };
 
-    const handleUpload = async () => {
-      if (files.length === 0) return;
-      setUploading(true);
-      setUploadProgress(0);
+  const handleUpload = async () => {
+    if (!files.length) return;
+    setUploading(true);
+    setUploadProgress(0);
+    setUploadStatus(`Subiendo 1 de ${files.length}...`);
 
-      for (let i = 0; i < files.length; i++) {
-        const { file } = files[i];
-        setUploadStatus(`Subiendo ${i + 1} de ${files.length}...`);
-        try {
-          const storageRef = sRef(storage, `productos/${Date.now()}_${file.name}`);
-          await uploadBytes(storageRef, file);
-          const url = await getDownloadURL(storageRef);
-          await addDoc(collection(db, "productos"), {
-            imageUrl: url,
-            storagePath: storageRef.fullPath,
-            createdAt: serverTimestamp()
-  });
-          setUploadProgress(Math.round(((i + 1) / files.length) * 100));
-  } catch (err) {
-          console.error("Error subiendo", file.name, err);
-  }
-  }
+    const urls = [];
+    for (let i = 0; i < files.length; i++) {
+      setUploadStatus(`Subiendo ${i + 1} de ${files.length}...`);
+      try {
+        const reader = await new Promise((resolve) => {
+          const r = new FileReader();
+          r.onload = (e) => resolve(e.target.result);
+          r.readAsDataURL(files[i]);
+        });
+        const base64 = reader.split(",")[1];
+        const res = await fetch("https://api.imgur.com/3/image", {
+          method: "POST",
+          headers: {
+            Authorization: "Client-ID 546c25a59c58ad7",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ image: base64, type: "base64" }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          urls.push(data.data.link);
+        }
+      } catch (err) {
+        console.error("Error subiendo imagen:", err);
+      }
+      setUploadProgress(Math.round(((i + 1) / files.length) * 100));
+    }
 
-      setFiles([]);
-      setUploading(false);
-      setUploadStatus("");
-      setUploadProgress(0);
-      showToast(`✅ ${files.length} producto${files.length > 1 ? "s" : ""} agregado${files.length > 1 ? "s" : ""}`);
+    for (const url of urls) {
+      await addDoc(collection(db, "productos"), {
+        foto: url,
+        createdAt: serverTimestamp(),
+      });
+    }
+
+    setFiles([]);
+    setUploading(false);
+    setUploadStatus("");
+    setUploadProgress(0);
   };
 
-    const handleDelete = async (producto) => {
-      if (!window.confirm("¿Eliminar este producto?")) return;
-      try {
-        await deleteDoc(doc(db, "productos", producto.id));
-        if (producto.storagePath) {
-          const storageRef = sRef(storage, producto.storagePath);
-          await deleteObject(storageRef).catch(() => {});
-  }
-        showToast("Producto eliminado");
-  } catch (err) {
-        console.error(err);
-  }
+  const handleDelete = async (producto) => {
+    try {
+      await deleteDoc(doc(db, "productos", producto.id));
+    } catch (error) {
+      console.error("Error eliminando producto:", error);
+    }
   };
 
     const agregarAlCarrito = (producto) => {
