@@ -593,7 +593,7 @@ const styles = `
 
     for (const url of urls) {
       await addDoc(collection(db, "productos"), {
-        foto: url,
+        imageUrl: url,
         createdAt: serverTimestamp(),
       });
     }
