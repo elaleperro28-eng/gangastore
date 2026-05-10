@@ -133,12 +133,23 @@ export default function App() {
   };
 
   const removeFromCart = (id) => setCart(c => c.filter(i => i.id !== id));
-  const totalCart = cart.reduce((acc, i) => acc + i.precio * i.qty, 0);
-  const formatPrice = (p) => "$" + Number(p).toLocaleString("es-CL");
+  const totalCart = cart.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
+
+  const formatPrice = (p) => {
+    const n = Number(p);
+    if (!p || isNaN(n)) return "Consultar";
+    return "$" + n.toLocaleString("es-CL");
+  };
+
+  const getProductName = (p) => p.nombre || p.name || p.title || "Producto";
+  const getProductPrice = (p) => p.precio || p.price || 0;
+  const getProductImage = (p) => p.imageUrl || p.foto || p.image || p.img || "";
+  const getProductDisp = (p) => p.disponibilidad || "stock";
+  const getProductDias = (p) => p.diasHabiles || "3-5";
 
   const filteredProducts = products.filter(p => {
-    if (filter === "stock") return p.disponibilidad === "stock";
-    if (filter === "pedido") return p.disponibilidad === "pedido";
+    if (filter === "stock") return getProductDisp(p) === "stock";
+    if (filter === "pedido") return getProductDisp(p) === "pedido";
     return true;
   });
 
@@ -167,7 +178,7 @@ export default function App() {
     badgePedido: { display: "inline-block", background: "#5c3a00", color: "#ffaa00", padding: "3px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "bold", marginBottom: "8px" },
     modal: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: "16px" },
     modalBox: { background: "#1e1e1e", borderRadius: "16px", maxWidth: "500px", width: "100%", padding: "24px", position: "relative", maxHeight: "90vh", overflowY: "auto" },
-    modalImg: { width: "100%", maxHeight: "320px", objectFit: "contain", background: "#fff", borderRadius: "10px", marginBottom: "16px", display: "block" },
+    modalImg: { width: "100%", maxHeight: "360px", objectFit: "contain", background: "#fff", borderRadius: "10px", marginBottom: "16px", display: "block" },
     input: { width: "100%", padding: "10px 14px", background: "#2a2a2a", border: "1px solid #444", color: "#fff", borderRadius: "8px", fontSize: "15px", boxSizing: "border-box", marginBottom: "12px" },
     select: { width: "100%", padding: "10px 14px", background: "#2a2a2a", border: "1px solid #444", color: "#fff", borderRadius: "8px", fontSize: "15px", boxSizing: "border-box", marginBottom: "12px" },
     label: { display: "block", marginBottom: "6px", color: "#ccc", fontSize: "14px" },
@@ -244,14 +255,14 @@ export default function App() {
           <h3 style={{ marginTop: "36px", marginBottom: "16px" }}>Productos Existentes ({products.length})</h3>
           {products.map(p => (
             <div key={p.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center" }}>
-              <img src={p.imageUrl} alt={p.nombre} style={{ width: "80px", height: "80px", objectFit: "contain", background: "#fff", borderRadius: "8px", flexShrink: 0 }} />
+              <img src={getProductImage(p)} alt={getProductName(p)} style={{ width: "80px", height: "80px", objectFit: "contain", background: "#fff", borderRadius: "8px", flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: "bold", marginBottom: "4px" }}>{p.nombre || "Sin nombre"}</div>
-                <div style={{ color: "#ff6600", fontWeight: "bold" }}>{formatPrice(p.precio)}</div>
+                <div style={{ fontWeight: "bold", marginBottom: "4px" }}>{getProductName(p)}</div>
+                <div style={{ color: "#ff6600", fontWeight: "bold" }}>{formatPrice(getProductPrice(p))}</div>
                 <div style={{ marginTop: "4px" }}>
-                  {p.disponibilidad === "stock"
+                  {getProductDisp(p) === "stock"
                     ? <span style={{ color: "#4cff4c", fontSize: "13px" }}>En Stock</span>
-                    : <span style={{ color: "#ffaa00", fontSize: "13px" }}>Por Pedido - {p.diasHabiles} dias habiles</span>
+                    : <span style={{ color: "#ffaa00", fontSize: "13px" }}>Por Pedido - {getProductDias(p)} dias hab.</span>
                   }
                 </div>
               </div>
@@ -283,13 +294,13 @@ export default function App() {
         <div style={S.grid}>
           {filteredProducts.map(product => (
             <div key={product.id} style={S.card} onClick={() => setSelectedProduct(product)}>
-              <img src={product.imageUrl} alt={product.nombre || "Producto"} style={S.cardImg} onError={e => { e.target.src = "https://via.placeholder.com/300x300?text=Sin+Imagen"; }} />
+              <img src={getProductImage(product)} alt={getProductName(product)} style={S.cardImg} onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
               <div style={S.cardBody}>
-                <div style={S.cardName}>{product.nombre || "Producto"}</div>
-                <div style={S.cardPrice}>{formatPrice(product.precio)}</div>
-                {product.disponibilidad === "stock"
+                <div style={S.cardName}>{getProductName(product)}</div>
+                <div style={S.cardPrice}>{formatPrice(getProductPrice(product))}</div>
+                {getProductDisp(product) === "stock"
                   ? <span style={S.badgeStock}>En Stock</span>
-                  : <span style={S.badgePedido}>Por Pedido: {product.diasHabiles} dias hab.</span>
+                  : <span style={S.badgePedido}>Por Pedido: {getProductDias(product)} dias hab.</span>
                 }
                 <br />
                 <button style={{ ...S.btn, width: "100%", marginTop: "10px" }} onClick={e => { e.stopPropagation(); addToCart(product); }}>Agregar al Carrito</button>
@@ -303,12 +314,12 @@ export default function App() {
         <div style={S.modal} onClick={() => setSelectedProduct(null)}>
           <div style={S.modalBox} onClick={e => e.stopPropagation()}>
             <button onClick={() => setSelectedProduct(null)} style={{ position: "absolute", top: "12px", right: "16px", background: "none", border: "none", color: "#fff", fontSize: "24px", cursor: "pointer" }}>x</button>
-            <img src={selectedProduct.imageUrl} alt={selectedProduct.nombre} style={S.modalImg} />
-            <h2 style={{ marginTop: 0, marginBottom: "8px" }}>{selectedProduct.nombre}</h2>
-            <div style={{ fontSize: "28px", fontWeight: "900", color: "#ff6600", marginBottom: "12px" }}>{formatPrice(selectedProduct.precio)}</div>
-            {selectedProduct.disponibilidad === "stock"
+            <img src={getProductImage(selectedProduct)} alt={getProductName(selectedProduct)} style={S.modalImg} />
+            <h2 style={{ marginTop: 0, marginBottom: "8px" }}>{getProductName(selectedProduct)}</h2>
+            <div style={{ fontSize: "28px", fontWeight: "900", color: "#ff6600", marginBottom: "12px" }}>{formatPrice(getProductPrice(selectedProduct))}</div>
+            {getProductDisp(selectedProduct) === "stock"
               ? <span style={S.badgeStock}>En Stock - Disponible ahora</span>
-              : <span style={S.badgePedido}>Por Pedido: {selectedProduct.diasHabiles} dias habiles</span>
+              : <span style={S.badgePedido}>Por Pedido: {getProductDias(selectedProduct)} dias habiles</span>
             }
             {selectedProduct.descripcion && <p style={{ color: "#ccc", marginTop: "14px", lineHeight: "1.6" }}>{selectedProduct.descripcion}</p>}
             <button style={{ ...S.btn, width: "100%", padding: "13px", marginTop: "20px", fontSize: "16px" }} onClick={() => { addToCart(selectedProduct); setSelectedProduct(null); }}>Agregar al Carrito</button>
@@ -327,17 +338,17 @@ export default function App() {
             <>
               {cart.map(item => (
                 <div key={item.id} style={{ display: "flex", gap: "12px", marginBottom: "16px", alignItems: "center" }}>
-                  <img src={item.imageUrl} alt={item.nombre} style={{ width: "60px", height: "60px", objectFit: "contain", background: "#fff", borderRadius: "6px" }} />
+                  <img src={getProductImage(item)} alt={getProductName(item)} style={{ width: "60px", height: "60px", objectFit: "contain", background: "#fff", borderRadius: "6px" }} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: "bold", fontSize: "14px" }}>{item.nombre}</div>
-                    <div style={{ color: "#ff6600" }}>{formatPrice(item.precio)} x{item.qty}</div>
+                    <div style={{ fontWeight: "bold", fontSize: "14px" }}>{getProductName(item)}</div>
+                    <div style={{ color: "#ff6600" }}>{formatPrice(getProductPrice(item))} x{item.qty}</div>
                   </div>
                   <button onClick={() => removeFromCart(item.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "4px 10px", borderRadius: "4px", cursor: "pointer" }}>x</button>
                 </div>
               ))}
               <div style={{ borderTop: "1px solid #333", paddingTop: "16px", marginTop: "16px" }}>
                 <div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(totalCart)}</div>
-                <a href={`https://wa.me/56900000000?text=Hola!%20Quiero%20pedir:%20${cart.map(i => i.nombre + "%20x" + i.qty).join("%2C%20")}`} target="_blank" rel="noreferrer" style={{ ...S.btn, display: "block", textAlign: "center", textDecoration: "none", padding: "12px" }}>
+                <a href={`https://wa.me/56900000000?text=Hola!%20Quiero%20pedir:%20${cart.map(i => getProductName(i) + "%20x" + i.qty).join("%2C%20")}`} target="_blank" rel="noreferrer" style={{ ...S.btn, display: "block", textAlign: "center", textDecoration: "none", padding: "12px" }}>
                   Pedir por WhatsApp
                 </a>
               </div>
