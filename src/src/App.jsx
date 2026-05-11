@@ -6,7 +6,7 @@ const firebaseConfig = {
     apiKey: "AIzaSyAQlmsNO4bF9SVfwrcK6_-HJ_KFrcjTINg",
     authDomain: "gangastore.firebaseapp.com",
     projectId: "gangastore",
-    storageBucket: "gangastore.firebasestorage.app",
+    storageBucket: "gangastore.firebasestorage.app",h
     messagingSenderId: "167884959340",
     appId: "1:167884959340:web:0cd7f22b3506eff1c3b249"
 };
@@ -348,7 +348,7 @@ export default function App() {
               ))}
               <div style={{ borderTop: "1px solid #333", paddingTop: "16px", marginTop: "16px" }}>
                 <div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(totalCart)}</div>
-                <a href={`https://wa.me/56900000000?text=Hola!%20Quiero%20pedir:%20${cart.map(i => getProductName(i) + "%20x" + i.qty).join("%2C%20")}`} target="_blank" rel="noreferrer" style={{ ...S.btn, display: "block", textAlign: "center", textDecoration: "none", padding: "12px" }}>
+                <a href={`https://wa.me/12914261941?text=Hola!%20Quiero%20pedir:%20${cart.map(i => getProductName(i) + "%20x" + i.qty).join("%2C%20")}`} target="_blank" rel="noreferrer" style={{ ...S.btn, display: "block", textAlign: "center", textDecoration: "none", padding: "12px" }}>
                   Pedir por WhatsApp
                 </a>
               </div>
