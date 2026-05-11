@@ -6,7 +6,7 @@ const firebaseConfig = {
     apiKey: "AIzaSyAQlmsNO4bF9SVfwrcK6_-HJ_KFrcjTINg",
     authDomain: "gangastore.firebaseapp.com",
     projectId: "gangastore",
-    storageBucket: "gangastore.firebasestorage.app",h
+    storageBucket: "gangastore.firebasestorage.app",
     messagingSenderId: "167884959340",
     appId: "1:167884959340:web:0cd7f22b3506eff1c3b249"
 };
