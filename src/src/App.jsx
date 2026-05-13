@@ -193,7 +193,7 @@ export default function App() {
     return (
       <div style={S.loginWrap}>
         <div style={S.loginBox}>
-          <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔐</div>
+          <div style={{ fontSize: "48px", marginBottom: "16px" }}>ð</div>
           <h2 style={{ color: "#ff6600", marginBottom: "8px" }}>Panel Administrador</h2>
           <p style={{ color: "#888", marginBottom: "28px" }}>Ingresa la contrasena para acceder</p>
           <input type="password" placeholder="Contrasena" value={adminPass} onChange={e => setAdminPass(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAdminLogin()} style={S.input} />
@@ -348,7 +348,7 @@ export default function App() {
               ))}
               <div style={{ borderTop: "1px solid #333", paddingTop: "16px", marginTop: "16px" }}>
                 <div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(totalCart)}</div>
-                <a href={`https://wa.me/12914261941?text=Hola!%20Quiero%20pedir:%20${cart.map(i => getProductName(i) + "%20x" + i.qty).join("%2C%20")}`} target="_blank" rel="noreferrer" style={{ ...S.btn, display: "block", textAlign: "center", textDecoration: "none", padding: "12px" }}>
+                <a href={`https://wa.me/2914261941?text=Hola!%20Quiero%20pedir:%20${cart.map(i => getProductName(i) + "%20x" + i.qty).join("%2C%20")}`} target="_blank" rel="noreferrer" style={{ ...S.btn, display: "block", textAlign: "center", textDecoration: "none", padding: "12px" }}>
                   Pedir por WhatsApp
                 </a>
               </div>
