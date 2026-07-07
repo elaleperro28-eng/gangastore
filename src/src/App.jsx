@@ -176,53 +176,53 @@ export default function App() {
     return true;
   });
   const S = {
-    body: { margin: 0, fontFamily: "'Poppins', 'Segoe UI', sans-serif", background: "#0b0a09", color: "#f2ede0", minHeight: "100vh" },
-    nav: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 28px", background: "#100d0a", borderBottom: "1px solid #2a2113" },
+    body: { margin: 0, fontFamily: "'Poppins', 'Segoe UI', sans-serif", background: "#000000", color: "#ffffff", minHeight: "100vh" },
+    nav: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 28px", background: "#000000", borderBottom: "1px solid #1a1a1a" },
     logo: { fontSize: "22px", fontWeight: "700", letterSpacing: "2px", fontFamily: "'Playfair Display', serif", cursor: "pointer" },
-    logoSpan: { color: "#d4af37" },
-    btn: { background: "linear-gradient(135deg, #e3c565, #b8912f)", color: "#1a1305", border: "none", padding: "10px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "700" },
-    btnOutline: { background: "transparent", color: "#d4af37", border: "1px solid #d4af37", padding: "10px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "600" },
+    logoSpan: { color: "#c6ff00" },
+    btn: { background: "linear-gradient(135deg, #c6ff00, #7cb300)", color: "#000000", border: "none", padding: "10px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "700" },
+    btnOutline: { background: "transparent", color: "#c6ff00", border: "1px solid #c6ff00", padding: "10px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "600" },
     btnGray: { background: "#2a2a2a", color: "#fff", border: "none", padding: "10px 18px", borderRadius: "6px", cursor: "pointer" },
-    hero: { textAlign: "center", padding: "70px 20px 50px", background: "linear-gradient(135deg, #150f0a 0%, #2b1710 55%, #1a0d0f 100%)" },
-    heroTag: { fontSize: "13px", color: "#a68a4d", letterSpacing: "4px", textTransform: "uppercase", marginBottom: "14px", fontWeight: "600" },
+    hero: { textAlign: "center", padding: "70px 20px 50px", background: "linear-gradient(135deg, #000000 0%, #111111 55%, #000000 100%)" },
+    heroTag: { fontSize: "13px", color: "#c6ff00", letterSpacing: "4px", textTransform: "uppercase", marginBottom: "14px", fontWeight: "600" },
     heroTitle: { fontSize: "clamp(28px,5vw,52px)", fontWeight: "700", margin: "0 16px 14px", fontFamily: "'Playfair Display', serif" },
-    heroSub: { fontSize: "17px", color: "#cbb98f", margin: "0 0 8px", maxWidth: "560px", marginLeft: "auto", marginRight: "auto", lineHeight: "1.6" },
+    heroSub: { fontSize: "17px", color: "#cccccc", margin: "0 0 8px", maxWidth: "560px", marginLeft: "auto", marginRight: "auto", lineHeight: "1.6" },
     section: { padding: "40px 20px", maxWidth: "1200px", margin: "0 auto" },
-    sectionTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "24px", borderBottom: "2px solid #d4af37", paddingBottom: "8px", fontFamily: "'Playfair Display', serif" },
+    sectionTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "24px", borderBottom: "2px solid #c6ff00", paddingBottom: "8px", fontFamily: "'Playfair Display', serif" },
     filterBar: { display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap", justifyContent: "center" },
-    tickerSection: { padding: "26px 0", background: "#100d0a", borderTop: "1px solid #2a2113", borderBottom: "1px solid #2a2113", overflow: "hidden" },
-    tickerTrack: { display: "flex", gap: "48px", width: "max-content", animation: "gangaTicker 120s linear infinite" },
-    tickerItem: { display: "flex", alignItems: "center", gap: "28px", background: "#1b1712", border: "1px solid #3a3020", borderRadius: "24px", padding: "28px 44px", minWidth: "560px" },
+    tickerSection: { padding: "26px 0", background: "#000000", borderTop: "1px solid #1a1a1a", borderBottom: "1px solid #1a1a1a", overflow: "hidden" },
+    tickerTrack: { display: "flex", gap: "48px", width: "max-content", animation: "gangaTicker 240s linear infinite" },
+    tickerItem: { display: "flex", alignItems: "center", gap: "28px", background: "#111111", border: "1px solid #2a2a2a", borderRadius: "24px", padding: "28px 44px", minWidth: "560px" },
     tickerImg: { width: "152px", height: "152px", objectFit: "contain", background: "#fff", borderRadius: "16px", flexShrink: 0 },
-    tickerName: { fontSize: "34px", fontWeight: "600", color: "#f2ede0", whiteSpace: "nowrap" },
-    tickerPrice: { fontSize: "36px", fontWeight: "800", color: "#d4af37", whiteSpace: "nowrap" },
-    filterBtn: (a) => ({ background: a ? "linear-gradient(135deg, #e3c565, #b8912f)" : "#1b1712", color: a ? "#1a1305" : "#e8ddc4", border: a ? "none" : "1px solid #3a3020", padding: "8px 20px", borderRadius: "20px", cursor: "pointer", fontWeight: "600" }),
+    tickerName: { fontSize: "34px", fontWeight: "600", color: "#ffffff", whiteSpace: "nowrap" },
+    tickerPrice: { fontSize: "36px", fontWeight: "800", color: "#c6ff00", whiteSpace: "nowrap" },
+    filterBtn: (a) => ({ background: a ? "linear-gradient(135deg, #c6ff00, #7cb300)" : "#111111", color: a ? "#000000" : "#ffffff", border: a ? "none" : "1px solid #2a2a2a", padding: "8px 20px", borderRadius: "20px", cursor: "pointer", fontWeight: "600" }),
     grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "22px" },
-    card: { background: "#15120d", borderRadius: "12px", overflow: "hidden", border: "1px solid #2e2618", cursor: "pointer" },
+    card: { background: "#0d0d0d", borderRadius: "12px", overflow: "hidden", border: "1px solid #2a2a2a", cursor: "pointer" },
     cardImg: { width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#fff", display: "block" },
     cardBody: { padding: "14px" },
-    cardName: { fontSize: "15px", fontWeight: "700", marginBottom: "6px", color: "#f2ede0" },
-    cardPrice: { fontSize: "16px", fontWeight: "900", color: "#d4af37", marginBottom: "8px" },
-    badgeStock: { display: "inline-block", background: "#153322", color: "#5fd98a", padding: "3px 10px", borderRadius: "20px", fontSize: "12px" },
-    badgePedido: { display: "inline-block", background: "#3a2410", color: "#e2a94f", padding: "3px 10px", borderRadius: "20px", fontSize: "12px" },
+    cardName: { fontSize: "15px", fontWeight: "700", marginBottom: "6px", color: "#ffffff" },
+    cardPrice: { fontSize: "16px", fontWeight: "900", color: "#c6ff00", marginBottom: "8px" },
+    badgeStock: { display: "inline-block", background: "#0d0d0d", color: "#c6ff00", padding: "3px 10px", borderRadius: "20px", fontSize: "12px" },
+    badgePedido: { display: "inline-block", background: "#0d0d0d", color: "#ffffff", padding: "3px 10px", borderRadius: "20px", fontSize: "12px" },
     modal: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 50 },
-    modalBox: { background: "#15120d", borderRadius: "16px", maxWidth: "500px", width: "100%", padding: "24px", position: "relative", maxHeight: "90vh", overflowY: "auto", border: "1px solid #3a3020" },
+    modalBox: { background: "#0d0d0d", borderRadius: "16px", maxWidth: "500px", width: "100%", padding: "24px", position: "relative", maxHeight: "90vh", overflowY: "auto", border: "1px solid #2a2a2a" },
     modalImg: { width: "100%", maxHeight: "360px", objectFit: "contain", background: "#fff", borderRadius: "10px", marginBottom: "16px", display: "block" },
-    input: { width: "100%", padding: "10px 14px", background: "#1e1a13", border: "1px solid #3a3020", color: "#f2ede0", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box" },
-    select: { width: "100%", padding: "10px 14px", background: "#1e1a13", border: "1px solid #3a3020", color: "#f2ede0", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box" },
-    label: { display: "block", marginBottom: "6px", color: "#cbb98f", fontSize: "14px" },
-    cartOverlay: { position: "fixed", right: 0, top: 0, bottom: 0, width: "320px", background: "#100d0a", borderLeft: "2px solid #d4af37", padding: "20px", overflowY: "auto", zIndex: 40 },
+    input: { width: "100%", padding: "10px 14px", background: "#1a1a1a", border: "1px solid #2a2a2a", color: "#ffffff", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box" },
+    select: { width: "100%", padding: "10px 14px", background: "#1a1a1a", border: "1px solid #2a2a2a", color: "#ffffff", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box" },
+    label: { display: "block", marginBottom: "6px", color: "#cccccc", fontSize: "14px" },
+    cartOverlay: { position: "fixed", right: 0, top: 0, bottom: 0, width: "320px", background: "#000000", borderLeft: "2px solid #c6ff00", padding: "20px", overflowY: "auto", zIndex: 40 },
     adminWrap: { maxWidth: "640px", margin: "40px auto", padding: "20px" },
-    adminCard: { background: "#15120d", borderRadius: "12px", padding: "28px", border: "1px solid #2e2618" },
-    loginWrap: { display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0b0a09" },
-    loginBox: { background: "#15120d", borderRadius: "16px", padding: "40px", width: "100%", maxWidth: "400px", border: "1px solid #2e2618", textAlign: "center" },
+    adminCard: { background: "#0d0d0d", borderRadius: "12px", padding: "28px", border: "1px solid #2a2a2a" },
+    loginWrap: { display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#000000" },
+    loginBox: { background: "#0d0d0d", borderRadius: "16px", padding: "40px", width: "100%", maxWidth: "400px", border: "1px solid #2a2a2a", textAlign: "center" },
   };
   if (page === "adminLogin") {
     return (
       <div style={S.loginWrap}>
         <div style={S.loginBox}>
           <div style={{ fontSize: "42px", marginBottom: "16px" }}>&#128274;</div>
-          <h2 style={{ color: "#d4af37", marginBottom: "8px", fontFamily: "'Playfair Display', serif" }}>Panel Administrador</h2>
+          <h2 style={{ color: "#c6ff00", marginBottom: "8px", fontFamily: "'Playfair Display', serif" }}>Panel Administrador</h2>
           <p style={{ color: "#888", marginBottom: "28px" }}>Ingresa la contrasena para acceder</p>
           <input type="password" placeholder="Contrasena" value={adminPass} onChange={e => setAdminPass(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAdminLogin()} style={{ ...S.input, marginBottom: "16px", textAlign: "center" }} />
           {adminError && <p style={{ color: "#ff4444", marginBottom: "12px" }}>{adminError}</p>}
@@ -244,7 +244,7 @@ export default function App() {
           </div>
         </div>
         <div style={S.adminWrap}>
-          <h2 style={{ color: "#d4af37", marginBottom: "24px", fontFamily: "'Playfair Display', serif" }}>Panel de Administracion</h2>
+          <h2 style={{ color: "#c6ff00", marginBottom: "24px", fontFamily: "'Playfair Display', serif" }}>Panel de Administracion</h2>
           <div style={S.adminCard}>
             <h3 style={{ marginTop: 0, marginBottom: "20px" }}>Agregar Nuevo Producto</h3>
             <label style={S.label}>Nombre del Producto *</label>
@@ -276,11 +276,11 @@ export default function App() {
             )}
             <label style={S.label}>Imagen del Producto *</label>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={e => handleImageUpload(e.target.files[0])} style={{ ...S.input, padding: "8px" }} />
-            {uploading && <p style={{ color: "#d4af37" }}>Subiendo imagen...</p>}
-            {uploadMsg && !uploading && <p style={{ color: uploadMsg.includes("Error") ? "#ff4444" : "#5fd98a" }}>{uploadMsg}</p>}
+            {uploading && <p style={{ color: "#c6ff00" }}>Subiendo imagen...</p>}
+            {uploadMsg && !uploading && <p style={{ color: uploadMsg.includes("Error") ? "#ff4444" : "#c6ff00" }}>{uploadMsg}</p>}
             {form.imageUrl && (
               <div style={{ marginBottom: "16px" }}>
-                <p style={{ color: "#5fd98a", marginBottom: "8px" }}>Vista previa:</p>
+                <p style={{ color: "#c6ff00", marginBottom: "8px" }}>Vista previa:</p>
                 <img src={form.imageUrl} alt="preview" style={{ width: "100%", maxHeight: "200px", objectFit: "contain", background: "#fff", borderRadius: "8px" }} />
               </div>
             )}
@@ -292,13 +292,13 @@ export default function App() {
               <img src={getProductImage(p)} alt={getProductName(p)} style={{ width: "80px", height: "80px", objectFit: "contain", background: "#fff", borderRadius: "8px", flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: "bold", marginBottom: "4px" }}>{getProductName(p)}</div>
-                <div style={{ color: "#d4af37", fontWeight: "bold" }}>{formatPrice(getProductPrice(p))}</div>
+                <div style={{ color: "#c6ff00", fontWeight: "bold" }}>{formatPrice(getProductPrice(p))}</div>
                 <div style={{ marginTop: "4px" }}>
                   {getProductDisp(p) === "stock"
-                    ? <span style={{ color: "#5fd98a", fontSize: "13px" }}>En Stock</span>
-                    : <span style={{ color: "#e2a94f", fontSize: "13px" }}>Por Pedido - {getProductDias(p)} dias hab.</span>
+                    ? <span style={{ color: "#c6ff00", fontSize: "13px" }}>En Stock</span>
+                    : <span style={{ color: "#ffffff", fontSize: "13px" }}>Por Pedido - {getProductDias(p)} dias hab.</span>
                   }
-                  <span style={{ color: "#a68a4d", fontSize: "12px", marginLeft: "10px", textTransform: "uppercase" }}>{getProductCategoria(p)}</span>
+                  <span style={{ color: "#c6ff00", fontSize: "12px", marginLeft: "10px", textTransform: "uppercase" }}>{getProductCategoria(p)}</span>
                 </div>
               </div>
               <button onClick={() => handleDeleteProduct(p.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer" }}>Eliminar</button>
@@ -316,7 +316,7 @@ export default function App() {
       </div>
       <div style={S.hero}>
         <div style={S.heroTag}>Perfumeria Selecta</div>
-        <h1 style={S.heroTitle}>Bienvenido a <span style={{ color: "#d4af37" }}>GangaStore</span></h1>
+        <h1 style={S.heroTitle}>Bienvenido a <span style={{ color: "#c6ff00" }}>GangaStore</span></h1>
 </div>
       <div style={S.tickerSection}>
         <style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
@@ -365,7 +365,7 @@ export default function App() {
             <button onClick={() => setSelectedProduct(null)} style={{ position: "absolute", top: "12px", right: "16px", background: "none", border: "none", color: "#fff", fontSize: "24px", cursor: "pointer" }}>x</button>
             <img src={getProductImage(selectedProduct)} alt={getProductName(selectedProduct)} style={S.modalImg} />
             <h2 style={{ marginTop: 0, marginBottom: "8px", fontFamily: "'Playfair Display', serif" }}>{getProductName(selectedProduct)}</h2>
-            <div style={{ fontSize: "28px", fontWeight: "900", color: "#d4af37", marginBottom: "12px" }}>{formatPrice(getProductPrice(selectedProduct))}</div>
+            <div style={{ fontSize: "28px", fontWeight: "900", color: "#c6ff00", marginBottom: "12px" }}>{formatPrice(getProductPrice(selectedProduct))}</div>
             {getProductDisp(selectedProduct) === "stock"
               ? <span style={S.badgeStock}>En Stock - Disponible ahora</span>
               : <span style={S.badgePedido}>Por Pedido: {getProductDias(selectedProduct)} dias habiles</span>
@@ -390,7 +390,7 @@ export default function App() {
                   <img src={getProductImage(item)} alt={getProductName(item)} style={{ width: "60px", height: "60px", objectFit: "contain", background: "#fff", borderRadius: "6px" }} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: "bold", fontSize: "14px" }}>{getProductName(item)}</div>
-                    <div style={{ color: "#d4af37" }}>{formatPrice(getProductPrice(item))} x{item.qty}</div>
+                    <div style={{ color: "#c6ff00" }}>{formatPrice(getProductPrice(item))} x{item.qty}</div>
                   </div>
                   <button onClick={() => removeFromCart(item.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "4px 10px", borderRadius: "4px", cursor: "pointer" }}>x</button>
                 </div>
