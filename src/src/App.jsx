@@ -191,11 +191,11 @@ export default function App() {
     sectionTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "24px", borderBottom: "2px solid #d4af37", paddingBottom: "8px", fontFamily: "'Playfair Display', serif" },
     filterBar: { display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap", justifyContent: "center" },
     tickerSection: { padding: "26px 0", background: "#100d0a", borderTop: "1px solid #2a2113", borderBottom: "1px solid #2a2113", overflow: "hidden" },
-    tickerTrack: { display: "flex", gap: "24px", width: "max-content", animation: "gangaTicker 30s linear infinite" },
-    tickerItem: { display: "flex", alignItems: "center", gap: "12px", background: "#1b1712", border: "1px solid #3a3020", borderRadius: "10px", padding: "10px 18px", minWidth: "220px" },
-    tickerImg: { width: "48px", height: "48px", objectFit: "contain", background: "#fff", borderRadius: "6px", flexShrink: 0 },
-    tickerName: { fontSize: "13px", fontWeight: "600", color: "#f2ede0", whiteSpace: "nowrap" },
-    tickerPrice: { fontSize: "13px", fontWeight: "800", color: "#d4af37", whiteSpace: "nowrap" },
+    tickerTrack: { display: "flex", gap: "24px", width: "max-content", animation: "gangaTicker 60s linear infinite" },
+    tickerItem: { display: "flex", alignItems: "center", gap: "14px", background: "#1b1712", border: "1px solid #3a3020", borderRadius: "12px", padding: "14px 22px", minWidth: "280px" },
+    tickerImg: { width: "76px", height: "76px", objectFit: "contain", background: "#fff", borderRadius: "8px", flexShrink: 0 },
+    tickerName: { fontSize: "17px", fontWeight: "600", color: "#f2ede0", whiteSpace: "nowrap" },
+    tickerPrice: { fontSize: "18px", fontWeight: "800", color: "#d4af37", whiteSpace: "nowrap" },
     filterBtn: (a) => ({ background: a ? "linear-gradient(135deg, #e3c565, #b8912f)" : "#1b1712", color: a ? "#1a1305" : "#e8ddc4", border: a ? "none" : "1px solid #3a3020", padding: "8px 20px", borderRadius: "20px", cursor: "pointer", fontWeight: "600" }),
     grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "22px" },
     card: { background: "#15120d", borderRadius: "12px", overflow: "hidden", border: "1px solid #2e2618", cursor: "pointer" },
@@ -317,8 +317,7 @@ export default function App() {
       <div style={S.hero}>
         <div style={S.heroTag}>Perfumeria Selecta</div>
         <h1 style={S.heroTitle}>Bienvenido a <span style={{ color: "#d4af37" }}>GangaStore</span></h1>
-        <p style={S.heroSub}>Perfumes árabes, de diseñador y Natura originales, con ofertas exclusivas y precios increíbles todos los días.</p>
-      </div>
+</div>
       <div style={S.tickerSection}>
         <style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
       <div style={S.tickerTrack}>
