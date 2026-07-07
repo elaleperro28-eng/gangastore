@@ -3,12 +3,12 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy } from "firebase/firestore";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyAQlmsNO4bF9SVfwrcK6_-HJ_KFrcjTINg",
-    authDomain: "gangastore.firebaseapp.com",
-    projectId: "gangastore",
-    storageBucket: "gangastore.firebasestorage.app",
-    messagingSenderId: "167884959340",
-    appId: "1:167884959340:web:0cd7f22b3506eff1c3b249"
+  apiKey: "AIzaSyAQlmsNO4bF9SVfwrcK6_-HJ_KFrcjTINg",
+  authDomain: "gangastore.firebaseapp.com",
+  projectId: "gangastore",
+  storageBucket: "gangastore.firebasestorage.app",
+  messagingSenderId: "167884959340",
+  appId: "1:167884959340:web:0cd7f22b3506eff1c3b249"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -16,6 +16,14 @@ const db = getFirestore(app);
 
 const ADMIN_PASSWORD = "ganga2024";
 const IMGUR_CLIENT_ID = "546c25a59c58ad7";
+const shuffleArray = (arr) => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+};
 
 export default function App() {
   const [page, setPage] = useState(() => {
@@ -24,6 +32,7 @@ export default function App() {
     return "home";
   });
   const [products, setProducts] = useState([]);
+    const [tickerProducts, setTickerProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
   const [adminPass, setAdminPass] = useState("");
@@ -36,7 +45,8 @@ export default function App() {
     descripcion: "",
     imageUrl: "",
     disponibilidad: "stock",
-    diasHabiles: "3"
+    diasHabiles: "3",
+    categoria: "perfume"
   });
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState("");
@@ -50,6 +60,12 @@ export default function App() {
     });
     return () => unsub();
   }, []);
+
+    useEffect(() => {
+        if (products.length > 0) {
+            setTickerProducts(shuffleArray(products));
+        }
+    }, [products.length]);
 
   useEffect(() => {
     const handlePop = () => {
@@ -110,18 +126,18 @@ export default function App() {
       imageUrl: form.imageUrl,
       disponibilidad: form.disponibilidad,
       diasHabiles: form.disponibilidad === "pedido" ? form.diasHabiles : null,
+      categoria: form.categoria,
       createdAt: serverTimestamp()
     });
-    setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", disponibilidad: "stock", diasHabiles: "3" });
+    setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume" });
     setUploadMsg("");
     if (fileInputRef.current) fileInputRef.current.value = "";
     alert("Producto agregado exitosamente");
   };
 
   const handleDeleteProduct = async (id) => {
-    if (window.confirm("Eliminar este producto?")) {
-      await deleteDoc(doc(db, "productos", id));
-    }
+    if (!confirm("Eliminar este producto?")) return;
+    await deleteDoc(doc(db, "productos", id));
   };
 
   const addToCart = (product) => {
@@ -146,60 +162,72 @@ export default function App() {
   const getProductImage = (p) => p.imageUrl || p.foto || p.image || p.img || "";
   const getProductDisp = (p) => p.disponibilidad || "stock";
   const getProductDias = (p) => p.diasHabiles || "3-5";
+  const getProductCategoria = (p) => p.categoria || "otro";
+  const isPerfume = (p) => {
+    if (getProductCategoria(p) === "perfume") return true;
+    const name = getProductName(p).toLowerCase();
+    return name.includes("perfum") || name.includes("edp") || name.includes("elixir") || name.includes("victoria secret") || name.includes("lattafa") || name.includes("bharara") || name.includes("phantom") || name.includes("givenchy") || name.includes("paco rabane") || name.includes("yara") || name.includes("club de nuit");
+  };
 
   const filteredProducts = products.filter(p => {
     if (filter === "stock") return getProductDisp(p) === "stock";
     if (filter === "pedido") return getProductDisp(p) === "pedido";
+    if (filter === "perfumes") return isPerfume(p);
     return true;
   });
-
   const S = {
-    body: { margin: 0, fontFamily: "'Segoe UI', sans-serif", background: "#111", color: "#fff", minHeight: "100vh" },
-    nav: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 24px", background: "#1a1a1a", borderBottom: "2px solid #ff6600", position: "sticky", top: 0, zIndex: 100 },
-    logo: { fontSize: "26px", fontWeight: "bold", color: "#fff", cursor: "pointer" },
-    logoSpan: { color: "#ff6600" },
-    btn: { background: "#ff6600", color: "#fff", border: "none", padding: "8px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "14px" },
-    btnOutline: { background: "transparent", color: "#ff6600", border: "2px solid #ff6600", padding: "8px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "14px" },
-    btnGray: { background: "#555", color: "#fff", border: "none", padding: "8px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", fontSize: "14px" },
-    hero: { textAlign: "center", padding: "60px 20px 40px", background: "linear-gradient(135deg, #1a1a1a 0%, #2a1a0a 100%)" },
-    heroTitle: { fontSize: "clamp(28px,5vw,52px)", fontWeight: "900", margin: "0 0 16px" },
-    heroSub: { fontSize: "18px", color: "#ccc", margin: "0 0 30px" },
+    body: { margin: 0, fontFamily: "'Poppins', 'Segoe UI', sans-serif", background: "#0b0a09", color: "#f2ede0", minHeight: "100vh" },
+    nav: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 28px", background: "#100d0a", borderBottom: "1px solid #2a2113" },
+    logo: { fontSize: "22px", fontWeight: "700", letterSpacing: "2px", fontFamily: "'Playfair Display', serif", cursor: "pointer" },
+    logoSpan: { color: "#d4af37" },
+    btn: { background: "linear-gradient(135deg, #e3c565, #b8912f)", color: "#1a1305", border: "none", padding: "10px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "700" },
+    btnOutline: { background: "transparent", color: "#d4af37", border: "1px solid #d4af37", padding: "10px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "600" },
+    btnGray: { background: "#2a2a2a", color: "#fff", border: "none", padding: "10px 18px", borderRadius: "6px", cursor: "pointer" },
+    hero: { textAlign: "center", padding: "70px 20px 50px", background: "linear-gradient(135deg, #150f0a 0%, #2b1710 55%, #1a0d0f 100%)" },
+    heroTag: { fontSize: "13px", color: "#a68a4d", letterSpacing: "4px", textTransform: "uppercase", marginBottom: "14px", fontWeight: "600" },
+    heroTitle: { fontSize: "clamp(28px,5vw,52px)", fontWeight: "700", margin: "0 16px 14px", fontFamily: "'Playfair Display', serif" },
+    heroSub: { fontSize: "17px", color: "#cbb98f", margin: "0 0 8px", maxWidth: "560px", marginLeft: "auto", marginRight: "auto", lineHeight: "1.6" },
     section: { padding: "40px 20px", maxWidth: "1200px", margin: "0 auto" },
-    sectionTitle: { fontSize: "24px", fontWeight: "bold", marginBottom: "24px", borderBottom: "2px solid #ff6600", paddingBottom: "8px" },
-    filterBar: { display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap" },
-    filterBtn: (a) => ({ background: a ? "#ff6600" : "#2a2a2a", color: "#fff", border: a ? "none" : "1px solid #444", padding: "8px 18px", borderRadius: "20px", cursor: "pointer", fontWeight: a ? "bold" : "normal", fontSize: "14px" }),
-    grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "20px" },
-    card: { background: "#1e1e1e", borderRadius: "12px", overflow: "hidden", border: "1px solid #333", cursor: "pointer" },
+    sectionTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "24px", borderBottom: "2px solid #d4af37", paddingBottom: "8px", fontFamily: "'Playfair Display', serif" },
+    filterBar: { display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap", justifyContent: "center" },
+    tickerSection: { padding: "26px 0", background: "#100d0a", borderTop: "1px solid #2a2113", borderBottom: "1px solid #2a2113", overflow: "hidden" },
+    tickerTrack: { display: "flex", gap: "48px", width: "max-content", animation: "gangaTicker 120s linear infinite" },
+    tickerItem: { display: "flex", alignItems: "center", gap: "28px", background: "#1b1712", border: "1px solid #3a3020", borderRadius: "24px", padding: "28px 44px", minWidth: "560px" },
+    tickerImg: { width: "152px", height: "152px", objectFit: "contain", background: "#fff", borderRadius: "16px", flexShrink: 0 },
+    tickerName: { fontSize: "34px", fontWeight: "600", color: "#f2ede0", whiteSpace: "nowrap" },
+    tickerPrice: { fontSize: "36px", fontWeight: "800", color: "#d4af37", whiteSpace: "nowrap" },
+    filterBtn: (a) => ({ background: a ? "linear-gradient(135deg, #e3c565, #b8912f)" : "#1b1712", color: a ? "#1a1305" : "#e8ddc4", border: a ? "none" : "1px solid #3a3020", padding: "8px 20px", borderRadius: "20px", cursor: "pointer", fontWeight: "600" }),
+    grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "22px" },
+    card: { background: "#15120d", borderRadius: "12px", overflow: "hidden", border: "1px solid #2e2618", cursor: "pointer" },
     cardImg: { width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#fff", display: "block" },
     cardBody: { padding: "14px" },
-    cardName: { fontSize: "15px", fontWeight: "bold", marginBottom: "6px", color: "#fff" },
-    cardPrice: { fontSize: "20px", fontWeight: "900", color: "#ff6600", marginBottom: "8px" },
-    badgeStock: { display: "inline-block", background: "#1a5c1a", color: "#4cff4c", padding: "3px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "bold", marginBottom: "8px" },
-    badgePedido: { display: "inline-block", background: "#5c3a00", color: "#ffaa00", padding: "3px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "bold", marginBottom: "8px" },
-    modal: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: "16px" },
-    modalBox: { background: "#1e1e1e", borderRadius: "16px", maxWidth: "500px", width: "100%", padding: "24px", position: "relative", maxHeight: "90vh", overflowY: "auto" },
+    cardName: { fontSize: "15px", fontWeight: "700", marginBottom: "6px", color: "#f2ede0" },
+    cardPrice: { fontSize: "16px", fontWeight: "900", color: "#d4af37", marginBottom: "8px" },
+    badgeStock: { display: "inline-block", background: "#153322", color: "#5fd98a", padding: "3px 10px", borderRadius: "20px", fontSize: "12px" },
+    badgePedido: { display: "inline-block", background: "#3a2410", color: "#e2a94f", padding: "3px 10px", borderRadius: "20px", fontSize: "12px" },
+    modal: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 50 },
+    modalBox: { background: "#15120d", borderRadius: "16px", maxWidth: "500px", width: "100%", padding: "24px", position: "relative", maxHeight: "90vh", overflowY: "auto", border: "1px solid #3a3020" },
     modalImg: { width: "100%", maxHeight: "360px", objectFit: "contain", background: "#fff", borderRadius: "10px", marginBottom: "16px", display: "block" },
-    input: { width: "100%", padding: "10px 14px", background: "#2a2a2a", border: "1px solid #444", color: "#fff", borderRadius: "8px", fontSize: "15px", boxSizing: "border-box", marginBottom: "12px" },
-    select: { width: "100%", padding: "10px 14px", background: "#2a2a2a", border: "1px solid #444", color: "#fff", borderRadius: "8px", fontSize: "15px", boxSizing: "border-box", marginBottom: "12px" },
-    label: { display: "block", marginBottom: "6px", color: "#ccc", fontSize: "14px" },
-    cartOverlay: { position: "fixed", right: 0, top: 0, bottom: 0, width: "320px", background: "#1a1a1a", borderLeft: "2px solid #ff6600", zIndex: 200, padding: "20px", overflowY: "auto", boxShadow: "-4px 0 20px rgba(0,0,0,0.5)" },
+    input: { width: "100%", padding: "10px 14px", background: "#1e1a13", border: "1px solid #3a3020", color: "#f2ede0", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box" },
+    select: { width: "100%", padding: "10px 14px", background: "#1e1a13", border: "1px solid #3a3020", color: "#f2ede0", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box" },
+    label: { display: "block", marginBottom: "6px", color: "#cbb98f", fontSize: "14px" },
+    cartOverlay: { position: "fixed", right: 0, top: 0, bottom: 0, width: "320px", background: "#100d0a", borderLeft: "2px solid #d4af37", padding: "20px", overflowY: "auto", zIndex: 40 },
     adminWrap: { maxWidth: "640px", margin: "40px auto", padding: "20px" },
-    adminCard: { background: "#1e1e1e", borderRadius: "12px", padding: "28px", border: "1px solid #333" },
-    loginWrap: { display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#111" },
-    loginBox: { background: "#1e1e1e", borderRadius: "16px", padding: "40px", width: "100%", maxWidth: "400px", border: "1px solid #333", textAlign: "center" }
+    adminCard: { background: "#15120d", borderRadius: "12px", padding: "28px", border: "1px solid #2e2618" },
+    loginWrap: { display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0b0a09" },
+    loginBox: { background: "#15120d", borderRadius: "16px", padding: "40px", width: "100%", maxWidth: "400px", border: "1px solid #2e2618", textAlign: "center" },
   };
-
   if (page === "adminLogin") {
     return (
       <div style={S.loginWrap}>
         <div style={S.loginBox}>
-          <div style={{ fontSize: "48px", marginBottom: "16px" }}>ð</div>
-          <h2 style={{ color: "#ff6600", marginBottom: "8px" }}>Panel Administrador</h2>
+          <div style={{ fontSize: "42px", marginBottom: "16px" }}>&#128274;</div>
+          <h2 style={{ color: "#d4af37", marginBottom: "8px", fontFamily: "'Playfair Display', serif" }}>Panel Administrador</h2>
           <p style={{ color: "#888", marginBottom: "28px" }}>Ingresa la contrasena para acceder</p>
-          <input type="password" placeholder="Contrasena" value={adminPass} onChange={e => setAdminPass(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAdminLogin()} style={S.input} />
+          <input type="password" placeholder="Contrasena" value={adminPass} onChange={e => setAdminPass(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAdminLogin()} style={{ ...S.input, marginBottom: "16px", textAlign: "center" }} />
           {adminError && <p style={{ color: "#ff4444", marginBottom: "12px" }}>{adminError}</p>}
           <button onClick={handleAdminLogin} style={{ ...S.btn, width: "100%", padding: "12px" }}>Ingresar</button>
-          <button onClick={() => { setPage("home"); window.history.pushState({}, "", "/"); }} style={{ ...S.btnOutline, width: "100%", padding: "10px", marginTop: "12px" }}>Volver a la tienda</button>
+          <button onClick={() => { setPage("home"); window.history.pushState({}, "", "/"); }} style={{ ...S.btnOutline, width: "100%", padding: "12px", marginTop: "10px" }}>Volver a la tienda</button>
         </div>
       </div>
     );
@@ -216,24 +244,30 @@ export default function App() {
           </div>
         </div>
         <div style={S.adminWrap}>
-          <h2 style={{ color: "#ff6600", marginBottom: "24px" }}>Panel de Administracion</h2>
+          <h2 style={{ color: "#d4af37", marginBottom: "24px", fontFamily: "'Playfair Display', serif" }}>Panel de Administracion</h2>
           <div style={S.adminCard}>
             <h3 style={{ marginTop: 0, marginBottom: "20px" }}>Agregar Nuevo Producto</h3>
             <label style={S.label}>Nombre del Producto *</label>
-            <input style={S.input} placeholder="Ej: Vaso Stanley 40oz" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+            <input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: Perfume Lattafa Khamrah" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
             <label style={S.label}>Precio (CLP) *</label>
-            <input style={S.input} type="number" placeholder="Ej: 19000" value={form.precio} onChange={e => setForm(f => ({ ...f, precio: e.target.value }))} />
+            <input style={{ ...S.input, marginBottom: "16px" }} type="number" placeholder="Ej: 45000" value={form.precio} onChange={e => setForm(f => ({ ...f, precio: e.target.value }))} />
+            <label style={S.label}>Categoria *</label>
+            <select style={{ ...S.select, marginBottom: "16px" }} value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}>
+              <option value="perfume">Perfume</option>
+              <option value="tecnologia">Tecnologia</option>
+              <option value="otro">Otro</option>
+            </select>
             <label style={S.label}>Descripcion</label>
-            <textarea style={{ ...S.input, minHeight: "80px", resize: "vertical" }} placeholder="Descripcion del producto..." value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
+            <textarea style={{ ...S.input, marginBottom: "16px", minHeight: "80px", resize: "vertical" }} placeholder="Descripcion del producto..." value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
             <label style={S.label}>Disponibilidad *</label>
-            <select style={S.select} value={form.disponibilidad} onChange={e => setForm(f => ({ ...f, disponibilidad: e.target.value }))}>
+            <select style={{ ...S.select, marginBottom: "16px" }} value={form.disponibilidad} onChange={e => setForm(f => ({ ...f, disponibilidad: e.target.value }))}>
               <option value="stock">En Stock (disponible ahora)</option>
               <option value="pedido">Por Pedido</option>
             </select>
             {form.disponibilidad === "pedido" && (
               <>
                 <label style={S.label}>Dias Habiles de Entrega</label>
-                <select style={S.select} value={form.diasHabiles} onChange={e => setForm(f => ({ ...f, diasHabiles: e.target.value }))}>
+                <select style={{ ...S.select, marginBottom: "16px" }} value={form.diasHabiles} onChange={e => setForm(f => ({ ...f, diasHabiles: e.target.value }))}>
                   <option value="3">3 dias habiles</option>
                   <option value="4">4 dias habiles</option>
                   <option value="5">5 dias habiles</option>
@@ -242,11 +276,11 @@ export default function App() {
             )}
             <label style={S.label}>Imagen del Producto *</label>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={e => handleImageUpload(e.target.files[0])} style={{ ...S.input, padding: "8px" }} />
-            {uploading && <p style={{ color: "#ff6600" }}>Subiendo imagen...</p>}
-            {uploadMsg && !uploading && <p style={{ color: uploadMsg.includes("Error") ? "#ff4444" : "#4cff4c" }}>{uploadMsg}</p>}
+            {uploading && <p style={{ color: "#d4af37" }}>Subiendo imagen...</p>}
+            {uploadMsg && !uploading && <p style={{ color: uploadMsg.includes("Error") ? "#ff4444" : "#5fd98a" }}>{uploadMsg}</p>}
             {form.imageUrl && (
               <div style={{ marginBottom: "16px" }}>
-                <p style={{ color: "#4cff4c", marginBottom: "8px" }}>Vista previa:</p>
+                <p style={{ color: "#5fd98a", marginBottom: "8px" }}>Vista previa:</p>
                 <img src={form.imageUrl} alt="preview" style={{ width: "100%", maxHeight: "200px", objectFit: "contain", background: "#fff", borderRadius: "8px" }} />
               </div>
             )}
@@ -258,12 +292,13 @@ export default function App() {
               <img src={getProductImage(p)} alt={getProductName(p)} style={{ width: "80px", height: "80px", objectFit: "contain", background: "#fff", borderRadius: "8px", flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: "bold", marginBottom: "4px" }}>{getProductName(p)}</div>
-                <div style={{ color: "#ff6600", fontWeight: "bold" }}>{formatPrice(getProductPrice(p))}</div>
+                <div style={{ color: "#d4af37", fontWeight: "bold" }}>{formatPrice(getProductPrice(p))}</div>
                 <div style={{ marginTop: "4px" }}>
                   {getProductDisp(p) === "stock"
-                    ? <span style={{ color: "#4cff4c", fontSize: "13px" }}>En Stock</span>
-                    : <span style={{ color: "#ffaa00", fontSize: "13px" }}>Por Pedido - {getProductDias(p)} dias hab.</span>
+                    ? <span style={{ color: "#5fd98a", fontSize: "13px" }}>En Stock</span>
+                    : <span style={{ color: "#e2a94f", fontSize: "13px" }}>Por Pedido - {getProductDias(p)} dias hab.</span>
                   }
+                  <span style={{ color: "#a68a4d", fontSize: "12px", marginLeft: "10px", textTransform: "uppercase" }}>{getProductCategoria(p)}</span>
                 </div>
               </div>
               <button onClick={() => handleDeleteProduct(p.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer" }}>Eliminar</button>
@@ -273,7 +308,6 @@ export default function App() {
       </div>
     );
   }
-
   return (
     <div style={S.body}>
       <div style={S.nav}>
@@ -281,13 +315,28 @@ export default function App() {
         <button onClick={() => setShowCart(true)} style={S.btn}>Carrito ({cart.length})</button>
       </div>
       <div style={S.hero}>
-        <h1 style={S.heroTitle}>Bienvenido a <span style={{ color: "#ff6600" }}>GangaStore</span></h1>
-        <p style={S.heroSub}>Los mejores productos al mejor precio</p>
+        <div style={S.heroTag}>Perfumeria Selecta</div>
+        <h1 style={S.heroTitle}>Bienvenido a <span style={{ color: "#d4af37" }}>GangaStore</span></h1>
+</div>
+      <div style={S.tickerSection}>
+        <style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
+      <div style={S.tickerTrack}>
+        {[...tickerProducts, ...tickerProducts].map((p, i) => (
+      <div key={i} style={S.tickerItem}>
+      <img src={getProductImage(p)} alt={getProductName(p)} style={S.tickerImg} onError={(e) => { e.target.src = "https://placehold.co/80x80?text=Foto"; }} />
+      <div>
+      <div style={S.tickerName}>{getProductName(p)}</div>
+      <div style={S.tickerPrice}>{formatPrice(getProductPrice(p))}</div>
+      </div>
+      </div>
+      ))}
+      </div>
       </div>
       <div style={S.section}>
         <div style={S.sectionTitle}>Productos Disponibles</div>
         <div style={S.filterBar}>
           <button style={S.filterBtn(filter === "todos")} onClick={() => setFilter("todos")}>Todos</button>
+          <button style={S.filterBtn(filter === "perfumes")} onClick={() => setFilter("perfumes")}>Perfumes</button>
           <button style={S.filterBtn(filter === "stock")} onClick={() => setFilter("stock")}>En Stock</button>
           <button style={S.filterBtn(filter === "pedido")} onClick={() => setFilter("pedido")}>Por Pedido</button>
         </div>
@@ -315,8 +364,8 @@ export default function App() {
           <div style={S.modalBox} onClick={e => e.stopPropagation()}>
             <button onClick={() => setSelectedProduct(null)} style={{ position: "absolute", top: "12px", right: "16px", background: "none", border: "none", color: "#fff", fontSize: "24px", cursor: "pointer" }}>x</button>
             <img src={getProductImage(selectedProduct)} alt={getProductName(selectedProduct)} style={S.modalImg} />
-            <h2 style={{ marginTop: 0, marginBottom: "8px" }}>{getProductName(selectedProduct)}</h2>
-            <div style={{ fontSize: "28px", fontWeight: "900", color: "#ff6600", marginBottom: "12px" }}>{formatPrice(getProductPrice(selectedProduct))}</div>
+            <h2 style={{ marginTop: 0, marginBottom: "8px", fontFamily: "'Playfair Display', serif" }}>{getProductName(selectedProduct)}</h2>
+            <div style={{ fontSize: "28px", fontWeight: "900", color: "#d4af37", marginBottom: "12px" }}>{formatPrice(getProductPrice(selectedProduct))}</div>
             {getProductDisp(selectedProduct) === "stock"
               ? <span style={S.badgeStock}>En Stock - Disponible ahora</span>
               : <span style={S.badgePedido}>Por Pedido: {getProductDias(selectedProduct)} dias habiles</span>
@@ -341,7 +390,7 @@ export default function App() {
                   <img src={getProductImage(item)} alt={getProductName(item)} style={{ width: "60px", height: "60px", objectFit: "contain", background: "#fff", borderRadius: "6px" }} />
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: "bold", fontSize: "14px" }}>{getProductName(item)}</div>
-                    <div style={{ color: "#ff6600" }}>{formatPrice(getProductPrice(item))} x{item.qty}</div>
+                    <div style={{ color: "#d4af37" }}>{formatPrice(getProductPrice(item))} x{item.qty}</div>
                   </div>
                   <button onClick={() => removeFromCart(item.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "4px 10px", borderRadius: "4px", cursor: "pointer" }}>x</button>
                 </div>
