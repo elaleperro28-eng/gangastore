@@ -16,6 +16,14 @@ const db = getFirestore(app);
 
 const ADMIN_PASSWORD = "ganga2024";
 const IMGUR_CLIENT_ID = "546c25a59c58ad7";
+const shuffleArray = (arr) => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+};
 
 export default function App() {
   const [page, setPage] = useState(() => {
@@ -24,6 +32,7 @@ export default function App() {
     return "home";
   });
   const [products, setProducts] = useState([]);
+    const [tickerProducts, setTickerProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
   const [adminPass, setAdminPass] = useState("");
@@ -51,6 +60,12 @@ export default function App() {
     });
     return () => unsub();
   }, []);
+
+    useEffect(() => {
+        if (products.length > 0) {
+            setTickerProducts(shuffleArray(products));
+        }
+    }, [products.length]);
 
   useEffect(() => {
     const handlePop = () => {
@@ -174,7 +189,13 @@ export default function App() {
     heroSub: { fontSize: "17px", color: "#cbb98f", margin: "0 0 8px", maxWidth: "560px", marginLeft: "auto", marginRight: "auto", lineHeight: "1.6" },
     section: { padding: "40px 20px", maxWidth: "1200px", margin: "0 auto" },
     sectionTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "24px", borderBottom: "2px solid #d4af37", paddingBottom: "8px", fontFamily: "'Playfair Display', serif" },
-    filterBar: { display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap" },
+    filterBar: { display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap", justifyContent: "center" },
+    tickerSection: { padding: "26px 0", background: "#100d0a", borderTop: "1px solid #2a2113", borderBottom: "1px solid #2a2113", overflow: "hidden" },
+    tickerTrack: { display: "flex", gap: "24px", width: "max-content", animation: "gangaTicker 30s linear infinite" },
+    tickerItem: { display: "flex", alignItems: "center", gap: "12px", background: "#1b1712", border: "1px solid #3a3020", borderRadius: "10px", padding: "10px 18px", minWidth: "220px" },
+    tickerImg: { width: "48px", height: "48px", objectFit: "contain", background: "#fff", borderRadius: "6px", flexShrink: 0 },
+    tickerName: { fontSize: "13px", fontWeight: "600", color: "#f2ede0", whiteSpace: "nowrap" },
+    tickerPrice: { fontSize: "13px", fontWeight: "800", color: "#d4af37", whiteSpace: "nowrap" },
     filterBtn: (a) => ({ background: a ? "linear-gradient(135deg, #e3c565, #b8912f)" : "#1b1712", color: a ? "#1a1305" : "#e8ddc4", border: a ? "none" : "1px solid #3a3020", padding: "8px 20px", borderRadius: "20px", cursor: "pointer", fontWeight: "600" }),
     grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "22px" },
     card: { background: "#15120d", borderRadius: "12px", overflow: "hidden", border: "1px solid #2e2618", cursor: "pointer" },
@@ -296,7 +317,21 @@ export default function App() {
       <div style={S.hero}>
         <div style={S.heroTag}>Perfumeria Selecta</div>
         <h1 style={S.heroTitle}>Bienvenido a <span style={{ color: "#d4af37" }}>GangaStore</span></h1>
-        <p style={S.heroSub}>Perfumes arabes, de disenador y Natura originales. Tecnologia selecta disponible por pedido.</p>
+        <p style={S.heroSub}>Perfumes árabes, de diseñador y Natura originales, con ofertas exclusivas y precios increíbles todos los días.</p>
+      </div>
+      <div style={S.tickerSection}>
+        <style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } }`}</style>
+      <div style={S.tickerTrack}>
+        {[...tickerProducts, ...tickerProducts].map((p, i) => (
+      <div key={i} style={S.tickerItem}>
+      <img src={getProductImage(p)} alt={getProductName(p)} style={S.tickerImg} onError={(e) => { e.target.src = "https://placehold.co/80x80?text=Foto"; }} />
+      <div>
+      <div style={S.tickerName}>{getProductName(p)}</div>
+      <div style={S.tickerPrice}>{formatPrice(getProductPrice(p))}</div>
+      </div>
+      </div>
+      ))}
+      </div>
       </div>
       <div style={S.section}>
         <div style={S.sectionTitle}>Productos Disponibles</div>
