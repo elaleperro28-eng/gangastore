@@ -191,7 +191,7 @@ export default function App() {
     sectionTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "24px", borderBottom: "2px solid #d4af37", paddingBottom: "8px", fontFamily: "'Playfair Display', serif" },
     filterBar: { display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap", justifyContent: "center" },
     tickerSection: { padding: "26px 0", background: "#100d0a", borderTop: "1px solid #2a2113", borderBottom: "1px solid #2a2113", overflow: "hidden" },
-    tickerTrack: { display: "flex", gap: "24px", width: "max-content", animation: "gangaTicker 120s linear infinite" },
+    tickerTrack: { display: "flex", gap: "48px", width: "max-content", animation: "gangaTicker 120s linear infinite" },
     tickerItem: { display: "flex", alignItems: "center", gap: "28px", background: "#1b1712", border: "1px solid #3a3020", borderRadius: "24px", padding: "28px 44px", minWidth: "560px" },
     tickerImg: { width: "152px", height: "152px", objectFit: "contain", background: "#fff", borderRadius: "16px", flexShrink: 0 },
     tickerName: { fontSize: "34px", fontWeight: "600", color: "#f2ede0", whiteSpace: "nowrap" },
