@@ -315,11 +315,12 @@ export default function App() {
         <button onClick={() => setShowCart(true)} style={S.btn}>Carrito ({cart.length})</button>
       </div>
       <div style={S.hero}>
-        <div style={S.heroTag}>Perfumeria Selecta</div>
-        <h1 style={S.heroTitle}>Bienvenido a <span style={{ color: "#d4af37" }}>GangaStore</span></h1>
+        <div style={S.heroTag}>La casa del perfume árabe y de diseñador</div>
+        <h1 style={S.heroTitle}>Ganga<span style={{ color: "#d4af37" }}>Store</span></h1>
+        <p style={S.heroSub}>Más de 300 fragancias originales · Envío gratis en Bahía Blanca · Envíos a todo Argentina</p>
 </div>
       <div style={S.tickerSection}>
-        <style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } } .product-card { transition: transform 0.25s ease, box-shadow 0.25s ease; } .product-card:hover { transform: translateY(-6px); box-shadow: 0 14px 28px rgba(212,175,55,0.18); }`}</style>
+        <style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } } @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } } .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; animation: fadeInUp 0.6s ease both; } .product-card:hover, .product-card:active { transform: translateY(-6px); box-shadow: 0 14px 28px rgba(212,175,55,0.18); }`}</style>
       <div style={S.tickerTrack}>
         {[...tickerProducts, ...tickerProducts].map((p, i) => (
       <div key={i} style={S.tickerItem}>
@@ -372,6 +373,7 @@ export default function App() {
             }
             {selectedProduct.descripcion && <p style={{ color: "#bdbdbd", marginTop: "14px", lineHeight: "1.6" }}>{selectedProduct.descripcion}</p>}
             <button style={{ ...S.btn, width: "100%", padding: "13px", marginTop: "20px", fontSize: "16px" }} onClick={() => { addToCart(selectedProduct); setSelectedProduct(null); }}>Agregar al Carrito</button>
+            <a href={`https://wa.me/2914261941?text=${encodeURIComponent("Hola! Quiero consultar sobre: " + getProductName(selectedProduct))}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "13px", marginTop: "10px", fontSize: "15px", fontWeight: "700", borderRadius: "10px", background: "#25D366", color: "#fff", textDecoration: "none" }}>💬 Consultar por WhatsApp</a>
           </div>
         </div>
       )}
