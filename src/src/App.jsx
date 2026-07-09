@@ -173,6 +173,7 @@ export default function App() {
     if (filter === "stock") return getProductDisp(p) === "stock";
     if (filter === "pedido") return getProductDisp(p) === "pedido";
     if (filter === "perfumes") return isPerfume(p);
+    if (filter === "gangatech") return !isPerfume(p);
     return true;
   });
   const S = {
@@ -191,11 +192,8 @@ export default function App() {
     sectionTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "24px", borderBottom: "2px solid #d4af37", paddingBottom: "8px", fontFamily: "'Playfair Display', serif" },
     filterBar: { display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap", justifyContent: "center" },
     tickerSection: { padding: "40px 0", background: "#0f0f0f", borderTop: "1px solid #2b2b2b", borderBottom: "1px solid #2b2b2b", overflow: "hidden" },
-    tickerTrack: { display: "flex", gap: "72px", width: "max-content", animation: "gangaTicker 480s linear infinite" },
-    tickerItem: { display: "flex", alignItems: "center", gap: "42px", background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "12px", padding: "42px 66px", minWidth: "840px" },
-    tickerImg: { width: "228px", height: "228px", objectFit: "contain", background: "#fff", borderRadius: "8px", flexShrink: 0 },
-    tickerName: { fontSize: "51px", fontWeight: "600", color: "#ffffff", whiteSpace: "nowrap" },
-    tickerPrice: { fontSize: "54px", fontWeight: "800", color: "#d4af37", whiteSpace: "nowrap" },
+    tickerTrack: { display: "flex", gap: "30px", width: "max-content", animation: "gangaTicker 90s linear infinite" },
+    tickerItem: { background: "#1a1a1a", borderRadius: "12px", overflow: "hidden", border: "1px solid #2b2b2b", width: "220px", flexShrink: 0, cursor: "pointer" },
     filterBtn: (a) => ({ background: a ? "linear-gradient(135deg, #d4af37, #a8842c)" : "#1a1a1a", color: a ? "#000000" : "#ffffff", border: a ? "none" : "1px solid #2b2b2b", padding: "8px 20px", borderRadius: "20px", cursor: "pointer", fontWeight: "600" }),
     grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "30px" },
     card: { background: "#1a1a1a", borderRadius: "12px", overflow: "hidden", border: "1px solid #2b2b2b", cursor: "pointer" },
@@ -323,11 +321,17 @@ export default function App() {
         <style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } } @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } } .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; animation: fadeInUp 0.6s ease both; } .product-card:hover, .product-card:active { transform: translateY(-6px); box-shadow: 0 14px 28px rgba(212,175,55,0.18); }`}</style>
       <div style={S.tickerTrack}>
         {[...tickerProducts, ...tickerProducts].map((p, i) => (
-      <div key={i} style={S.tickerItem}>
-      <img src={getProductImage(p)} alt={getProductName(p)} style={S.tickerImg} onError={(e) => { e.target.src = "https://placehold.co/80x80?text=Foto"; }} />
-      <div>
-      <div style={S.tickerName}>{getProductName(p)}</div>
-      <div style={S.tickerPrice}>{formatPrice(getProductPrice(p))}</div>
+      <div key={i} className="product-card" style={S.tickerItem} onClick={() => setSelectedProduct(p)}>
+      <img src={getProductImage(p)} alt={getProductName(p)} style={S.cardImg} onError={(e) => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+      <div style={S.cardBody}>
+      <div style={S.cardName}>{getProductName(p)}</div>
+      <div style={S.cardPrice}>{formatPrice(getProductPrice(p))}</div>
+      {getProductDisp(p) === "stock"
+        ? <span style={S.badgeStock}>En Stock</span>
+        : <span style={S.badgePedido}>Por Pedido: {getProductDias(p)} dias hab.</span>
+      }
+      <br />
+      <button style={{ ...S.btn, width: "100%", marginTop: "10px" }} onClick={e => { e.stopPropagation(); addToCart(p); }}>Agregar al Carrito</button>
       </div>
       </div>
       ))}
@@ -340,6 +344,7 @@ export default function App() {
           <button style={S.filterBtn(filter === "perfumes")} onClick={() => setFilter("perfumes")}>Perfumes</button>
           <button style={S.filterBtn(filter === "stock")} onClick={() => setFilter("stock")}>En Stock</button>
           <button style={S.filterBtn(filter === "pedido")} onClick={() => setFilter("pedido")}>Por Pedido</button>
+          <button style={S.filterBtn(filter === "gangatech")} onClick={() => setFilter("gangatech")}>Ganga Tech</button>
         </div>
         <div style={S.grid}>
           {filteredProducts.map(product => (
