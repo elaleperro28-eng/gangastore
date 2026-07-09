@@ -299,8 +299,7 @@ export default function App() {
   const S = {
     body: { margin: 0, fontFamily: "'Inter', 'Segoe UI', sans-serif", background: "#0f0f0f", color: "#ffffff", minHeight: "100vh" },
     nav: { position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 28px", background: "#0f0f0f", borderBottom: "1px solid #2b2b2b", color: "#ffffff" },
-    logo: { fontSize: "22px", fontWeight: "700", letterSpacing: "2px", fontFamily: "'Playfair Display', serif", cursor: "pointer" },
-    logoSpan: { color: "#d4af37" },
+    logo: { fontSize: "clamp(28px,5vw,52px)", fontWeight: "700", fontFamily: "'Playfair Display', serif", color: "#d4af37", cursor: "pointer" },
     btn: { background: "linear-gradient(135deg, #d4af37, #a8842c)", color: "#000000", border: "none", padding: "10px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "700" },
     btnOutline: { background: "transparent", color: "#d4af37", border: "1px solid #d4af37", padding: "10px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "600" },
     btnGray: { background: "#2b2b2b", color: "#fff", border: "none", padding: "10px 18px", borderRadius: "6px", cursor: "pointer" },
@@ -374,7 +373,7 @@ export default function App() {
     return (
       <div style={S.body}>
         <div style={S.nav}>
-          <div style={S.logo} onClick={() => { setPage("home"); window.history.pushState({}, "", "/"); }}><span style={S.logoSpan}>GANGA</span>STORE</div>
+          <div style={S.logo} onClick={() => { setPage("home"); window.history.pushState({}, "", "/"); }}>GangaStore</div>
           <div style={{ display: "flex", gap: "10px" }}>
             <button onClick={() => { setPage("home"); window.history.pushState({}, "", "/"); }} style={S.btnOutline}>Ver Tienda</button>
             <button onClick={() => { setIsAdmin(false); setPage("adminLogin"); }} style={S.btnGray}>Cerrar Sesion</button>
@@ -521,7 +520,7 @@ export default function App() {
   return (
     <div style={S.body}>
       <div style={S.nav}>
-        <div style={S.logo}><span style={S.logoSpan}>GANGA</span>STORE</div>
+        <div style={S.logo}>GangaStore</div>
         <div style={S.navPromo}><span style={{ color: "#d4af37" }}>PERFUMES ORIGINALES</span> / <span style={{ color: "#ffffff" }}>APROVECHA CODIGO PROMOCIONAL</span></div>
         <button onClick={() => setShowCart(true)} style={S.navCartBtn}>Carrito ({cart.length})</button>
       </div>
