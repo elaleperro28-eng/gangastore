@@ -518,9 +518,6 @@ export default function App() {
   }
   return (
     <div style={S.body}>
-      <div style={{ textAlign: "center", padding: "24px 16px 4px" }}>
-        <h1 style={{ ...S.heroTitle, margin: 0 }}>GangaStore</h1>
-      </div>
       <div style={S.nav}>
         <div style={S.navPromo}><span style={{ color: "#d4af37" }}>PERFUMES ORIGINALES</span> / <span style={{ color: "#ffffff" }}>APROVECHA CODIGO PROMOCIONAL</span></div>
         <button onClick={() => setShowCart(true)} style={S.navCartBtn}>Carrito ({cart.length})</button>
