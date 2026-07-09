@@ -42,6 +42,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantChat, setAssistantChat] = useState([{ from: "bot", text: "Hola! Soy el asistente virtual de GangaStore. Elegi una opcion para que te ayude:" }]);
+  const [promoCode, setPromoCode] = useState("");
   const [form, setForm] = useState({
     nombre: "",
     precio: "",
@@ -439,7 +440,8 @@ export default function App() {
               ))}
               <div style={{ borderTop: "1px solid #2b2b2b", paddingTop: "16px", marginTop: "16px" }}>
                 <div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(totalCart)}</div>
-                <a href={`https://wa.me/2914261941?text=Hola!%20Quiero%20pedir:%20${cart.map(i => getProductName(i) + "%20x" + i.qty).join("%2C%20")}`} target="_blank" rel="noreferrer" style={{ ...S.btn, display: "block", textAlign: "center", textDecoration: "none", padding: "12px" }}>
+                <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Codigo promocional (opcional)" style={{ width: "100%", padding: "10px", marginBottom: "12px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", fontSize: "14px", boxSizing: "border-box" }} />
+                <a href={`https://wa.me/2914261941?text=Hola!%20Quiero%20pedir:%20${cart.map(i => getProductName(i) + "%20x" + i.qty).join("%2C%20")}${promoCode ? ("%20-%20Codigo%20promocional:%20" + encodeURIComponent(promoCode)) : ""}`} target="_blank" rel="noreferrer" style={{ ...S.btn, display: "block", textAlign: "center", textDecoration: "none", padding: "12px" }}>
                   Pedir por WhatsApp
                 </a>
               </div>
