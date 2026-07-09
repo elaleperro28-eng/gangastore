@@ -177,6 +177,7 @@ export default function App() {
     { q: "Envios", a: "Hacemos envio gratis dentro de Bahia Blanca. Tambien enviamos a todo el pais, coordinando el costo por WhatsApp." },
     { q: "Formas de pago", a: "Coordinamos la forma de pago (efectivo, transferencia, etc.) directamente por WhatsApp para confirmarte todas las opciones disponibles." },
     { q: "Stock y por pedido", a: "Los productos 'En Stock' se entregan de inmediato. Los que dicen 'Por Pedido' muestran en su tarjeta cuantos dias habiles tardan en llegar." },
+    { q: "No encuentro lo que busco", a: "No hay problema! Si no encontras el producto que buscas, sea perfumeria, tecnologia o cualquier otra cosa, escribinos por WhatsApp contandonos que necesitas y te ayudamos a conseguirlo o pedirlo especialmente para vos." },
   ];
   const askAssistant = (faq) => {
     setAssistantChat(prev => [...prev, { from: "user", text: faq.q }, { from: "bot", text: faq.a }]);
