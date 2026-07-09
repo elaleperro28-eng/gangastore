@@ -39,6 +39,7 @@ export default function App() {
   const [adminError, setAdminError] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
   const [filter, setFilter] = useState("todos");
+  const [searchQuery, setSearchQuery] = useState("");
   const [form, setForm] = useState({
     nombre: "",
     precio: "",
@@ -170,6 +171,12 @@ export default function App() {
   };
 
   const filteredProducts = products.filter(p => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      const nameMatch = getProductName(p).toLowerCase().includes(q);
+      const descMatch = (p.descripcion || "").toLowerCase().includes(q);
+      if (!nameMatch && !descMatch) return false;
+    }
     if (filter === "stock") return getProductDisp(p) === "stock";
     if (filter === "pedido") return getProductDisp(p) === "pedido";
     if (filter === "perfumes") return isPerfume(p);
@@ -191,6 +198,9 @@ export default function App() {
     section: { padding: "70px 20px", maxWidth: "1200px", margin: "0 auto" },
     sectionTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "24px", borderBottom: "2px solid #d4af37", paddingBottom: "8px", fontFamily: "'Playfair Display', serif" },
     filterBar: { display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap", justifyContent: "center" },
+    searchWrap: { position: "relative", maxWidth: "420px", margin: "0 auto 20px" },
+    searchIcon: { position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)", fontSize: "15px", opacity: 0.6, pointerEvents: "none" },
+    searchInput: { width: "100%", padding: "12px 16px 12px 42px", background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "24px", color: "#ffffff", fontSize: "14px", boxSizing: "border-box", outline: "none" },
     tickerSection: { padding: "40px 0", background: "#0f0f0f", borderTop: "1px solid #2b2b2b", borderBottom: "1px solid #2b2b2b", overflow: "hidden" },
     tickerTrack: { display: "flex", gap: "30px", width: "max-content", animation: "gangaTicker 90s linear infinite" },
     tickerItem: { background: "#1a1a1a", borderRadius: "12px", overflow: "hidden", border: "1px solid #2b2b2b", width: "220px", flexShrink: 0, cursor: "pointer" },
@@ -339,6 +349,10 @@ export default function App() {
       </div>
       <div style={S.section}>
         <div style={S.sectionTitle}>Productos Disponibles</div>
+        <div style={S.searchWrap}>
+          <span style={S.searchIcon}></span>
+          <input type="text" placeholder="Buscar producto por nombre..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={S.searchInput} />
+        </div>
         <div style={S.filterBar}>
           <button style={S.filterBtn(filter === "todos")} onClick={() => setFilter("todos")}>Todos</button>
           <button style={S.filterBtn(filter === "perfumes")} onClick={() => setFilter("perfumes")}>Perfumes</button>
