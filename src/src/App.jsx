@@ -48,14 +48,26 @@ export default function App() {
     precio: "",
     descripcion: "",
     imageUrl: "",
+    foto2: "",
+    foto3: "",
+    fotoMano: "",
+    fotoCaja: "",
+    videoUrl: "",
     disponibilidad: "stock",
     diasHabiles: "3",
     categoria: "perfume"
   });
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState("");
+  const [uploadingField, setUploadingField] = useState(null);
   const fileInputRef = useRef(null);
+  const foto2Ref = useRef(null);
+  const foto3Ref = useRef(null);
+  const fotoManoRef = useRef(null);
+  const fotoCajaRef = useRef(null);
+  const videoRef = useRef(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [modalActiveImg, setModalActiveImg] = useState(null);
 
   useEffect(() => {
     const q = query(collection(db, "productos"), orderBy("createdAt", "desc"));
@@ -84,6 +96,10 @@ export default function App() {
     return () => window.removeEventListener("popstate", handlePop);
   }, []);
 
+  useEffect(() => {
+    setModalActiveImg(null);
+  }, [selectedProduct]);
+
   const handleAdminLogin = () => {
     if (adminPass === ADMIN_PASSWORD) {
       setIsAdmin(true);
@@ -94,10 +110,11 @@ export default function App() {
     }
   };
 
-  const handleImageUpload = async (file) => {
+  const handleImageUpload = async (file, field = "imageUrl") => {
     if (!file) return;
     setUploading(true);
-    setUploadMsg("Subiendo imagen...");
+    setUploadingField(field);
+    setUploadMsg("Subiendo archivo...");
     const formData = new FormData();
     formData.append("image", file);
     try {
@@ -108,15 +125,16 @@ export default function App() {
       });
       const data = await res.json();
       if (data.success) {
-        setForm(f => ({ ...f, imageUrl: data.data.link }));
-        setUploadMsg("Imagen subida correctamente");
+        setForm(f => ({ ...f, [field]: data.data.link }));
+        setUploadMsg("Archivo subido correctamente");
       } else {
-        setUploadMsg("Error al subir imagen");
+        setUploadMsg("Error al subir archivo");
       }
     } catch {
       setUploadMsg("Error de conexion");
     }
     setUploading(false);
+    setUploadingField(null);
   };
 
   const handleAddProduct = async () => {
@@ -128,14 +146,24 @@ export default function App() {
       precio: Number(form.precio),
       descripcion: form.descripcion,
       imageUrl: form.imageUrl,
+      foto2: form.foto2 || null,
+      foto3: form.foto3 || null,
+      fotoMano: form.fotoMano || null,
+      fotoCaja: form.fotoCaja || null,
+      videoUrl: form.videoUrl || null,
       disponibilidad: form.disponibilidad,
       diasHabiles: form.disponibilidad === "pedido" ? form.diasHabiles : null,
       categoria: form.categoria,
       createdAt: serverTimestamp()
     });
-    setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume" });
+    setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume" });
     setUploadMsg("");
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (foto2Ref.current) foto2Ref.current.value = "";
+    if (foto3Ref.current) foto3Ref.current.value = "";
+    if (fotoManoRef.current) fotoManoRef.current.value = "";
+    if (fotoCajaRef.current) fotoCajaRef.current.value = "";
+    if (videoRef.current) videoRef.current.value = "";
     alert("Producto agregado exitosamente");
   };
 
@@ -305,16 +333,55 @@ export default function App() {
                 </select>
               </>
             )}
-            <label style={S.label}>Imagen del Producto *</label>
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={e => handleImageUpload(e.target.files[0])} style={{ ...S.input, padding: "8px" }} />
-            {uploading && <p style={{ color: "#d4af37" }}>Subiendo imagen...</p>}
-            {uploadMsg && !uploading && <p style={{ color: uploadMsg.includes("Error") ? "#ff4444" : "#d4af37" }}>{uploadMsg}</p>}
+            <label style={S.label}>Foto 1 (principal) *</label>
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={e => handleImageUpload(e.target.files[0], "imageUrl")} style={{ ...S.input, padding: "8px", marginBottom: "8px" }} />
+            {uploadingField === "imageUrl" && <p style={{ color: "#d4af37" }}>Subiendo...</p>}
             {form.imageUrl && (
               <div style={{ marginBottom: "16px" }}>
-                <p style={{ color: "#d4af37", marginBottom: "8px" }}>Vista previa:</p>
-                <img src={form.imageUrl} alt="preview" style={{ width: "100%", maxHeight: "200px", objectFit: "contain", background: "#fff", borderRadius: "8px" }} />
+                <img src={form.imageUrl} alt="preview" style={{ width: "100%", maxHeight: "160px", objectFit: "contain", background: "#fff", borderRadius: "8px" }} />
               </div>
             )}
+            <label style={S.label}>Foto 2</label>
+            <input ref={foto2Ref} type="file" accept="image/*" onChange={e => handleImageUpload(e.target.files[0], "foto2")} style={{ ...S.input, padding: "8px", marginBottom: "8px" }} />
+            {uploadingField === "foto2" && <p style={{ color: "#d4af37" }}>Subiendo...</p>}
+            {form.foto2 && (
+              <div style={{ marginBottom: "16px" }}>
+                <img src={form.foto2} alt="preview" style={{ width: "100%", maxHeight: "160px", objectFit: "contain", background: "#fff", borderRadius: "8px" }} />
+              </div>
+            )}
+            <label style={S.label}>Foto 3</label>
+            <input ref={foto3Ref} type="file" accept="image/*" onChange={e => handleImageUpload(e.target.files[0], "foto3")} style={{ ...S.input, padding: "8px", marginBottom: "8px" }} />
+            {uploadingField === "foto3" && <p style={{ color: "#d4af37" }}>Subiendo...</p>}
+            {form.foto3 && (
+              <div style={{ marginBottom: "16px" }}>
+                <img src={form.foto3} alt="preview" style={{ width: "100%", maxHeight: "160px", objectFit: "contain", background: "#fff", borderRadius: "8px" }} />
+              </div>
+            )}
+            <label style={S.label}>Foto en la mano</label>
+            <input ref={fotoManoRef} type="file" accept="image/*" onChange={e => handleImageUpload(e.target.files[0], "fotoMano")} style={{ ...S.input, padding: "8px", marginBottom: "8px" }} />
+            {uploadingField === "fotoMano" && <p style={{ color: "#d4af37" }}>Subiendo...</p>}
+            {form.fotoMano && (
+              <div style={{ marginBottom: "16px" }}>
+                <img src={form.fotoMano} alt="preview" style={{ width: "100%", maxHeight: "160px", objectFit: "contain", background: "#fff", borderRadius: "8px" }} />
+              </div>
+            )}
+            <label style={S.label}>Foto con caja</label>
+            <input ref={fotoCajaRef} type="file" accept="image/*" onChange={e => handleImageUpload(e.target.files[0], "fotoCaja")} style={{ ...S.input, padding: "8px", marginBottom: "8px" }} />
+            {uploadingField === "fotoCaja" && <p style={{ color: "#d4af37" }}>Subiendo...</p>}
+            {form.fotoCaja && (
+              <div style={{ marginBottom: "16px" }}>
+                <img src={form.fotoCaja} alt="preview" style={{ width: "100%", maxHeight: "160px", objectFit: "contain", background: "#fff", borderRadius: "8px" }} />
+              </div>
+            )}
+            <label style={S.label}>Video (15 segundos aprox.)</label>
+            <input ref={videoRef} type="file" accept="video/*" onChange={e => handleImageUpload(e.target.files[0], "videoUrl")} style={{ ...S.input, padding: "8px", marginBottom: "8px" }} />
+            {uploadingField === "videoUrl" && <p style={{ color: "#d4af37" }}>Subiendo video...</p>}
+            {form.videoUrl && (
+              <div style={{ marginBottom: "16px" }}>
+                <video src={form.videoUrl} controls style={{ width: "100%", maxHeight: "200px", borderRadius: "8px", background: "#000" }} />
+              </div>
+            )}
+            {uploadMsg && !uploadingField && <p style={{ color: uploadMsg.includes("Error") ? "#ff4444" : "#d4af37" }}>{uploadMsg}</p>}
             <button onClick={handleAddProduct} disabled={uploading} style={{ ...S.btn, width: "100%", padding: "12px", opacity: uploading ? 0.6 : 1 }}>Agregar Producto</button>
           </div>
           <h3 style={{ marginTop: "36px", marginBottom: "16px" }}>Productos Existentes ({products.length})</h3>
@@ -407,7 +474,17 @@ export default function App() {
         <div style={S.modal} onClick={() => setSelectedProduct(null)}>
           <div style={S.modalBox} onClick={e => e.stopPropagation()}>
             <button onClick={() => setSelectedProduct(null)} style={{ position: "absolute", top: "12px", right: "16px", background: "none", border: "none", color: "#fff", fontSize: "24px", cursor: "pointer" }}>x</button>
-            <img src={getProductImage(selectedProduct)} alt={getProductName(selectedProduct)} style={S.modalImg} />
+            <img src={modalActiveImg || getProductImage(selectedProduct)} alt={getProductName(selectedProduct)} style={S.modalImg} />
+            {[selectedProduct.imageUrl, selectedProduct.foto2, selectedProduct.foto3, selectedProduct.fotoMano, selectedProduct.fotoCaja].filter(Boolean).length > 1 && (
+              <div style={{ display: "flex", gap: "8px", marginBottom: "16px", overflowX: "auto" }}>
+                {[selectedProduct.imageUrl, selectedProduct.foto2, selectedProduct.foto3, selectedProduct.fotoMano, selectedProduct.fotoCaja].filter(Boolean).map((src, i) => (
+                  <img key={i} src={src} onClick={() => setModalActiveImg(src)} style={{ width: "56px", height: "56px", objectFit: "cover", borderRadius: "6px", cursor: "pointer", border: (modalActiveImg || getProductImage(selectedProduct)) === src ? "2px solid #d4af37" : "2px solid transparent", flexShrink: 0, background: "#fff" }} />
+                ))}
+              </div>
+            )}
+            {selectedProduct.videoUrl && (
+              <video src={selectedProduct.videoUrl} controls style={{ width: "100%", borderRadius: "10px", marginBottom: "16px", background: "#000" }} />
+            )}
             <h2 style={{ marginTop: 0, marginBottom: "8px", fontFamily: "'Playfair Display', serif" }}>{getProductName(selectedProduct)}</h2>
             <div style={{ fontSize: "28px", fontWeight: "900", color: "#d4af37", marginBottom: "12px" }}>{formatPrice(getProductPrice(selectedProduct))}</div>
             {getProductDisp(selectedProduct) === "stock"
