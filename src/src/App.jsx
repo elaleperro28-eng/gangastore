@@ -198,17 +198,17 @@ export default function App() {
     body: { margin: 0, fontFamily: "'Inter', 'Segoe UI', sans-serif", background: "#0f0f0f", color: "#ffffff", minHeight: "100vh" },
     nav: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 28px", background: "#0f0f0f", borderBottom: "1px solid #2b2b2b", color: "#ffffff" },
     logo: { fontSize: "22px", fontWeight: "700", letterSpacing: "2px", fontFamily: "'Playfair Display', serif", cursor: "pointer" },
-    logoSpan: { color: "#9a9a9e" },
+    logoSpan: { color: "#d4af37" },
     btn: { background: "linear-gradient(135deg, #d4af37, #a8842c)", color: "#000000", border: "none", padding: "10px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "700" },
     btnOutline: { background: "transparent", color: "#d4af37", border: "1px solid #d4af37", padding: "10px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "600" },
     btnGray: { background: "#2b2b2b", color: "#fff", border: "none", padding: "10px 18px", borderRadius: "6px", cursor: "pointer" },
     navCartBtn: { background: "linear-gradient(135deg, #9a9a9e, #6e6e73)", color: "#000000", border: "none", padding: "10px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "700" },
-    hero: { textAlign: "center", padding: "90px 20px 70px", background: "radial-gradient(circle at 25% 20%, rgba(154,154,158,0.18), transparent 55%), radial-gradient(circle at 80% 75%, rgba(154,154,158,0.12), transparent 55%), linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%)" },
-    heroTag: { fontSize: "13px", color: "#9a9a9e", letterSpacing: "4px", textTransform: "uppercase", marginBottom: "14px", fontWeight: "600" },
-    heroTitle: { fontSize: "clamp(28px,5vw,52px)", fontWeight: "700", margin: "0 16px 14px", fontFamily: "'Playfair Display', serif" },
-    heroSub: { fontSize: "17px", color: "#bdbdbd", margin: "0 0 8px", maxWidth: "560px", marginLeft: "auto", marginRight: "auto", lineHeight: "1.6" },
-    section: { padding: "70px 20px", maxWidth: "1200px", margin: "0 auto", background: "#3a3a3c", borderRadius: "20px" },
-    sectionTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "24px", borderBottom: "2px solid #d4af37", paddingBottom: "8px", fontFamily: "'Playfair Display', serif" },
+    hero: { textAlign: "center", padding: "90px 20px 70px", background: "linear-gradient(135deg, #f8f4ea 0%, #f0e6d2 100%)" },
+    heroTag: { fontSize: "13px", color: "#d4af37", letterSpacing: "4px", textTransform: "uppercase", marginBottom: "14px", fontWeight: "600" },
+    heroTitle: { fontSize: "clamp(28px,5vw,52px)", fontWeight: "700", margin: "0 16px 14px", fontFamily: "'Playfair Display', serif", color: "#d4af37" },
+    heroSub: { fontSize: "17px", color: "#d4af37", margin: "0 0 8px", maxWidth: "560px", marginLeft: "auto", marginRight: "auto", lineHeight: "1.6" },
+    section: { padding: "70px 20px", maxWidth: "1200px", margin: "0 auto", background: "#f5efe0", borderRadius: "20px" },
+    sectionTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "24px", borderBottom: "2px solid #d4af37", paddingBottom: "8px", fontFamily: "'Playfair Display', serif", color: "#1a1a1a" },
     filterBar: { display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap", justifyContent: "center" },
     searchWrap: { position: "relative", maxWidth: "420px", margin: "0 auto 20px" },
     searchIconSvg: { position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)", opacity: 0.6, pointerEvents: "none" },
@@ -344,7 +344,7 @@ export default function App() {
       </div>
       <div style={S.hero}>
         <div style={S.heroTag}>La casa del perfume árabe y de diseñador</div>
-        <h1 style={S.heroTitle}>Ganga<span style={{ color: "#9a9a9e" }}>Store</span></h1>
+        <h1 style={S.heroTitle}>Ganga<span style={{ color: "#d4af37" }}>Store</span></h1>
         <p style={S.heroSub}>Más de 300 fragancias originales · Envío gratis en Bahía Blanca · Envíos a todo Argentina</p>
 </div>
       <div style={S.tickerSection}>
