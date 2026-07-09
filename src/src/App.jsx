@@ -40,6 +40,15 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [filter, setFilter] = useState("todos");
   const [searchQuery, setSearchQuery] = useState("");
+  const [advFilterOpen, setAdvFilterOpen] = useState(false);
+  const [filterMarca, setFilterMarca] = useState("");
+  const [filterPrecioMin, setFilterPrecioMin] = useState("");
+  const [filterPrecioMax, setFilterPrecioMax] = useState("");
+  const [filterDuracion, setFilterDuracion] = useState("");
+  const [filterNotas, setFilterNotas] = useState("");
+  const [filterTemporada, setFilterTemporada] = useState("");
+  const [filterGenero, setFilterGenero] = useState("");
+  const [filterTipo, setFilterTipo] = useState("");
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantChat, setAssistantChat] = useState([{ from: "bot", text: "Hola! Soy el asistente virtual de GangaStore. Elegi una opcion para que te ayude:" }]);
   const [promoCode, setPromoCode] = useState("");
@@ -55,7 +64,15 @@ export default function App() {
     videoUrl: "",
     disponibilidad: "stock",
     diasHabiles: "3",
-    categoria: "perfume"
+    categoria: "perfume",
+    marca: "",
+    genero: "",
+    temporada: "",
+    tipoPerfume: "",
+    duracion: "",
+    notas: "",
+    inspiradoEn: "",
+    similitud: ""
   });
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState("");
@@ -154,9 +171,17 @@ export default function App() {
       disponibilidad: form.disponibilidad,
       diasHabiles: form.disponibilidad === "pedido" ? form.diasHabiles : null,
       categoria: form.categoria,
+      marca: form.marca || null,
+      genero: form.genero || null,
+      temporada: form.temporada || null,
+      tipoPerfume: form.tipoPerfume || null,
+      duracion: form.duracion || null,
+      notas: form.notas || null,
+      inspiradoEn: form.inspiradoEn || null,
+      similitud: form.similitud ? Number(form.similitud) : null,
       createdAt: serverTimestamp()
     });
-    setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume" });
+    setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "" });
     setUploadMsg("");
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (foto2Ref.current) foto2Ref.current.value = "";
@@ -222,6 +247,14 @@ export default function App() {
     if (filter === "pedido") return getProductDisp(p) === "pedido";
     if (filter === "perfumes") return isPerfume(p);
     if (filter === "gangatech") return !isPerfume(p);
+    if (filterMarca && (p.marca || "") !== filterMarca) return false;
+    if (filterDuracion && (p.duracion || "") !== filterDuracion) return false;
+    if (filterNotas.trim() && !(p.notas || "").toLowerCase().includes(filterNotas.trim().toLowerCase())) return false;
+    if (filterTemporada && (p.temporada || "") !== filterTemporada) return false;
+    if (filterGenero && (p.genero || "") !== filterGenero) return false;
+    if (filterTipo && (p.tipoPerfume || "") !== filterTipo) return false;
+    if (filterPrecioMin && getProductPrice(p) < Number(filterPrecioMin)) return false;
+    if (filterPrecioMax && getProductPrice(p) > Number(filterPrecioMax)) return false;
     return true;
   });
   const S = {
@@ -241,6 +274,12 @@ export default function App() {
     section: { padding: "70px 20px", maxWidth: "1200px", margin: "0 auto", background: "#f5efe0", borderRadius: "20px" },
     sectionTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "24px", borderBottom: "2px solid #d4af37", paddingBottom: "8px", fontFamily: "'Playfair Display', serif", color: "#1a1a1a" },
     filterBar: { display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap", justifyContent: "center" },
+    advFilterWrap: { maxWidth: "900px", margin: "0 auto 28px", textAlign: "center" },
+    advFilterToggle: { background: "transparent", border: "1px solid #d4af37", color: "#d4af37", padding: "10px 18px", borderRadius: "24px", cursor: "pointer", fontSize: "14px", fontWeight: "600" },
+    advFilterBox: { marginTop: "16px", background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "12px", padding: "20px", textAlign: "left" },
+    advFilterGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "14px" },
+    advFilterLabel: { display: "block", color: "#d4af37", fontSize: "12px", marginBottom: "4px" },
+    compareBox: { background: "#0f0f0f", border: "1px solid #d4af37", borderRadius: "12px", padding: "16px", textAlign: "center", marginTop: "14px", color: "#ffffff" },
     searchWrap: { position: "relative", maxWidth: "420px", margin: "0 auto 20px" },
     searchIconSvg: { position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)", opacity: 0.6, pointerEvents: "none" },
     searchInput: { width: "100%", padding: "12px 16px 12px 42px", background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "24px", color: "#ffffff", fontSize: "14px", boxSizing: "border-box", outline: "none" },
@@ -316,6 +355,36 @@ export default function App() {
               <option value="tecnologia">Tecnologia</option>
               <option value="otro">Otro</option>
             </select>
+            <label style={S.label}>Marca</label>
+            <input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: Lattafa, Armaf, Dior..." value={form.marca} onChange={e => setForm(f => ({ ...f, marca: e.target.value }))} />
+            <label style={S.label}>Genero</label>
+            <select style={{ ...S.select, marginBottom: "16px" }} value={form.genero} onChange={e => setForm(f => ({ ...f, genero: e.target.value }))}>
+              <option value="">Sin especificar</option>
+              <option value="masculino">Masculino</option>
+              <option value="femenino">Femenino</option>
+              <option value="unisex">Unisex</option>
+            </select>
+            <label style={S.label}>Temporada ideal</label>
+            <select style={{ ...S.select, marginBottom: "16px" }} value={form.temporada} onChange={e => setForm(f => ({ ...f, temporada: e.target.value }))}>
+              <option value="">Sin especificar</option>
+              <option value="invierno">Invierno</option>
+              <option value="verano">Verano</option>
+              <option value="todo_anio">Todo el ano</option>
+            </select>
+            <label style={S.label}>Tipo</label>
+            <select style={{ ...S.select, marginBottom: "16px" }} value={form.tipoPerfume} onChange={e => setForm(f => ({ ...f, tipoPerfume: e.target.value }))}>
+              <option value="">Sin especificar</option>
+              <option value="arabe">Arabe</option>
+              <option value="disenador">Disenador</option>
+            </select>
+            <label style={S.label}>Duracion</label>
+            <input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: 8-10 horas" value={form.duracion} onChange={e => setForm(f => ({ ...f, duracion: e.target.value }))} />
+            <label style={S.label}>Notas olfativas</label>
+            <input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: Vainilla, Ambar, Cuero" value={form.notas} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} />
+            <label style={S.label}>Se parece a / Inspirado en (opcional)</label>
+            <input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: Creed Aventus" value={form.inspiradoEn} onChange={e => setForm(f => ({ ...f, inspiradoEn: e.target.value }))} />
+            <label style={S.label}>Porcentaje de similitud (opcional)</label>
+            <input style={{ ...S.input, marginBottom: "16px" }} type="number" min="0" max="100" placeholder="Ej: 95" value={form.similitud} onChange={e => setForm(f => ({ ...f, similitud: e.target.value }))} />
             <label style={S.label}>Descripcion</label>
             <textarea style={{ ...S.input, marginBottom: "16px", minHeight: "80px", resize: "vertical" }} placeholder="Descripcion del producto..." value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
             <label style={S.label}>Disponibilidad *</label>
@@ -451,6 +520,74 @@ export default function App() {
           <button style={S.filterBtn(filter === "pedido")} onClick={() => setFilter("pedido")}>Por Pedido</button>
           <button style={S.filterBtn(filter === "gangatech")} onClick={() => setFilter("gangatech")}>Ganga Tech</button>
         </div>
+        <div style={S.advFilterWrap}>
+          <button style={S.advFilterToggle} onClick={() => setAdvFilterOpen(!advFilterOpen)}>
+            {advFilterOpen ? "Ocultar filtros" : "Encontra tu perfume ideal (filtros)"}
+          </button>
+          {advFilterOpen && (
+            <div style={S.advFilterBox}>
+              <div style={S.advFilterGrid}>
+                <div>
+                  <label style={S.advFilterLabel}>Marca</label>
+                  <select style={S.select} value={filterMarca} onChange={e => setFilterMarca(e.target.value)}>
+                    <option value="">Todas</option>
+                    {[...new Set(products.map(p => p.marca).filter(Boolean))].sort().map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={S.advFilterLabel}>Precio minimo</label>
+                  <input style={S.input} type="number" placeholder="$0" value={filterPrecioMin} onChange={e => setFilterPrecioMin(e.target.value)} />
+                </div>
+                <div>
+                  <label style={S.advFilterLabel}>Precio maximo</label>
+                  <input style={S.input} type="number" placeholder="Sin limite" value={filterPrecioMax} onChange={e => setFilterPrecioMax(e.target.value)} />
+                </div>
+                <div>
+                  <label style={S.advFilterLabel}>Duracion</label>
+                  <select style={S.select} value={filterDuracion} onChange={e => setFilterDuracion(e.target.value)}>
+                    <option value="">Todas</option>
+                    {[...new Set(products.map(p => p.duracion).filter(Boolean))].sort().map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={S.advFilterLabel}>Notas</label>
+                  <input style={S.input} type="text" placeholder="Ej: vainilla" value={filterNotas} onChange={e => setFilterNotas(e.target.value)} />
+                </div>
+                <div>
+                  <label style={S.advFilterLabel}>Temporada</label>
+                  <select style={S.select} value={filterTemporada} onChange={e => setFilterTemporada(e.target.value)}>
+                    <option value="">Todas</option>
+                    <option value="invierno">Invierno</option>
+                    <option value="verano">Verano</option>
+                    <option value="todo_anio">Todo el ano</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={S.advFilterLabel}>Genero</label>
+                  <select style={S.select} value={filterGenero} onChange={e => setFilterGenero(e.target.value)}>
+                    <option value="">Todos</option>
+                    <option value="masculino">Masculino</option>
+                    <option value="femenino">Femenino</option>
+                    <option value="unisex">Unisex</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={S.advFilterLabel}>Tipo</label>
+                  <select style={S.select} value={filterTipo} onChange={e => setFilterTipo(e.target.value)}>
+                    <option value="">Todos</option>
+                    <option value="arabe">Arabes</option>
+                    <option value="disenador">Disenador</option>
+                  </select>
+                </div>
+              </div>
+              <button style={{ ...S.btnOutline, marginTop: "14px" }} onClick={() => { setFilterMarca(""); setFilterPrecioMin(""); setFilterPrecioMax(""); setFilterDuracion(""); setFilterNotas(""); setFilterTemporada(""); setFilterGenero(""); setFilterTipo(""); }}>Limpiar filtros</button>
+            </div>
+          )}
+        </div>
         <div style={S.grid}>
           {filteredProducts.map(product => (
             <div key={product.id} className="product-card" style={S.card} onClick={() => setSelectedProduct(product)}>
@@ -492,6 +629,17 @@ export default function App() {
               : <span style={S.badgePedido}>Por Pedido: {getProductDias(selectedProduct)} dias habiles</span>
             }
             {selectedProduct.descripcion && <p style={{ color: "#bdbdbd", marginTop: "14px", lineHeight: "1.6" }}>{selectedProduct.descripcion}</p>}
+            {selectedProduct.inspiradoEn && (
+              <div style={S.compareBox}>
+                <div style={{ fontWeight: "bold", marginBottom: "6px" }}>{getProductName(selectedProduct)}</div>
+                <div style={{ color: "#d4af37", fontSize: "20px", lineHeight: "1" }}>&#8595;</div>
+                <div style={{ fontSize: "13px", color: "#bdbdbd", margin: "4px 0" }}>Se parece a / Inspirado en</div>
+                <div style={{ fontWeight: "bold", fontSize: "17px" }}>{selectedProduct.inspiradoEn}</div>
+                {selectedProduct.similitud && (
+                  <div style={{ color: "#d4af37", fontWeight: "900", fontSize: "22px", marginTop: "6px" }}>{selectedProduct.similitud}%</div>
+                )}
+              </div>
+            )}
             <button style={{ ...S.btn, width: "100%", padding: "13px", marginTop: "20px", fontSize: "16px" }} onClick={() => { addToCart(selectedProduct); setSelectedProduct(null); }}>Agregar al Carrito</button>
             <a href={`https://wa.me/2914261941?text=${encodeURIComponent("Hola! Quiero consultar sobre: " + getProductName(selectedProduct))}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "13px", marginTop: "10px", fontSize: "15px", fontWeight: "700", borderRadius: "10px", background: "#25D366", color: "#fff", textDecoration: "none" }}>💬 Consultar por WhatsApp</a>
           </div>
