@@ -373,8 +373,7 @@ export default function App() {
     return (
       <div style={S.body}>
         <div style={S.nav}>
-          <div style={S.logo} onClick={() => { setPage("home"); window.history.pushState({}, "", "/"); }}>GangaStore</div>
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div style={{ display: "flex", gap: "10px", marginLeft: "auto" }}>
             <button onClick={() => { setPage("home"); window.history.pushState({}, "", "/"); }} style={S.btnOutline}>Ver Tienda</button>
             <button onClick={() => { setIsAdmin(false); setPage("adminLogin"); }} style={S.btnGray}>Cerrar Sesion</button>
           </div>
@@ -519,14 +518,15 @@ export default function App() {
   }
   return (
     <div style={S.body}>
+      <div style={{ textAlign: "center", padding: "24px 16px 4px" }}>
+        <h1 style={{ ...S.heroTitle, margin: 0 }}>GangaStore</h1>
+      </div>
       <div style={S.nav}>
-        <div style={S.logo}>GangaStore</div>
         <div style={S.navPromo}><span style={{ color: "#d4af37" }}>PERFUMES ORIGINALES</span> / <span style={{ color: "#ffffff" }}>APROVECHA CODIGO PROMOCIONAL</span></div>
         <button onClick={() => setShowCart(true)} style={S.navCartBtn}>Carrito ({cart.length})</button>
       </div>
       <div style={S.hero}>
         <div style={S.heroTag}>La casa del perfume árabe y de diseñador</div>
-        <h1 style={S.heroTitle}>Ganga<span style={{ color: "#d4af37" }}>Store</span></h1>
         <p style={S.heroSub}>Más de 300 fragancias originales · Envío gratis en Bahía Blanca · Envíos a todo Argentina</p>
 </div>
       <div style={S.tickerSection}>
