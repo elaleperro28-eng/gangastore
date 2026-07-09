@@ -241,7 +241,7 @@ export default function App() {
     input: { width: "100%", padding: "10px 14px", background: "#1a1a1a", border: "1px solid #2b2b2b", color: "#ffffff", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box" },
     select: { width: "100%", padding: "10px 14px", background: "#1a1a1a", border: "1px solid #2b2b2b", color: "#ffffff", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box" },
     label: { display: "block", marginBottom: "6px", color: "#bdbdbd", fontSize: "14px" },
-    cartOverlay: { position: "fixed", right: 0, top: 0, bottom: 0, width: "320px", background: "#0f0f0f", borderLeft: "2px solid #d4af37", padding: "20px", overflowY: "auto", zIndex: 40 },
+    cartOverlay: { position: "fixed", right: 0, top: 0, bottom: 0, width: "320px", background: "#0f0f0f", borderLeft: "2px solid #d4af37", padding: "70px 20px 20px 20px", overflowY: "auto", zIndex: 40 },
     adminWrap: { maxWidth: "640px", margin: "40px auto", padding: "20px" },
     adminCard: { background: "#1a1a1a", borderRadius: "12px", padding: "28px", border: "1px solid #2b2b2b" },
     loginWrap: { display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0f0f0f" },
