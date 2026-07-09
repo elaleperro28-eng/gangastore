@@ -198,13 +198,14 @@ export default function App() {
   });
   const S = {
     body: { margin: 0, fontFamily: "'Inter', 'Segoe UI', sans-serif", background: "#0f0f0f", color: "#ffffff", minHeight: "100vh" },
-    nav: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 28px", background: "#0f0f0f", borderBottom: "1px solid #2b2b2b", color: "#ffffff" },
+    nav: { position: "relative", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 28px", background: "#0f0f0f", borderBottom: "1px solid #2b2b2b", color: "#ffffff" },
     logo: { fontSize: "22px", fontWeight: "700", letterSpacing: "2px", fontFamily: "'Playfair Display', serif", cursor: "pointer" },
     logoSpan: { color: "#d4af37" },
     btn: { background: "linear-gradient(135deg, #d4af37, #a8842c)", color: "#000000", border: "none", padding: "10px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "700" },
     btnOutline: { background: "transparent", color: "#d4af37", border: "1px solid #d4af37", padding: "10px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "600" },
     btnGray: { background: "#2b2b2b", color: "#fff", border: "none", padding: "10px 18px", borderRadius: "6px", cursor: "pointer" },
     navCartBtn: { position: "fixed", top: "16px", right: "24px", background: "linear-gradient(135deg, #d4af37, #a8842c)", color: "#000000", border: "none", padding: "10px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "700", zIndex: 55, boxShadow: "0 4px 14px rgba(0,0,0,0.4)" },
+    navPromo: { position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", fontFamily: "'Playfair Display', serif", fontWeight: "700", fontSize: "13px", letterSpacing: "1px", textAlign: "center", maxWidth: "55%" },
     hero: { textAlign: "center", padding: "90px 20px 70px", background: "linear-gradient(135deg, #f8f4ea 0%, #f0e6d2 100%)" },
     heroTag: { fontSize: "13px", color: "#d4af37", letterSpacing: "4px", textTransform: "uppercase", marginBottom: "14px", fontWeight: "600" },
     heroTitle: { fontSize: "clamp(28px,5vw,52px)", fontWeight: "700", margin: "0 16px 14px", fontFamily: "'Playfair Display', serif", color: "#d4af37" },
@@ -342,6 +343,7 @@ export default function App() {
     <div style={S.body}>
       <div style={S.nav}>
         <div style={S.logo}><span style={S.logoSpan}>GANGA</span>STORE</div>
+        <div style={S.navPromo}><span style={{ color: "#d4af37" }}>PERFUMES ORIGINALES</span> / <span style={{ color: "#ffffff" }}>APROVECHA CODIGO PROMOCIONAL</span></div>
         <button onClick={() => setShowCart(true)} style={S.navCartBtn}>Carrito ({cart.length})</button>
       </div>
       <div style={S.hero}>
