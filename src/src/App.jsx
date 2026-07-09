@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, query, orderBy } from "firebase/firestore";
+import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAQlmsNO4bF9SVfwrcK6_-HJ_KFrcjTINg",
@@ -52,6 +52,7 @@ export default function App() {
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantChat, setAssistantChat] = useState([{ from: "bot", text: "Hola! Soy el asistente virtual de GangaStore. Elegi una opcion para que te ayude:" }]);
   const [promoCode, setPromoCode] = useState("");
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({
     nombre: "",
     precio: "",
@@ -158,7 +159,7 @@ export default function App() {
     if (!form.nombre.trim()) return alert("Ingresa el nombre del producto");
     if (!form.precio) return alert("Ingresa el precio");
     if (!form.imageUrl) return alert("Sube una imagen primero");
-    await addDoc(collection(db, "productos"), {
+    const productData = {
       nombre: form.nombre,
       precio: Number(form.precio),
       descripcion: form.descripcion,
@@ -178,9 +179,14 @@ export default function App() {
       duracion: form.duracion || null,
       notas: form.notas || null,
       inspiradoEn: form.inspiradoEn || null,
-      similitud: form.similitud ? Number(form.similitud) : null,
-      createdAt: serverTimestamp()
-    });
+      similitud: form.similitud ? Number(form.similitud) : null
+    };
+    if (editingId) {
+      await updateDoc(doc(db, "productos", editingId), productData);
+      setEditingId(null);
+    } else {
+      await addDoc(collection(db, "productos"), { ...productData, createdAt: serverTimestamp() });
+    }
     setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "" });
     setUploadMsg("");
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -190,6 +196,39 @@ export default function App() {
     if (fotoCajaRef.current) fotoCajaRef.current.value = "";
     if (videoRef.current) videoRef.current.value = "";
     alert("Producto agregado exitosamente");
+  };
+
+  const handleEditProduct = (p) => {
+    setEditingId(p.id);
+    setForm({
+      nombre: p.nombre || "",
+      precio: p.precio || "",
+      descripcion: p.descripcion || "",
+      imageUrl: p.imageUrl || p.foto || p.image || p.img || "",
+      foto2: p.foto2 || "",
+      foto3: p.foto3 || "",
+      fotoMano: p.fotoMano || "",
+      fotoCaja: p.fotoCaja || "",
+      videoUrl: p.videoUrl || "",
+      disponibilidad: p.disponibilidad || "stock",
+      diasHabiles: p.diasHabiles || "3",
+      categoria: p.categoria || "perfume",
+      marca: p.marca || "",
+      genero: p.genero || "",
+      temporada: p.temporada || "",
+      tipoPerfume: p.tipoPerfume || "",
+      duracion: p.duracion || "",
+      notas: p.notas || "",
+      inspiradoEn: p.inspiradoEn || "",
+      similitud: p.similitud || ""
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "" });
+    setUploadMsg("");
   };
 
   const handleDeleteProduct = async (id) => {
@@ -344,7 +383,7 @@ export default function App() {
         <div style={S.adminWrap}>
           <h2 style={{ color: "#d4af37", marginBottom: "24px", fontFamily: "'Playfair Display', serif" }}>Panel de Administracion</h2>
           <div style={S.adminCard}>
-            <h3 style={{ marginTop: 0, marginBottom: "20px" }}>Agregar Nuevo Producto</h3>
+            <h3 style={{ marginTop: 0, marginBottom: "20px" }}>{editingId ? "Editar Producto" : "Agregar Nuevo Producto"}</h3>
             <label style={S.label}>Nombre del Producto *</label>
             <input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: Perfume Lattafa Khamrah" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
             <label style={S.label}>Precio (CLP) *</label>
@@ -451,7 +490,10 @@ export default function App() {
               </div>
             )}
             {uploadMsg && !uploadingField && <p style={{ color: uploadMsg.includes("Error") ? "#ff4444" : "#d4af37" }}>{uploadMsg}</p>}
-            <button onClick={handleAddProduct} disabled={uploading} style={{ ...S.btn, width: "100%", padding: "12px", opacity: uploading ? 0.6 : 1 }}>Agregar Producto</button>
+            <button onClick={handleAddProduct} disabled={uploading} style={{ ...S.btn, width: "100%", padding: "12px", opacity: uploading ? 0.6 : 1 }}>{editingId ? "Guardar Cambios" : "Agregar Producto"}</button>
+            {editingId && (
+              <button onClick={handleCancelEdit} style={{ ...S.btn, width: "100%", padding: "10px", marginTop: "8px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }}>Cancelar Edicion</button>
+            )}
           </div>
           <h3 style={{ marginTop: "36px", marginBottom: "16px" }}>Productos Existentes ({products.length})</h3>
           {products.map(p => (
@@ -468,6 +510,7 @@ export default function App() {
                   <span style={{ color: "#d4af37", fontSize: "12px", marginLeft: "10px", textTransform: "uppercase" }}>{getProductCategoria(p)}</span>
                 </div>
               </div>
+              <button onClick={() => handleEditProduct(p)} style={{ background: "#d4af37", color: "#000", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>Editar</button>
               <button onClick={() => handleDeleteProduct(p.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer" }}>Eliminar</button>
             </div>
           ))}
