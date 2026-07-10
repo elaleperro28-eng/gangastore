@@ -15,7 +15,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const ADMIN_PASSWORD = "ganga2024";
-const IMGUR_CLIENT_ID = "546c25a59c58ad7";
+const IMGUR_CLIENT_ID = "546c25a59c58ad7"; const TAG_OPTIONS = [{ key: "mas_vendidos", label: "Mas vendidos" }, { key: "novedades", label: "Novedades" }, { key: "larga_duracion", label: "Larga duracion" }, { key: "para_regalar", label: "Para regalar" }, { key: "top_invierno", label: "Top invierno" }, { key: "top_verano", label: "Top verano" }, { key: "top_oficina", label: "Top oficina" }, { key: "top_citas", label: "Top citas" }];
 const shuffleArray = (arr) => {
     const a = [...arr];
     for (let i = a.length - 1; i > 0; i--) {
@@ -73,7 +73,7 @@ export default function App() {
     duracion: "",
     notas: "",
     inspiradoEn: "",
-    similitud: ""
+    similitud: "", etiquetas: []
   });
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState("");
@@ -179,7 +179,7 @@ export default function App() {
       duracion: form.duracion || null,
       notas: form.notas || null,
       inspiradoEn: form.inspiradoEn || null,
-      similitud: form.similitud ? Number(form.similitud) : null
+      similitud: form.similitud ? Number(form.similitud) : null, etiquetas: form.etiquetas || []
     };
     if (editingId) {
       await updateDoc(doc(db, "productos", editingId), productData);
@@ -187,7 +187,7 @@ export default function App() {
     } else {
       await addDoc(collection(db, "productos"), { ...productData, createdAt: serverTimestamp() });
     }
-    setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "" });
+    setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "", etiquetas: [] });
     setUploadMsg("");
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (foto2Ref.current) foto2Ref.current.value = "";
@@ -220,14 +220,14 @@ export default function App() {
       duracion: p.duracion || "",
       notas: p.notas || "",
       inspiradoEn: p.inspiradoEn || "",
-      similitud: p.similitud || ""
+      similitud: p.similitud || "", etiquetas: p.etiquetas || []
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "" });
+    setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "", etiquetas: [] });
     setUploadMsg("");
   };
 
@@ -285,7 +285,7 @@ export default function App() {
     if (filter === "stock") return getProductDisp(p) === "stock";
     if (filter === "pedido") return getProductDisp(p) === "pedido";
     if (filter === "perfumes") return isPerfume(p);
-    if (filter === "gangatech") return !isPerfume(p);
+    if (filter === "gangatech") return !isPerfume(p); if (filter === "menos100k") return getProductPrice(p) < 100000; if (filter === "arabes") return (p.tipoPerfume || "") === "arabe"; if (filter === "disenador") return (p.tipoPerfume || "") === "disenador"; if (["mas_vendidos","novedades","larga_duracion","para_regalar","top_invierno","top_verano","top_oficina","top_citas"].includes(filter)) return (p.etiquetas || []).includes(filter);
     if (filterMarca && (p.marca || "") !== filterMarca) return false;
     if (filterDuracion && (p.duracion || "") !== filterDuracion) return false;
     if (filterNotas.trim() && !(p.notas || "").toLowerCase().includes(filterNotas.trim().toLowerCase())) return false;
@@ -421,7 +421,7 @@ export default function App() {
             <label style={S.label}>Se parece a / Inspirado en (opcional)</label>
             <input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: Creed Aventus" value={form.inspiradoEn} onChange={e => setForm(f => ({ ...f, inspiradoEn: e.target.value }))} />
             <label style={S.label}>Porcentaje de similitud (opcional)</label>
-            <input style={{ ...S.input, marginBottom: "16px" }} type="number" min="0" max="100" placeholder="Ej: 95" value={form.similitud} onChange={e => setForm(f => ({ ...f, similitud: e.target.value }))} />
+            <input style={{ ...S.input, marginBottom: "16px" }} type="number" min="0" max="100" placeholder="Ej: 95" value={form.similitud} onChange={e => setForm(f => ({ ...f, similitud: e.target.value }))} /><label style={S.label}>Etiquetas / Categorias especiales</label><div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px" }}>{TAG_OPTIONS.map(t => (<label key={t.key} style={{ display: "flex", alignItems: "center", gap: "6px", background: (form.etiquetas || []).includes(t.key) ? "#d4af37" : "#2b2b2b", color: (form.etiquetas || []).includes(t.key) ? "#000" : "#fff", padding: "6px 12px", borderRadius: "16px", fontSize: "13px", cursor: "pointer" }}><input type="checkbox" checked={(form.etiquetas || []).includes(t.key)} onChange={() => setForm(f => ({ ...f, etiquetas: (f.etiquetas || []).includes(t.key) ? f.etiquetas.filter(x => x !== t.key) : [...(f.etiquetas || []), t.key] }))} style={{ display: "none" }} />{t.label}</label>))}</div>
             <label style={S.label}>Descripcion</label>
             <textarea style={{ ...S.input, marginBottom: "16px", minHeight: "80px", resize: "vertical" }} placeholder="Descripcion del producto..." value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
             <label style={S.label}>Disponibilidad *</label>
@@ -557,7 +557,7 @@ export default function App() {
           <button style={S.filterBtn(filter === "perfumes")} onClick={() => setFilter("perfumes")}>Perfumes</button>
           <button style={S.filterBtn(filter === "stock")} onClick={() => setFilter("stock")}>En Stock</button>
           <button style={S.filterBtn(filter === "pedido")} onClick={() => setFilter("pedido")}>Por Pedido</button>
-          <button style={S.filterBtn(filter === "gangatech")} onClick={() => setFilter("gangatech")}>Ganga Tech</button>
+          <button style={S.filterBtn(filter === "gangatech")} onClick={() => setFilter("gangatech")}>Ganga Tech</button></div><div style={S.filterBar}><button style={S.filterBtn(filter === "mas_vendidos")} onClick={() => setFilter("mas_vendidos")}>Mas Vendidos</button><button style={S.filterBtn(filter === "novedades")} onClick={() => setFilter("novedades")}>Novedades</button><button style={S.filterBtn(filter === "larga_duracion")} onClick={() => setFilter("larga_duracion")}>Larga Duracion</button><button style={S.filterBtn(filter === "menos100k")} onClick={() => setFilter("menos100k")}>Menos de $100.000</button><button style={S.filterBtn(filter === "arabes")} onClick={() => setFilter("arabes")}>Perfumes Arabes</button><button style={S.filterBtn(filter === "disenador")} onClick={() => setFilter("disenador")}>Perfumes de Disenador</button><button style={S.filterBtn(filter === "para_regalar")} onClick={() => setFilter("para_regalar")}>Para Regalar</button><button style={S.filterBtn(filter === "top_invierno")} onClick={() => setFilter("top_invierno")}>Top Invierno</button><button style={S.filterBtn(filter === "top_verano")} onClick={() => setFilter("top_verano")}>Top Verano</button><button style={S.filterBtn(filter === "top_oficina")} onClick={() => setFilter("top_oficina")}>Top Oficina</button><button style={S.filterBtn(filter === "top_citas")} onClick={() => setFilter("top_citas")}>Top Citas</button>
         </div>
         <div style={S.advFilterWrap} id="advFilterSection">
           <button style={S.advFilterToggle} onClick={() => setAdvFilterOpen(!advFilterOpen)}>
