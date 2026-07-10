@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy } from "firebase/firestore";
+import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy, getDoc, setDoc } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAQlmsNO4bF9SVfwrcK6_-HJ_KFrcjTINg",
@@ -51,7 +51,7 @@ export default function App() {
   const [filterTipo, setFilterTipo] = useState("");
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantChat, setAssistantChat] = useState([{ from: "bot", text: "Hola! Soy el asistente virtual de GangaStore. Elegi una opcion para que te ayude:" }]);
-  const [promoCode, setPromoCode] = useState("");
+  const [promoCode, setPromoCode] = useState(""); const [customerPhone, setCustomerPhone] = useState(""); const [customerPoints, setCustomerPoints] = useState(null); const [pointsLoading, setPointsLoading] = useState(false); const [redeemPoints, setRedeemPoints] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({
     nombre: "",
@@ -245,7 +245,7 @@ export default function App() {
   };
 
   const removeFromCart = (id) => setCart(c => c.filter(i => i.id !== id));
-  const totalCart = cart.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
+  const totalCart = cart.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0); const sanitizePhone = (p) => (p || "").replace(/\D/g, ""); const pointsToDiscount = (pts) => Math.floor((pts || 0) / 1000) * 10000; const checkMyPoints = async () => { const phone = sanitizePhone(customerPhone); if (!phone) return alert("Ingresa tu numero de telefono"); setPointsLoading(true); try { const snap = await getDoc(doc(db, "puntosClientes", phone)); setCustomerPoints(snap.exists() ? (snap.data().puntos || 0) : 0); } catch { alert("Error al consultar tus puntos"); } setPointsLoading(false); }; const redeemableNow = redeemPoints && customerPoints ? Math.floor(customerPoints / 1000) * 1000 : 0; const discountFromPoints = pointsToDiscount(redeemableNow); const finalTotal = Math.max(totalCart - discountFromPoints, 0); const handleCheckout = async () => { const phone = sanitizePhone(customerPhone); let msg = "Hola! Quiero pedir: " + cart.map(i => getProductName(i) + " x" + i.qty).join(", "); if (promoCode) msg += " - Codigo promocional: " + promoCode; if (phone) { try { const ref = doc(db, "puntosClientes", phone); const snap = await getDoc(ref); const current = snap.exists() ? (snap.data().puntos || 0) : 0; let updated = current; if (redeemPoints && redeemableNow > 0) { updated -= redeemableNow; msg += " - Canjea " + redeemableNow + " puntos ($" + discountFromPoints.toLocaleString("es-CL") + " de descuento)"; } const earned = Math.floor(finalTotal / 1000); updated += earned; await setDoc(ref, { telefono: phone, puntos: updated }, { merge: true }); msg += " - Suma " + earned + " puntos nuevos (total: " + updated + " puntos)"; } catch {} } window.open("https://wa.me/2914261941?text=" + encodeURIComponent(msg), "_blank"); };
 
   const formatPrice = (p) => {
     const n = Number(p);
@@ -351,7 +351,7 @@ export default function App() {
     adminWrap: { maxWidth: "640px", margin: "40px auto", padding: "20px" },
     adminCard: { background: "#1a1a1a", borderRadius: "12px", padding: "28px", border: "1px solid #2b2b2b" },
     loginWrap: { display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0f0f0f" },
-    loginBox: { background: "#1a1a1a", borderRadius: "16px", padding: "40px", width: "100%", maxWidth: "400px", border: "1px solid #2b2b2b", textAlign: "center" },
+    loginBox: { background: "#1a1a1a", borderRadius: "16px", padding: "40px", width: "100%", maxWidth: "400px", border: "1px solid #2b2b2b", textAlign: "center" }, loyaltySection: { padding: "50px 20px", maxWidth: "1200px", margin: "0 auto" }, loyaltyCard: { background: "linear-gradient(135deg, #1a1a1a, #2b2b2b)", border: "1px solid #d4af37", borderRadius: "16px", padding: "36px 24px", textAlign: "center" }, loyaltyTitle: { fontFamily: "'Playfair Display', serif", color: "#d4af37", fontSize: "clamp(22px,4vw,32px)", fontWeight: "700", marginBottom: "10px" }, loyaltyGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "18px", marginTop: "24px" }, loyaltyStep: { background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "12px", padding: "18px" }, cartPointsBox: { background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "12px", marginBottom: "12px" },
   };
   if (page === "adminLogin") {
     return (
@@ -646,7 +646,7 @@ export default function App() {
           {filteredProducts.length === 0 && <p style={{ color: "#bdbdbd", gridColumn: "1/-1" }}>No hay productos en esta categoria.</p>}
         </div>
       </div>
-      {selectedProduct && (
+      <div style={S.loyaltySection} id="loyaltySection"><div style={S.loyaltyCard}><div style={S.loyaltyTitle}>Programa de Fidelizacion GangaStore</div><p style={{ color: "#fff", maxWidth: 560, margin: "0 auto" }}>Cada compra suma puntos! Por cada $100.000 de compra sumas 100 puntos, y con 1000 puntos obtenes $10.000 de descuento en tu proximo pedido.</p><div style={S.loyaltyGrid}><div style={S.loyaltyStep}><div style={{ color: "#d4af37", fontWeight: 700, marginBottom: 4 }}>1. Compra</div><div style={{ color: "#bdbdbd", fontSize: 13 }}>Comprá tus perfumes favoritos y dejanos tu telefono al pedir por WhatsApp.</div></div><div style={S.loyaltyStep}><div style={{ color: "#d4af37", fontWeight: 700, marginBottom: 4 }}>2. Suma puntos</div><div style={{ color: "#bdbdbd", fontSize: 13 }}>$100.000 de compra = 100 puntos acumulados a tu numero.</div></div><div style={S.loyaltyStep}><div style={{ color: "#d4af37", fontWeight: 700, marginBottom: 4 }}>3. Canjea</div><div style={{ color: "#bdbdbd", fontSize: 13 }}>1000 puntos = $10.000 de descuento en tu proximo pedido.</div></div></div><div style={{ marginTop: 22, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center", maxWidth: 380, marginLeft: "auto", marginRight: "auto" }}><input type="text" placeholder="Tu numero de telefono" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} style={{ ...S.input, maxWidth: 220 }} /><button style={S.btn} onClick={checkMyPoints} disabled={pointsLoading}>{pointsLoading ? "Consultando..." : "Ver mis puntos"}</button></div>{customerPoints !== null && (<p style={{ color: "#d4af37", fontWeight: 700, marginTop: 14 }}>Tenes {customerPoints} puntos = {formatPrice(pointsToDiscount(customerPoints))} de descuento disponible</p>)}</div></div>{selectedProduct && (
         <div style={S.modal} onClick={() => setSelectedProduct(null)}>
           <div style={S.modalBox} onClick={e => e.stopPropagation()}>
             <button onClick={() => setSelectedProduct(null)} style={{ position: "absolute", top: "12px", right: "16px", background: "none", border: "none", color: "#fff", fontSize: "24px", cursor: "pointer" }}>x</button>
@@ -705,11 +705,11 @@ export default function App() {
                 </div>
               ))}
               <div style={{ borderTop: "1px solid #2b2b2b", paddingTop: "16px", marginTop: "16px" }}>
-                <div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(totalCart)}</div>
+                <div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(finalTotal)}{discountFromPoints > 0 && <span style={{ color: "#d4af37", fontSize: 13, display: "block" }}>(incluye descuento de {formatPrice(discountFromPoints)} por puntos)</span>}</div><div style={S.cartPointsBox}><input type="text" placeholder="Tu telefono (para sumar/usar puntos)" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} style={{ ...S.input, marginBottom: 8 }} /><button style={{ ...S.btnOutline, width: "100%", marginBottom: 8 }} onClick={checkMyPoints} disabled={pointsLoading}>{pointsLoading ? "Consultando..." : "Consultar mis puntos"}</button>{customerPoints !== null && (<div style={{ color: "#d4af37", fontSize: 13 }}>Tenes {customerPoints} puntos ({formatPrice(pointsToDiscount(customerPoints))} disponibles){pointsToDiscount(customerPoints) > 0 && (<label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, color: "#fff" }}><input type="checkbox" checked={redeemPoints} onChange={e => setRedeemPoints(e.target.checked)} />Usar mis puntos en este pedido</label>)}</div>)}</div>
                 <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Codigo promocional (opcional)" style={{ width: "100%", padding: "10px", marginBottom: "12px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", fontSize: "14px", boxSizing: "border-box" }} />
-                <a href={`https://wa.me/2914261941?text=Hola!%20Quiero%20pedir:%20${cart.map(i => getProductName(i) + "%20x" + i.qty).join("%2C%20")}${promoCode ? ("%20-%20Codigo%20promocional:%20" + encodeURIComponent(promoCode)) : ""}`} target="_blank" rel="noreferrer" style={{ ...S.btn, display: "block", textAlign: "center", textDecoration: "none", padding: "12px" }}>
+                <button onClick={handleCheckout} style={{ ...S.btn, display: "block", width: "100%", border: "none", textAlign: "center", padding: "12px", cursor: "pointer" }}>
                   Pedir por WhatsApp
-                </a>
+                </button>
               </div>
             </>
           )}
