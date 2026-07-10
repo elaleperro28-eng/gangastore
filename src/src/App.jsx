@@ -307,7 +307,7 @@ export default function App() {
     navPromo: { position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", fontFamily: "'Playfair Display', serif", fontWeight: "700", fontSize: "13px", letterSpacing: "1px", textAlign: "center", maxWidth: "55%" },
     hero: { textAlign: "center", padding: "130px 20px 100px", backgroundImage: "linear-gradient(rgba(10,10,10,0.6), rgba(10,10,10,0.72)), url('https://images.unsplash.com/photo-1622618991746-fe6004db3a47?q=80&w=1920&auto=format&fit=crop')", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" },
     heroTag: { fontSize: "15px", color: "#ffffff", letterSpacing: "4px", textTransform: "uppercase", marginBottom: "16px", fontWeight: "700", textShadow: "0 2px 12px rgba(0,0,0,0.7)" },
-    heroTitle: { fontSize: "clamp(28px,5vw,52px)", fontWeight: "700", margin: "0 16px 14px", fontFamily: "'Playfair Display', serif", color: "#d4af37" },
+    heroMainTitle: { fontSize: "clamp(32px,6vw,58px)", fontWeight: 800, color: "#fff", textTransform: "uppercase", margin: "10px 0", lineHeight: 1.15 }, heroBtnRow: { display: "flex", gap: 14, flexWrap: "wrap", marginTop: 22 }, heroBtnPrimary: { background: "#d4af37", color: "#1a1a1a", border: "none", padding: "16px 36px", fontSize: 18, fontWeight: 800, borderRadius: 8, cursor: "pointer", textTransform: "uppercase", letterSpacing: 1 }, heroBtnSecondary: { background: "transparent", color: "#fff", border: "2px solid #fff", padding: "16px 36px", fontSize: 16, fontWeight: 700, borderRadius: 8, cursor: "pointer", textTransform: "uppercase", letterSpacing: 1 }, heroTitle: { fontSize: "clamp(28px,5vw,52px)", fontWeight: "700", margin: "0 16px 14px", fontFamily: "'Playfair Display', serif", color: "#d4af37" },
     heroSub: { fontSize: "18px", color: "#ffffff", textTransform: "uppercase", letterSpacing: "1px", margin: "0 0 8px", maxWidth: "620px", marginLeft: "auto", marginRight: "auto", lineHeight: "1.7", textShadow: "0 2px 12px rgba(0,0,0,0.7)" },
     section: { padding: "70px 20px", maxWidth: "1200px", margin: "0 auto", background: "#f5efe0", borderRadius: "20px" },
     sectionTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "24px", borderBottom: "2px solid #d4af37", paddingBottom: "8px", fontFamily: "'Playfair Display', serif", color: "#1a1a1a" },
@@ -523,8 +523,8 @@ export default function App() {
         <button onClick={() => setShowCart(true)} style={S.navCartBtn}>Carrito ({cart.length})</button>
       </div>
       <div style={S.hero}>
-        <div style={S.heroTag}>La casa del perfume árabe y de diseñador</div>
-        <p style={S.heroSub}>Más de 300 fragancias originales · Envío gratis en Bahía Blanca · Envíos a todo Argentina</p>
+        <div style={S.heroTag}>PERFUMES ORIGINALES</div>
+        <h1 style={S.heroMainTitle}>Más de 300 fragancias</h1><p style={S.heroSub}>Diseñador · Árabes · Nicho</p><p style={S.heroSub}>Envío gratis a Bahía Blanca - Envíos a todo el país</p><p style={S.heroSub}>Más de 500 clientes</p><div style={S.heroBtnRow}><button style={S.heroBtnPrimary} onClick={() => { setFilter("perfumes"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Ver Perfumes</button><button style={S.heroBtnSecondary} onClick={() => { setAdvFilterOpen(true); setTimeout(() => document.getElementById("advFilterSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Elegí según tu personalidad</button></div>
 </div>
       <div style={S.tickerSection}>
         <style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } } @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } } .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; animation: fadeInUp 0.6s ease both; } .product-card:hover, .product-card:active { transform: translateY(-6px); box-shadow: 0 14px 28px rgba(212,175,55,0.18); }`}</style>
@@ -546,7 +546,7 @@ export default function App() {
       ))}
       </div>
       </div>
-      <div style={S.section}>
+      <div style={S.section} id="productsSection">
         <div style={S.sectionTitle}>Productos Disponibles</div>
         <div style={S.searchWrap}>
           <svg style={S.searchIconSvg} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -559,7 +559,7 @@ export default function App() {
           <button style={S.filterBtn(filter === "pedido")} onClick={() => setFilter("pedido")}>Por Pedido</button>
           <button style={S.filterBtn(filter === "gangatech")} onClick={() => setFilter("gangatech")}>Ganga Tech</button>
         </div>
-        <div style={S.advFilterWrap}>
+        <div style={S.advFilterWrap} id="advFilterSection">
           <button style={S.advFilterToggle} onClick={() => setAdvFilterOpen(!advFilterOpen)}>
             {advFilterOpen ? "Ocultar filtros" : "Encontra tu perfume ideal (filtros)"}
           </button>
