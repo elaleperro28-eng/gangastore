@@ -436,7 +436,7 @@ tickerItem: { background: "#1a1a1a", borderRadius: "12px", overflow: "hidden", b
 filterBtn: (a) => ({ background: a ? "linear-gradient(135deg, #d4af37, #a8842c)" : "#1a1a1a", color: a ? "#000000" : "#ffffff", border: a ? "none" : "1px solid #2b2b2b", padding: "8px 20px", borderRadius: "20px", cursor: "pointer", fontWeight: "600" }),
 grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "30px" },
 card: { background: "#1a1a1a", borderRadius: "12px", overflow: "hidden", border: "1px solid #2b2b2b", cursor: "pointer" },
-cardImg: { width: "100%", aspectRatio: "1/1", objectFit: "contain", background: "#fff", display: "block" },
+cardImg: { width: "100%", aspectRatio: "4/5", objectFit: "contain", background: "#fff", display: "block", padding: "14px", boxSizing: "border-box" },
 cardBody: { padding: "14px" },
 cardName: { fontSize: "15px", fontWeight: "700", marginBottom: "6px", color: "#ffffff" },
 cardPrice: { fontSize: "16px", fontWeight: "900", color: "#d4af37", marginBottom: "8px" },
