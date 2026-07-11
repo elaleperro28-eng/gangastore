@@ -82,7 +82,7 @@ tipoPerfume: "",
 duracion: "",
 notas: "",
 inspiradoEn: "",
-similitud: "", etiquetas: []
+similitud: "", stockBajo: "", etiquetas: []
 });
 const [uploading, setUploading] = useState(false);
 const [uploadMsg, setUploadMsg] = useState("");
@@ -201,7 +201,7 @@ tipoPerfume: form.tipoPerfume || null,
 duracion: form.duracion || null,
 notas: form.notas || null,
 inspiradoEn: form.inspiradoEn || null,
-similitud: form.similitud ? Number(form.similitud) : null, etiquetas: form.etiquetas || []
+similitud: form.similitud ? Number(form.similitud) : null, stockBajo: form.stockBajo ? Number(form.stockBajo) : null, etiquetas: form.etiquetas || []
 };
 if (editingId) {
 await updateDoc(doc(db, "productos", editingId), productData);
@@ -209,7 +209,7 @@ setEditingId(null);
 } else {
 await addDoc(collection(db, "productos"), { ...productData, createdAt: serverTimestamp() });
 }
-setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "", etiquetas: [] });
+setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "", stockBajo: "", etiquetas: [] });
 setUploadMsg("");
 if (fileInputRef.current) fileInputRef.current.value = "";
 if (foto2Ref.current) foto2Ref.current.value = "";
@@ -242,14 +242,14 @@ tipoPerfume: p.tipoPerfume || "",
 duracion: p.duracion || "",
 notas: p.notas || "",
 inspiradoEn: p.inspiradoEn || "",
-similitud: p.similitud || "", etiquetas: p.etiquetas || []
+similitud: p.similitud || "", stockBajo: p.stockBajo || "", etiquetas: p.etiquetas || []
 });
 window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
 const handleCancelEdit = () => {
 setEditingId(null);
-setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "", etiquetas: [] });
+setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "", stockBajo: "", etiquetas: [] });
 setUploadMsg("");
 };
 
@@ -357,6 +357,13 @@ const getProductPrice = (p) => p.precio || p.price || 0;
 const getProductImage = (p) => p.imageUrl || p.foto || p.image || p.img || "";
 const getProductDisp = (p) => p.disponibilidad || "stock";
 const getProductDias = (p) => p.diasHabiles || "3-5";
+const getUrgencyMsg = (p) => {
+const sb = (p.stockBajo !== undefined && p.stockBajo !== null && p.stockBajo !== "") ? Number(p.stockBajo) : null;
+if (sb !== null && !isNaN(sb) && sb > 0 && sb <= 5) return `Quedan ${sb} unidades`;
+if ((p.etiquetas || []).includes("mas_vendidos")) return "Mas vendido";
+if (getProductDisp(p) === "pedido") return "Alta demanda";
+return null;
+};
 const getProductCategoria = (p) => p.categoria || "otro";
 const isPerfume = (p) => {
 if (getProductCategoria(p) === "perfume") return true;
@@ -441,6 +448,7 @@ cardBody: { padding: "14px" },
 cardName: { fontSize: "15px", fontWeight: "700", marginBottom: "6px", color: "#ffffff" },
 cardPrice: { fontSize: "16px", fontWeight: "900", color: "#d4af37", marginBottom: "8px" },
 badgeStock: { display: "inline-block", background: "#1a1a1a", color: "#d4af37", padding: "3px 10px", borderRadius: "20px", fontSize: "12px" },
+urgencyBadge: { display: "inline-block", background: "#c0392b", color: "#ffffff", padding: "3px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "700", marginTop: "4px" },
 badgePedido: { display: "inline-block", background: "#1a1a1a", color: "#ffffff", padding: "3px 10px", borderRadius: "20px", fontSize: "12px" },
 modal: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 50 },
 modalBox: { background: "#1a1a1a", borderRadius: "16px", maxWidth: "500px", width: "100%", padding: "24px", position: "relative", maxHeight: "90vh", overflowY: "auto", border: "1px solid #2b2b2b" },
@@ -523,7 +531,9 @@ return (
 <label style={S.label}>Se parece a / Inspirado en (opcional)</label>
 <input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: Creed Aventus" value={form.inspiradoEn} onChange={e => setForm(f => ({ ...f, inspiradoEn: e.target.value }))} />
 <label style={S.label}>Porcentaje de similitud (opcional)</label>
-<input style={{ ...S.input, marginBottom: "16px" }} type="number" min="0" max="100" placeholder="Ej: 95" value={form.similitud} onChange={e => setForm(f => ({ ...f, similitud: e.target.value }))} /><label style={S.label}>Etiquetas / Categorias especiales</label><div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px" }}>{TAG_OPTIONS.map(t => (<label key={t.key} style={{ display: "flex", alignItems: "center", gap: "6px", background: (form.etiquetas || []).includes(t.key) ? "#d4af37" : "#2b2b2b", color: (form.etiquetas || []).includes(t.key) ? "#000" : "#fff", padding: "6px 12px", borderRadius: "16px", fontSize: "13px", cursor: "pointer" }}><input type="checkbox" checked={(form.etiquetas || []).includes(t.key)} onChange={() => setForm(f => ({ ...f, etiquetas: (f.etiquetas || []).includes(t.key) ? f.etiquetas.filter(x => x !== t.key) : [...(f.etiquetas || []), t.key] }))} style={{ display: "none" }} />{t.label}</label>))}</div>
+<input style={{ ...S.input, marginBottom: "16px" }} type="number" min="0" max="100" placeholder="Ej: 95" value={form.similitud} onChange={e => setForm(f => ({ ...f, similitud: e.target.value }))} /><label style={S.label}>Stock bajo real (opcional)</label>
+<input style={{ ...S.input, marginBottom: "16px" }} type="number" min="0" placeholder="Ej: 4 (dejar vacio si no aplica)" value={form.stockBajo} onChange={e => setForm(f => ({ ...f, stockBajo: e.target.value }))} />
+<label style={S.label}>Etiquetas / Categorias especiales</label><div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px" }}>{TAG_OPTIONS.map(t => (<label key={t.key} style={{ display: "flex", alignItems: "center", gap: "6px", background: (form.etiquetas || []).includes(t.key) ? "#d4af37" : "#2b2b2b", color: (form.etiquetas || []).includes(t.key) ? "#000" : "#fff", padding: "6px 12px", borderRadius: "16px", fontSize: "13px", cursor: "pointer" }}><input type="checkbox" checked={(form.etiquetas || []).includes(t.key)} onChange={() => setForm(f => ({ ...f, etiquetas: (f.etiquetas || []).includes(t.key) ? f.etiquetas.filter(x => x !== t.key) : [...(f.etiquetas || []), t.key] }))} style={{ display: "none" }} />{t.label}</label>))}</div>
 <label style={S.label}>Descripcion</label>
 <textarea style={{ ...S.input, marginBottom: "16px", minHeight: "80px", resize: "vertical" }} placeholder="Descripcion del producto..." value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
 <label style={S.label}>Disponibilidad *</label>
@@ -643,6 +653,7 @@ return (
 ? <span style={S.badgeStock}>En Stock</span>
 : <span style={S.badgePedido}>Por Pedido: {getProductDias(p)} dias hab.</span>
 }
+{getUrgencyMsg(p) && <div style={S.urgencyBadge}>🔥 {getUrgencyMsg(p)}</div>}
 <br />
 <button style={{ ...S.btn, width: "100%", marginTop: "10px" }} onClick={e => { e.stopPropagation(); addToCart(p); }}>Agregar al Carrito</button>
 </div>
@@ -742,6 +753,7 @@ return (
 ? <span style={S.badgeStock}>En Stock</span>
 : <span style={S.badgePedido}>Por Pedido: {getProductDias(product)} dias hab.</span>
 }
+{getUrgencyMsg(product) && <div style={S.urgencyBadge}>🔥 {getUrgencyMsg(product)}</div>}
 <br />
 <button style={{ ...S.btn, width: "100%", marginTop: "10px" }} onClick={e => { e.stopPropagation(); addToCart(product); }}>Agregar al Carrito</button>
 </div>
@@ -771,6 +783,7 @@ return (
 ? <span style={S.badgeStock}>En Stock - Disponible ahora</span>
 : <span style={S.badgePedido}>Por Pedido: {getProductDias(selectedProduct)} dias habiles</span>
 }
+{getUrgencyMsg(selectedProduct) && <div style={{ ...S.urgencyBadge, marginTop: "8px" }}>🔥 {getUrgencyMsg(selectedProduct)}</div>}
 {selectedProduct.descripcion && <p style={{ color: "#bdbdbd", marginTop: "14px", lineHeight: "1.6" }}>{selectedProduct.descripcion}</p>}
 {selectedProduct.inspiradoEn && (
 <div style={S.compareBox}>
