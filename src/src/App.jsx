@@ -34,6 +34,9 @@ if (path === "/admin-login" || path === "/admin-login/") return "adminLogin";
 return "home";
 });
 const [products, setProducts] = useState([]);
+const [resenas, setResenas] = useState([]);
+const [resenaForm, setResenaForm] = useState({ nombre: "", ciudad: "", estrellas: "5", texto: "", foto: "" });
+const [resenaSaving, setResenaSaving] = useState(false);
 const [tickerProducts, setTickerProducts] = useState([]);
 const [cart, setCart] = useState([]);
 const [showCart, setShowCart] = useState(false);
@@ -102,6 +105,14 @@ const unsub = onSnapshot(q, (snap) => {
 setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
 });
 return () => unsub();
+}, []);
+
+useEffect(() => {
+const q2 = query(collection(db, "resenas"), orderBy("createdAt", "desc"));
+const unsub2 = onSnapshot(q2, (snap) => {
+setResenas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+});
+return () => unsub2();
 }, []);
 
 useEffect(() => {
@@ -256,6 +267,30 @@ setUploadMsg("");
 const handleDeleteProduct = async (id) => {
 if (!confirm("Eliminar este producto?")) return;
 await deleteDoc(doc(db, "productos", id));
+};
+
+const handleAddResena = async () => {
+if (!resenaForm.nombre.trim() || !resenaForm.texto.trim()) { alert("Completa al menos el nombre y el comentario del cliente."); return; }
+setResenaSaving(true);
+try {
+await addDoc(collection(db, "resenas"), {
+nombre: resenaForm.nombre.trim(),
+ciudad: resenaForm.ciudad.trim(),
+estrellas: Number(resenaForm.estrellas) || 5,
+texto: resenaForm.texto.trim(),
+foto: resenaForm.foto.trim(),
+createdAt: serverTimestamp(),
+});
+setResenaForm({ nombre: "", ciudad: "", estrellas: "5", texto: "", foto: "" });
+} catch (err) {
+alert("Error al guardar la resena: " + err.message);
+}
+setResenaSaving(false);
+};
+
+const handleDeleteResena = async (id) => {
+if (!confirm("Eliminar esta resena?")) return;
+await deleteDoc(doc(db, "resenas", id));
 };
 
 const addToCart = (product) => {
@@ -450,6 +485,9 @@ cardName: { fontSize: "15px", fontWeight: "700", marginBottom: "6px", color: "#f
 cardPrice: { fontSize: "16px", fontWeight: "900", color: "#d4af37", marginBottom: "8px" },
 badgeStock: { display: "inline-block", background: "#1a1a1a", color: "#d4af37", padding: "3px 10px", borderRadius: "20px", fontSize: "12px" },
 urgencyBadge: { display: "inline-block", background: "#c0392b", color: "#ffffff", padding: "3px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "700", marginTop: "4px" },
+resenaCard: { background: "#ffffff", borderRadius: "12px", padding: "18px", boxShadow: "0 2px 10px rgba(0,0,0,0.08)", border: "1px solid #e8ddc0" },
+resenaFoto: { width: "48px", height: "48px", borderRadius: "50%", objectFit: "cover", border: "2px solid #d4af37" },
+resenaAvatar: { width: "48px", height: "48px", borderRadius: "50%", background: "#d4af37", color: "#000000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", fontSize: "18px" },
 badgePedido: { display: "inline-block", background: "#1a1a1a", color: "#ffffff", padding: "3px 10px", borderRadius: "20px", fontSize: "12px" },
 modal: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 50 },
 modalBox: { background: "#1a1a1a", borderRadius: "16px", maxWidth: "500px", width: "100%", padding: "24px", position: "relative", maxHeight: "90vh", overflowY: "auto", border: "1px solid #2b2b2b" },
@@ -625,6 +663,37 @@ return (
 <button onClick={() => handleDeleteProduct(p.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer" }}>Eliminar</button>
 </div>
 ))}
+
+<h3 style={{ marginTop: "48px", marginBottom: "16px" }}>Opiniones de Clientes ({resenas.length})</h3>
+<div style={S.adminCard}>
+<label style={S.label}>Nombre del cliente *</label>
+<input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: Maria Gomez" value={resenaForm.nombre} onChange={e => setResenaForm(f => ({ ...f, nombre: e.target.value }))} />
+<label style={S.label}>Ciudad</label>
+<input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: Bahia Blanca" value={resenaForm.ciudad} onChange={e => setResenaForm(f => ({ ...f, ciudad: e.target.value }))} />
+<label style={S.label}>Calificacion</label>
+<select style={{ ...S.input, marginBottom: "16px" }} value={resenaForm.estrellas} onChange={e => setResenaForm(f => ({ ...f, estrellas: e.target.value }))}>
+<option value="5">5 estrellas</option>
+<option value="4">4 estrellas</option>
+<option value="3">3 estrellas</option>
+<option value="2">2 estrellas</option>
+<option value="1">1 estrella</option>
+</select>
+<label style={S.label}>Comentario real del cliente *</label>
+<textarea style={{ ...S.input, marginBottom: "16px", minHeight: "80px", fontFamily: "inherit" }} placeholder="Ej: Excelente atencion, llego en un dia y el perfume es original." value={resenaForm.texto} onChange={e => setResenaForm(f => ({ ...f, texto: e.target.value }))} />
+<label style={S.label}>Foto real del cliente (link, opcional)</label>
+<input style={{ ...S.input, marginBottom: "16px" }} placeholder="Pega el link de la foto que te envio el cliente (opcional)" value={resenaForm.foto} onChange={e => setResenaForm(f => ({ ...f, foto: e.target.value }))} />
+<button onClick={handleAddResena} disabled={resenaSaving} style={{ ...S.btn, width: "100%", padding: "10px" }}>{resenaSaving ? "Guardando..." : "Agregar Resena"}</button>
+</div>
+{resenas.map(r => (
+<div key={r.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center" }}>
+<div style={{ flex: 1 }}>
+<strong>{r.nombre}</strong> {r.ciudad && <span style={{ color: "#9a9a9a" }}> - {r.ciudad}</span>}
+<div style={{ color: "#d4af37" }}>{"★".repeat(r.estrellas || 5)}{"☆".repeat(5 - (r.estrellas || 5))}</div>
+<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{r.texto}</div>
+</div>
+<button onClick={() => handleDeleteResena(r.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer" }}>Eliminar</button>
+</div>
+))}
 </div>
 </div>
 );
@@ -763,6 +832,34 @@ return (
 {filteredProducts.length === 0 && <p style={{ color: "#bdbdbd", gridColumn: "1/-1" }}>No hay productos en esta categoria.</p>}
 </div>
 </div>
+
+<div style={S.section}>
+<div style={S.sectionTitle}>Opiniones de Clientes</div>
+{resenas.length === 0 ? (
+<p style={{ color: "#7a7a7a", textAlign: "center" }}>Todavia no hay opiniones cargadas.</p>
+) : (
+<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "18px" }}>
+{resenas.map(r => (
+<div key={r.id} style={S.resenaCard}>
+<div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
+{r.foto ? (
+<img src={r.foto} alt={r.nombre} style={S.resenaFoto} />
+) : (
+<div style={S.resenaAvatar}>{(r.nombre || "?").trim().charAt(0).toUpperCase()}</div>
+)}
+<div>
+<div style={{ fontWeight: "700", color: "#1a1a1a" }}>{r.nombre}</div>
+{r.ciudad && <div style={{ fontSize: "12px", color: "#7a7a7a" }}>{r.ciudad}</div>}
+</div>
+</div>
+<div style={{ color: "#d4af37", marginBottom: "8px" }}>{"★".repeat(r.estrellas || 5)}{"☆".repeat(5 - (r.estrellas || 5))}</div>
+<p style={{ color: "#3a3a3a", fontSize: "14px", fontStyle: "italic", margin: 0 }}>"{r.texto}"</p>
+</div>
+))}
+</div>
+)}
+</div>
+
 {selectedProduct && (
 <div style={S.modal} onClick={() => setSelectedProduct(null)}>
 <div style={S.modalBox} onClick={e => e.stopPropagation()}>
