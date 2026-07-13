@@ -37,6 +37,7 @@ const [products, setProducts] = useState([]);
 const [resenas, setResenas] = useState([]);
 const [resenaForm, setResenaForm] = useState({ nombre: "", ciudad: "", estrellas: "5", texto: "", foto: "" });
 const [resenaSaving, setResenaSaving] = useState(false);
+const [resenaUploading, setResenaUploading] = useState(false);
 const [tickerProducts, setTickerProducts] = useState([]);
 const [cart, setCart] = useState([]);
 const [showCart, setShowCart] = useState(false);
@@ -291,6 +292,29 @@ setResenaSaving(false);
 const handleDeleteResena = async (id) => {
 if (!confirm("Eliminar esta resena?")) return;
 await deleteDoc(doc(db, "resenas", id));
+};
+
+const handleResenaImageUpload = async (file) => {
+if (!file) return;
+setResenaUploading(true);
+const formData = new FormData();
+formData.append("image", file);
+try {
+const res = await fetch("https://api.imgur.com/3/image", {
+method: "POST",
+headers: { Authorization: `Client-ID ${IMGUR_CLIENT_ID}` },
+body: formData,
+});
+const data = await res.json();
+if (data.success) {
+setResenaForm(f => ({ ...f, foto: data.data.link }));
+} else {
+alert("Error al subir la foto");
+}
+} catch {
+alert("Error de conexion al subir la foto");
+}
+setResenaUploading(false);
 };
 
 const addToCart = (product) => {
@@ -680,8 +704,15 @@ return (
 </select>
 <label style={S.label}>Comentario real del cliente *</label>
 <textarea style={{ ...S.input, marginBottom: "16px", minHeight: "80px", fontFamily: "inherit" }} placeholder="Ej: Excelente atencion, llego en un dia y el perfume es original." value={resenaForm.texto} onChange={e => setResenaForm(f => ({ ...f, texto: e.target.value }))} />
-<label style={S.label}>Foto real del cliente (link, opcional)</label>
-<input style={{ ...S.input, marginBottom: "16px" }} placeholder="Pega el link de la foto que te envio el cliente (opcional)" value={resenaForm.foto} onChange={e => setResenaForm(f => ({ ...f, foto: e.target.value }))} />
+<label style={S.label}>Foto real del cliente (opcional)</label>
+<input type="file" accept="image/*" onChange={e => handleResenaImageUpload(e.target.files[0])} style={{ ...S.input, padding: "8px", marginBottom: "8px" }} />
+{resenaUploading && <p style={{ color: "#d4af37" }}>Subiendo foto...</p>}
+{resenaForm.foto && (
+<div style={{ marginBottom: "8px" }}>
+<img src={resenaForm.foto} alt="preview" style={{ width: "70px", height: "70px", borderRadius: "50%", objectFit: "cover" }} />
+</div>
+)}
+<input style={{ ...S.input, marginBottom: "16px" }} placeholder="O pega el link de la foto que te envio el cliente" value={resenaForm.foto} onChange={e => setResenaForm(f => ({ ...f, foto: e.target.value }))} />
 <button onClick={handleAddResena} disabled={resenaSaving} style={{ ...S.btn, width: "100%", padding: "10px" }}>{resenaSaving ? "Guardando..." : "Agregar Resena"}</button>
 </div>
 {resenas.map(r => (
