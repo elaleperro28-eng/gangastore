@@ -429,6 +429,9 @@ if (getProductCategoria(p) === "perfume") return true;
 const name = getProductName(p).toLowerCase();
 return name.includes("perfum") || name.includes("edp") || name.includes("elixir") || name.includes("victoria secret") || name.includes("lattafa") || name.includes("bharara") || name.includes("phantom") || name.includes("givenchy") || name.includes("paco rabane") || name.includes("yara") || name.includes("club de nuit");
 };
+const generoLabel = (g) => ({ masculino: "Masculino", femenino: "Femenino", unisex: "Unisex" }[g] || g);
+const temporadaLabel = (t) => ({ invierno: "Invierno", verano: "Verano", todo_anio: "Todo el ano" }[t] || t);
+const tipoLabel = (t) => ({ arabe: "Arabe", disenador: "Disenador" }[t] || t);
 
 const assistantFaqs = [
 { q: "Como comprar", a: "Elegi el producto que te guste, toca 'Agregar al Carrito' y despues 'Pedir por WhatsApp' para confirmar el pedido. Asi de facil!" },
@@ -516,6 +519,11 @@ badgePedido: { display: "inline-block", background: "#1a1a1a", color: "#ffffff",
 modal: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 50 },
 modalBox: { background: "#1a1a1a", borderRadius: "16px", maxWidth: "500px", width: "100%", padding: "24px", position: "relative", maxHeight: "90vh", overflowY: "auto", border: "1px solid #2b2b2b" },
 modalImg: { width: "100%", maxHeight: "360px", objectFit: "contain", background: "#fff", borderRadius: "10px", marginBottom: "16px", display: "block" },
+specsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px", margin: "18px 0", padding: "18px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "12px" },
+specItem: { display: "flex", alignItems: "flex-start", gap: "10px" },
+specIcon: { fontSize: "20px", lineHeight: "1", marginTop: "1px" },
+specLabel: { fontSize: "11px", color: "#9a9a9a", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "3px" },
+specValue: { fontSize: "14px", color: "#ffffff", fontWeight: "700" },
 input: { width: "100%", padding: "10px 14px", background: "#1a1a1a", border: "1px solid #2b2b2b", color: "#ffffff", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box" },
 select: { width: "100%", padding: "10px 14px", background: "#1a1a1a", border: "1px solid #2b2b2b", color: "#ffffff", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box" },
 label: { display: "block", marginBottom: "6px", color: "#bdbdbd", fontSize: "14px" },
@@ -913,6 +921,28 @@ return (
 : <span style={S.badgePedido}>Por Pedido: {getProductDias(selectedProduct)} dias habiles</span>
 }
 {getUrgencyMsg(selectedProduct) && <div style={{ ...S.urgencyBadge, marginTop: "8px" }}>🔥 {getUrgencyMsg(selectedProduct)}</div>}
+{(selectedProduct.marca || selectedProduct.genero || selectedProduct.tipoPerfume || selectedProduct.temporada || selectedProduct.duracion || selectedProduct.notas) && (
+<div style={S.specsGrid}>
+{selectedProduct.marca && (
+<div style={S.specItem}><span style={S.specIcon}>&#128142;</span><div><div style={S.specLabel}>Marca</div><div style={S.specValue}>{selectedProduct.marca}</div></div></div>
+)}
+{selectedProduct.genero && (
+<div style={S.specItem}><span style={S.specIcon}>&#128694;</span><div><div style={S.specLabel}>Genero</div><div style={S.specValue}>{generoLabel(selectedProduct.genero)}</div></div></div>
+)}
+{selectedProduct.tipoPerfume && (
+<div style={S.specItem}><span style={S.specIcon}>&#127991;&#65039;</span><div><div style={S.specLabel}>Tipo</div><div style={S.specValue}>{tipoLabel(selectedProduct.tipoPerfume)}</div></div></div>
+)}
+{selectedProduct.temporada && (
+<div style={S.specItem}><span style={S.specIcon}>&#127780;&#65039;</span><div><div style={S.specLabel}>Temporada ideal</div><div style={S.specValue}>{temporadaLabel(selectedProduct.temporada)}</div></div></div>
+)}
+{selectedProduct.duracion && (
+<div style={S.specItem}><span style={S.specIcon}>&#9203;</span><div><div style={S.specLabel}>Duracion</div><div style={S.specValue}>{selectedProduct.duracion}</div></div></div>
+)}
+{selectedProduct.notas && (
+<div style={S.specItem}><span style={S.specIcon}>&#127804;</span><div><div style={S.specLabel}>Notas olfativas</div><div style={S.specValue}>{selectedProduct.notas}</div></div></div>
+)}
+</div>
+)}
 {selectedProduct.descripcion && <p style={{ color: "#bdbdbd", marginTop: "14px", lineHeight: "1.6" }}>{selectedProduct.descripcion}</p>}
 {selectedProduct.inspiradoEn && (
 <div style={S.compareBox}>
