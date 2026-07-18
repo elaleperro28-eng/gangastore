@@ -516,7 +516,7 @@ resenaCard: { background: "#ffffff", borderRadius: "12px", padding: "18px", boxS
 resenaFoto: { width: "48px", height: "48px", borderRadius: "50%", objectFit: "cover", border: "2px solid #d4af37" },
 resenaAvatar: { width: "48px", height: "48px", borderRadius: "50%", background: "#d4af37", color: "#000000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", fontSize: "18px" },
 badgePedido: { display: "inline-block", background: "#1a1a1a", color: "#ffffff", padding: "3px 10px", borderRadius: "20px", fontSize: "12px" },
-modal: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 50 },
+modal: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 100 },
 modalBox: { background: "#1a1a1a", borderRadius: "16px", maxWidth: "500px", width: "100%", padding: "24px", position: "relative", maxHeight: "90vh", overflowY: "auto", border: "1px solid #2b2b2b" },
 modalImg: { width: "100%", maxHeight: "360px", objectFit: "contain", background: "#fff", borderRadius: "10px", marginBottom: "16px", display: "block" },
 specsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px", margin: "18px 0", padding: "18px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "12px" },
@@ -727,7 +727,7 @@ return (
 <div key={r.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center" }}>
 <div style={{ flex: 1 }}>
 <strong>{r.nombre}</strong> {r.ciudad && <span style={{ color: "#9a9a9a" }}> - {r.ciudad}</span>}
-<div style={{ color: "#d4af37" }}>{"★".repeat(r.estrellas || 5)}{"☆".repeat(5 - (r.estrellas || 5))}</div>
+<div style={{ color: "#d4af37" }}>{"â".repeat(r.estrellas || 5)}{"â".repeat(5 - (r.estrellas || 5))}</div>
 <div style={{ color: "#bdbdbd", fontSize: "13px" }}>{r.texto}</div>
 </div>
 <button onClick={() => handleDeleteResena(r.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer" }}>Eliminar</button>
@@ -747,7 +747,7 @@ return (
 </div>
 <div style={S.hero}>
 <div style={S.heroTag}>PERFUMES ORIGINALES</div>
-<h1 style={S.heroMainTitle}>Más de 300 fragancias</h1><p style={S.heroSub}>Diseñador · Árabes · Nicho</p><p style={S.heroSub}>Envío gratis a Bahía Blanca - Envíos a todo el país</p><p style={S.heroSub}>Más de 500 clientes</p><div style={S.heroBtnRow}><button style={S.heroBtnPrimary} onClick={() => { setFilter("perfumes"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Ver Perfumes</button><button style={S.heroBtnSecondary} onClick={() => { setAdvFilterOpen(true); setTimeout(() => document.getElementById("advFilterSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Elegí según tu personalidad</button></div>
+<h1 style={S.heroMainTitle}>MÃ¡s de 300 fragancias</h1><p style={S.heroSub}>DiseÃ±ador Â· Ãrabes Â· Nicho</p><p style={S.heroSub}>EnvÃ­o gratis a BahÃ­a Blanca - EnvÃ­os a todo el paÃ­s</p><p style={S.heroSub}>MÃ¡s de 500 clientes</p><div style={S.heroBtnRow}><button style={S.heroBtnPrimary} onClick={() => { setFilter("perfumes"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Ver Perfumes</button><button style={S.heroBtnSecondary} onClick={() => { setAdvFilterOpen(true); setTimeout(() => document.getElementById("advFilterSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>ElegÃ­ segÃºn tu personalidad</button></div>
 </div>
 <div style={S.tickerSection}>
 <style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } } @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } } .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; animation: fadeInUp 0.6s ease both; } .product-card:hover, .product-card:active { transform: translateY(-6px); box-shadow: 0 14px 28px rgba(212,175,55,0.18); }`}</style>
@@ -762,7 +762,7 @@ return (
 ? <span style={S.badgeStock}>En Stock</span>
 : <span style={S.badgePedido}>Por Pedido: {getProductDias(p)} dias hab.</span>
 }
-{getUrgencyMsg(p) && <div style={S.urgencyBadge}>🔥 {getUrgencyMsg(p)}</div>}
+{getUrgencyMsg(p) && <div style={S.urgencyBadge}>ð¥ {getUrgencyMsg(p)}</div>}
 <br />
 <button style={{ ...S.btn, width: "100%", marginTop: "10px" }} onClick={e => { e.stopPropagation(); addToCart(p); }}>Agregar al Carrito</button>
 </div>
@@ -862,7 +862,7 @@ return (
 ? <span style={S.badgeStock}>En Stock</span>
 : <span style={S.badgePedido}>Por Pedido: {getProductDias(product)} dias hab.</span>
 }
-{getUrgencyMsg(product) && <div style={S.urgencyBadge}>🔥 {getUrgencyMsg(product)}</div>}
+{getUrgencyMsg(product) && <div style={S.urgencyBadge}>ð¥ {getUrgencyMsg(product)}</div>}
 <br />
 <button style={{ ...S.btn, width: "100%", marginTop: "10px" }} onClick={e => { e.stopPropagation(); addToCart(product); }}>Agregar al Carrito</button>
 </div>
@@ -891,7 +891,7 @@ return (
 {r.ciudad && <div style={{ fontSize: "12px", color: "#7a7a7a" }}>{r.ciudad}</div>}
 </div>
 </div>
-<div style={{ color: "#d4af37", marginBottom: "8px" }}>{"★".repeat(r.estrellas || 5)}{"☆".repeat(5 - (r.estrellas || 5))}</div>
+<div style={{ color: "#d4af37", marginBottom: "8px" }}>{"â".repeat(r.estrellas || 5)}{"â".repeat(5 - (r.estrellas || 5))}</div>
 <p style={{ color: "#3a3a3a", fontSize: "14px", fontStyle: "italic", margin: 0 }}>"{r.texto}"</p>
 </div>
 ))}
@@ -920,7 +920,7 @@ return (
 ? <span style={S.badgeStock}>En Stock - Disponible ahora</span>
 : <span style={S.badgePedido}>Por Pedido: {getProductDias(selectedProduct)} dias habiles</span>
 }
-{getUrgencyMsg(selectedProduct) && <div style={{ ...S.urgencyBadge, marginTop: "8px" }}>🔥 {getUrgencyMsg(selectedProduct)}</div>}
+{getUrgencyMsg(selectedProduct) && <div style={{ ...S.urgencyBadge, marginTop: "8px" }}>ð¥ {getUrgencyMsg(selectedProduct)}</div>}
 {(selectedProduct.marca || selectedProduct.genero || selectedProduct.tipoPerfume || selectedProduct.temporada || selectedProduct.duracion || selectedProduct.notas) && (
 <div style={S.specsGrid}>
 {selectedProduct.marca && (
@@ -956,7 +956,7 @@ return (
 </div>
 )}
 <button style={{ ...S.btn, width: "100%", padding: "13px", marginTop: "20px", fontSize: "16px" }} onClick={() => { addToCart(selectedProduct); setSelectedProduct(null); }}>Agregar al Carrito</button>
-<a href={`https://wa.me/2914261941?text=${encodeURIComponent("Hola! Quiero consultar sobre: " + getProductName(selectedProduct))}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "13px", marginTop: "10px", fontSize: "15px", fontWeight: "700", borderRadius: "10px", background: "#25D366", color: "#fff", textDecoration: "none" }}>💬 Consultar por WhatsApp</a>
+<a href={`https://wa.me/2914261941?text=${encodeURIComponent("Hola! Quiero consultar sobre: " + getProductName(selectedProduct))}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "13px", marginTop: "10px", fontSize: "15px", fontWeight: "700", borderRadius: "10px", background: "#25D366", color: "#fff", textDecoration: "none" }}>ð¬ Consultar por WhatsApp</a>
 </div>
 </div>
 )}
