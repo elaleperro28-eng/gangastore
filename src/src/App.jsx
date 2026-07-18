@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy, getDoc, setDoc } from "firebase/firestore";
+import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy, getDoc, setDoc, where, getDocs } from "firebase/firestore";
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "firebase/auth";
 
 const firebaseConfig = {
@@ -59,6 +59,11 @@ const [assistantOpen, setAssistantOpen] = useState(false);
 const [assistantChat, setAssistantChat] = useState([{ from: "bot", text: "Hola! Soy el asistente virtual de GangaStore. Elegi una opcion para que te ayude:" }]);
 const [promoCode, setPromoCode] = useState(""); const [customerPhone, setCustomerPhone] = useState(""); const [customerPoints, setCustomerPoints] = useState(null); const [pointsLoading, setPointsLoading] = useState(false); const [redeemPoints, setRedeemPoints] = useState(false);
 const [user, setUser] = useState(null);
+const [referralCode, setReferralCode] = useState("");
+const [referralCredit, setReferralCredit] = useState(0);
+const [referralPendingIds, setReferralPendingIds] = useState([]);
+const [referralInput, setReferralInput] = useState("");
+const [redeemReferralCredit, setRedeemReferralCredit] = useState(false);
 const [showAccountModal, setShowAccountModal] = useState(false);
 const [accountMode, setAccountMode] = useState("login");
 const [accountEmail, setAccountEmail] = useState("");
@@ -144,6 +149,7 @@ const unsub = onAuthStateChanged(auth, (u) => {
 setUser(u);
 if (u) {
 loadMyPoints(u.uid);
+loadMyReferral(u.uid);
 } else {
 setCustomerPoints(null);
 setRedeemPoints(false);
@@ -340,6 +346,26 @@ alert("No pudimos consultar tus puntos. Intenta de nuevo en unos minutos.");
 }
 setPointsLoading(false);
 };
+const loadMyReferral = async (uid) => {
+try {
+const ref = doc(db, "puntosClientes", uid);
+const snap = await getDoc(ref);
+const data = snap.exists() ? snap.data() : {};
+let code = data.codigoReferido;
+if (!code) {
+code = uid.slice(0, 6).toUpperCase();
+await setDoc(ref, { codigoReferido: code }, { merge: true });
+await setDoc(doc(db, "referralCodes", code), { uid }, { merge: true });
+}
+setReferralCode(code);
+const q = query(collection(db, "referidosUsados"), where("referrerUid", "==", uid), where("estado", "==", "pendiente"));
+const qs = await getDocs(q);
+setReferralCredit(qs.size * 5000);
+setReferralPendingIds(qs.docs.map((d) => d.id));
+} catch (e) {
+console.error("REFERRAL_LOAD_ERROR", e);
+}
+};
 const redeemableNow = redeemPoints && customerPoints ? Math.floor(customerPoints / 300) * 300 : 0;
 const discountFromPoints = pointsToDiscount(redeemableNow);
 const finalTotal = Math.max(totalCart - discountFromPoints, 0);
@@ -374,6 +400,26 @@ let msg = "Hola! Quiero pedir: " + cart.map(i => getProductName(i) + " x" + i.qt
 if (promoCode) msg += " - Codigo promocional: " + promoCode;
 if (customerPhone) msg += " - Mi telefono: " + customerPhone;
 let usedDiscount = 0;
+const referralCodeEntered = referralInput.trim().toUpperCase();
+let referralUsedThisOrder = false;
+let referrerUidFound = null;
+if (referralCodeEntered && referralCodeEntered !== referralCode) {
+try {
+const refSnap = await getDoc(doc(db, "referralCodes", referralCodeEntered));
+if (refSnap.exists()) {
+referralUsedThisOrder = true;
+referrerUidFound = refSnap.data().uid;
+usedDiscount += 5000;
+msg += " - Codigo de referido: " + referralCodeEntered + " ($5.000 de descuento por programa de referidos)";
+}
+} catch (e) { console.error("REFERRAL_CHECK_ERROR", e); }
+}
+let usedReferralCredit = 0;
+if (redeemReferralCredit && referralCredit > 0) {
+usedReferralCredit = referralCredit;
+usedDiscount += usedReferralCredit;
+msg += " - Usa credito de referidos ($" + usedReferralCredit.toLocaleString("es-CL") + " de descuento)";
+}
 if (user) {
 try {
 const ref = doc(db, "puntosClientes", user.uid);
@@ -384,8 +430,8 @@ if (redeemPoints) {
 const usedRedeem = Math.min(Math.floor(current / 300) * 300, redeemableNow);
 if (usedRedeem > 0) {
 updated -= usedRedeem;
-usedDiscount = pointsToDiscount(usedRedeem);
-msg += " - Canjea " + usedRedeem + " puntos ($" + usedDiscount.toLocaleString("es-CL") + " de descuento)";
+usedDiscount += pointsToDiscount(usedRedeem);
+msg += " - Canjea " + usedRedeem + " puntos ($" + pointsToDiscount(usedRedeem).toLocaleString("es-CL") + " de descuento)";
 }
 }
 const totalConDescuento = Math.max(totalCart - usedDiscount, 0);
@@ -398,6 +444,18 @@ setCustomerPoints(updated);
 console.error("PUNTOS_CHECKOUT_ERROR", e);
 alert("No pudimos actualizar tus puntos de fidelizacion por un problema de conexion, pero tu pedido se va a enviar igual. Si el problema persiste contactanos por WhatsApp.");
 }
+}
+if (referralUsedThisOrder && referrerUidFound) {
+try {
+await addDoc(collection(db, "referidosUsados"), { codigo: referralCodeEntered, referrerUid: referrerUidFound, usadoPorUid: user ? user.uid : null, fecha: serverTimestamp(), estado: "pendiente" });
+} catch (e) { console.error("REFERRAL_REGISTER_ERROR", e); }
+}
+if (usedReferralCredit > 0 && referralPendingIds.length > 0) {
+try {
+await Promise.all(referralPendingIds.map((id) => updateDoc(doc(db, "referidosUsados", id), { estado: "canjeado" })));
+setReferralCredit(0);
+setReferralPendingIds([]);
+} catch (e) { console.error("REFERRAL_REDEEM_ERROR", e); }
 }
 const totalAEnviar = Math.max(totalCart - usedDiscount, 0);
 msg += " - Total: " + formatPrice(totalAEnviar);
@@ -439,6 +497,7 @@ const assistantFaqs = [
 { q: "Formas de pago", a: "Coordinamos la forma de pago (efectivo, transferencia, etc.) directamente por WhatsApp para confirmarte todas las opciones disponibles." },
 { q: "Stock y por pedido", a: "Los productos 'En Stock' se entregan de inmediato. Los que dicen 'Por Pedido' muestran en su tarjeta cuantos dias habiles tardan en llegar." },
 { q: "No encuentro lo que busco", a: "No hay problema! Si no encontras el producto que buscas, sea perfumeria, tecnologia o cualquier otra cosa, escribinos por WhatsApp contandonos que necesitas y te ayudamos a conseguirlo o pedirlo especialmente para vos." },
+{ q: "Programa de Referidos", a: "Invita a un amigo: compartile tu codigo desde Mi Cuenta y cuando lo use en su pedido, ambos reciben $5.000 de descuento." },
 ];
 const askAssistant = (faq) => {
 setAssistantChat(prev => [...prev, { from: "user", text: faq.q }, { from: "bot", text: faq.a }]);
@@ -1019,6 +1078,7 @@ return (
 )}
 <button style={{ ...S.btnOutline, marginTop: 10, width: "100%" }} onClick={() => loadMyPoints(user.uid)} disabled={pointsLoading}>Actualizar puntos</button>
 </div>
+<div style={{ ...S.cartPointsBox, marginTop: 16 }}><p style={{ color: "#d4af37", fontWeight: 700, margin: 0 }}>Programa de Referidos</p><p style={{ color: "#bdbdbd", margin: "6px 0" }}>Invita a un amigo y ambos reciben $5.000 de descuento.</p><p style={{ color: "#bdbdbd", margin: "6px 0" }}>Tu codigo: <strong style={{ color: "#fff", letterSpacing: "1px" }}>{referralCode || "..."}</strong></p>{referralCredit > 0 && (<p style={{ color: "#d4af37", fontWeight: 700, margin: "6px 0" }}>Tenes {formatPrice(referralCredit)} de credito por referidos</p>)}<a href={"https://wa.me/?text=" + encodeURIComponent("Te invito a comprar en GangaStore! Usa mi codigo " + referralCode + " y ambos recibimos $5.000 de descuento en tu primera compra. https://gangastore.vercel.app")} target="_blank" rel="noreferrer" style={{ ...S.btnOutline, display: "block", textAlign: "center", textDecoration: "none", marginTop: 8 }}>Compartir mi codigo por WhatsApp</a></div>
 <button onClick={() => { handleLogout(); setShowAccountModal(false); }} style={{ ...S.btnGray, width: "100%", marginTop: 16 }}>Cerrar Sesion</button>
 </div>
 ) : (
@@ -1060,6 +1120,7 @@ return (
 <div style={{ borderTop: "1px solid #2b2b2b", paddingTop: "16px", marginTop: "16px" }}>
 <div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(finalTotal)}{discountFromPoints > 0 && <span style={{ color: "#d4af37", fontSize: 13, display: "block" }}>(incluye descuento de {formatPrice(discountFromPoints)} por puntos)</span>}</div><div style={S.cartPointsBox}><input type="text" placeholder="Tu telefono de contacto (opcional)" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} style={{ ...S.input, marginBottom: 8 }} />{user ? (<>{customerPoints !== null && (<div style={{ color: "#d4af37", fontSize: 13 }}>Tenes {customerPoints} puntos ({formatPrice(pointsToDiscount(customerPoints))} disponibles){pointsToDiscount(customerPoints) > 0 && (<label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, color: "#fff" }}><input type="checkbox" checked={redeemPoints} onChange={e => setRedeemPoints(e.target.checked)} />Usar mis puntos en este pedido</label>)}</div>)}<button style={{ ...S.btnOutline, width: "100%", marginTop: 8 }} onClick={() => loadMyPoints(user.uid)} disabled={pointsLoading}>{pointsLoading ? "Consultando..." : "Actualizar mis puntos"}</button></>) : (<button style={{ ...S.btnOutline, width: "100%" }} onClick={() => { setAccountMode("login"); setAccountError(""); setShowAccountModal(true); }}>Ingresa para sumar/usar puntos</button>)}</div>
 <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Codigo promocional (opcional)" style={{ width: "100%", padding: "10px", marginBottom: "12px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", fontSize: "14px", boxSizing: "border-box" }} />
+<input type="text" value={referralInput} onChange={(e) => setReferralInput(e.target.value)} placeholder="Codigo de referido de un amigo (opcional)" style={{ width: "100%", padding: "10px", marginBottom: "8px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", fontSize: "14px", boxSizing: "border-box" }} />{referralInput.trim() && (<p style={{ color: "#d4af37", fontSize: "13px", margin: "0 0 12px" }}>Si el codigo es valido, se descuentan $5.000 al confirmar el pedido.</p>)}{user && referralCredit > 0 && (<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#d4af37", fontSize: "14px", marginBottom: "12px" }}><input type="checkbox" checked={redeemReferralCredit} onChange={(e) => setRedeemReferralCredit(e.target.checked)} />Usar mi credito de referidos ({formatPrice(referralCredit)})</label>)}
 <button onClick={handleCheckout} style={{ ...S.btn, display: "block", width: "100%", border: "none", textAlign: "center", padding: "12px", cursor: "pointer" }}>
 Pedir por WhatsApp
 </button>
