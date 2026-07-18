@@ -902,7 +902,7 @@ return (
 {selectedProduct && (
 <div style={S.modal} onClick={() => setSelectedProduct(null)}>
 <div style={S.modalBox} onClick={e => e.stopPropagation()}>
-<button onClick={() => setSelectedProduct(null)} style={{ position: "absolute", top: "12px", right: "16px", background: "none", border: "none", color: "#fff", fontSize: "24px", cursor: "pointer" }}>x</button>
+<button onClick={() => setSelectedProduct(null)} style={{ position: "fixed", top: "16px", right: "16px", background: "rgba(0,0,0,0.65)", border: "none", color: "#fff", fontSize: "20px", cursor: "pointer", width: "40px", height: "40px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60 }}>x</button>
 <img src={modalActiveImg || getProductImage(selectedProduct)} alt={getProductName(selectedProduct)} style={S.modalImg} />
 {[selectedProduct.imageUrl, selectedProduct.foto2, selectedProduct.foto3, selectedProduct.fotoMano, selectedProduct.fotoCaja].filter(Boolean).length > 1 && (
 <div style={{ display: "flex", gap: "8px", marginBottom: "16px", overflowX: "auto" }}>
@@ -963,7 +963,7 @@ return (
 {showAccountModal && (
 <div style={S.modal} onClick={() => setShowAccountModal(false)}>
 <div style={S.modalBox} onClick={e => e.stopPropagation()}>
-<button onClick={() => setShowAccountModal(false)} style={{ position: "absolute", top: "12px", right: "16px", background: "none", border: "none", color: "#fff", fontSize: "24px", cursor: "pointer" }}>x</button>
+<button onClick={() => setShowAccountModal(false)} style={{ position: "fixed", top: "16px", right: "16px", background: "rgba(0,0,0,0.65)", border: "none", color: "#fff", fontSize: "20px", cursor: "pointer", width: "40px", height: "40px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60 }}>x</button>
 {user ? (
 <div>
 <h2 style={{ marginTop: 0, fontFamily: "'Playfair Display', serif", color: "#d4af37" }}>Mi Cuenta</h2>
