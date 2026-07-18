@@ -488,6 +488,22 @@ if (getProductCategoria(p) === "perfume") return true;
 const name = getProductName(p).toLowerCase();
 return name.includes("perfum") || name.includes("edp") || name.includes("elixir") || name.includes("victoria secret") || name.includes("lattafa") || name.includes("bharara") || name.includes("phantom") || name.includes("givenchy") || name.includes("paco rabane") || name.includes("yara") || name.includes("club de nuit");
 };
+const DURACION_CATEGORIAS = ["Corta (hasta 6 horas)", "Media (6 a 8 horas)", "Larga (8 a 12 horas)", "Muy larga (12 horas o mas)"];
+const parseDuracionHoras = (str) => {
+if (!str) return null;
+const nums = (String(str).match(/\d+/g) || []).map(Number);
+if (nums.length === 0) return null;
+if (nums.length === 1) return nums[0];
+return (nums[0] + nums[1]) / 2;
+};
+const getDuracionCategoria = (p) => {
+const h = parseDuracionHoras(p.duracion);
+if (h === null) return null;
+if (h < 6) return DURACION_CATEGORIAS[0];
+if (h < 8) return DURACION_CATEGORIAS[1];
+if (h < 12) return DURACION_CATEGORIAS[2];
+return DURACION_CATEGORIAS[3];
+};
 const generoLabel = (g) => ({ masculino: "Masculino", femenino: "Femenino", unisex: "Unisex" }[g] || g);
 const temporadaLabel = (t) => ({ invierno: "Invierno", verano: "Verano", todo_anio: "Todo el ano" }[t] || t);
 const tipoLabel = (t) => ({ arabe: "Arabe", disenador: "Disenador" }[t] || t);
@@ -555,7 +571,7 @@ if (filter === "pedido") return getProductDisp(p) === "pedido";
 if (filter === "perfumes") return isPerfume(p);
 if (filter === "gangatech") return !isPerfume(p); if (filter === "menos100k") return getProductPrice(p) < 100000; if (filter === "arabes") return (p.tipoPerfume || "") === "arabe"; if (filter === "disenador") return (p.tipoPerfume || "") === "disenador"; if (["mas_vendidos","novedades","larga_duracion","para_regalar","top_invierno","top_verano","top_oficina","top_citas"].includes(filter)) return (p.etiquetas || []).includes(filter);
 if (filterMarca && (p.marca || "") !== filterMarca) return false;
-if (filterDuracion && (p.duracion || "") !== filterDuracion) return false;
+if (filterDuracion && getDuracionCategoria(p) !== filterDuracion) return false;
 if (filterNotas.trim() && !(p.notas || "").toLowerCase().includes(filterNotas.trim().toLowerCase())) return false;
 if (filterTemporada && (p.temporada || "") !== filterTemporada) return false;
 if (filterGenero && (p.genero || "") !== filterGenero) return false;
@@ -916,7 +932,7 @@ return (
 <label style={S.advFilterLabel}>Duracion</label>
 <select style={S.select} value={filterDuracion} onChange={e => setFilterDuracion(e.target.value)}>
 <option value="">Todas</option>
-{[...new Set(products.map(p => p.duracion).filter(Boolean))].sort().map(d => (
+{DURACION_CATEGORIAS.map(d => (
 <option key={d} value={d}>{d}</option>
 ))}
 </select>
