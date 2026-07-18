@@ -443,12 +443,52 @@ const assistantFaqs = [
 const askAssistant = (faq) => {
 setAssistantChat(prev => [...prev, { from: "user", text: faq.q }, { from: "bot", text: faq.a }]);
 };
-const filteredProducts = products.filter(p => {
-const q = searchQuery.trim().toLowerCase();
+const normalizeTxt = (s) => (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+const SEARCH_SYNONYMS = { dulce: ["dulce","vainilla","gourmand","caramelo","azucar","goloso"], dulces: ["dulce","vainilla","gourmand","caramelo","azucar"], fresco: ["fresco","citrico","acuatico","marino","liviano"], frescos: ["fresco","citrico","acuatico","marino"], frescura: ["fresco","citrico"], citrico: ["citrico","fresco"], citricos: ["citrico","fresco"], amaderado: ["amaderado","madera"], amaderados: ["amaderado","madera"], madera: ["amaderado","madera"], maderoso: ["amaderado","madera"], floral: ["floral","flores"], florales: ["floral","flores"], flores: ["floral"], frutal: ["frutal","fruta"], frutales: ["frutal","fruta"], afrutado: ["frutal","fruta"], oriental: ["oriental","especiado","ambar"], orientales: ["oriental","especiado","ambar"], especiado: ["especiado","oriental"], intenso: ["intenso","fuerte"], fuerte: ["intenso","fuerte"], suave: ["suave","delicado"], delicado: ["suave","delicado"], elegante: ["elegante","sofisticado"], sofisticado: ["elegante","sofisticado"], verano: ["verano"], veraniego: ["verano"], invierno: ["invierno"], invernal: ["invierno"], oficina: ["oficina","trabajo"], trabajo: ["oficina"], diario: ["todo el ano","versatil"], noche: ["noche","citas"], cita: ["citas"], citas: ["citas"], romantico: ["citas"], romantica: ["citas"], regalo: ["regalar"], regalar: ["regalar"], economico: ["economico"], barato: ["economico"], baratos: ["economico"], hombre: ["masculino"], hombres: ["masculino"], masculino: ["masculino"], mujer: ["femenino"], mujeres: ["femenino"], femenino: ["femenino"], unisex: ["unisex"], nicho: ["arabe","nicho"], arabe: ["arabe"], arabes: ["arabe"], disenador: ["disenador"] };
+const SEARCH_STOPWORDS = new Set(["quiero","quisiera","busco","buscando","necesito","algo","un","una","unos","unas","el","la","los","las","de","del","para","por","que","sea","seas","con","como","me","gustaria","tipo","estilo","perfume","perfumes","fragancia","fragancias","huele","huela","parecido","parecidos","parecida","parecidas","similar","similares","a","al","o","y","es","esta","este","mas","onda"]);
+
+const buildProductHaystack = (p) => {
+const generoTxt = { masculino: "masculino hombre", femenino: "femenino mujer", unisex: "unisex" }[p.genero] || "";
+const tempTxt = { invierno: "invierno frio calido amaderado especiado", verano: "verano fresco citrico liviano", todo_anio: "todo el ano versatil diario" }[p.temporada] || "";
+const tipoTxt = { arabe: "arabe arabes nicho", disenador: "disenador designer" }[p.tipoPerfume] || "";
+const etiquetasTxt = (p.etiquetas || []).map((e) => e.replace(/_/g, " ")).join(" ");
+return normalizeTxt([getProductName(p), p.marca, p.descripcion, p.notas, p.inspiradoEn, generoTxt, tempTxt, tipoTxt, etiquetasTxt, p.duracion].filter(Boolean).join(" "));
+};
+const expandQueryTerms = (q) => {
+const words = normalizeTxt(q).split(/[^a-z0-9]+/).filter(Boolean);
+const terms = new Set();
+words.forEach((w) => {
+if (SEARCH_STOPWORDS.has(w)) return;
+terms.add(w);
+if (SEARCH_SYNONYMS[w]) SEARCH_SYNONYMS[w].forEach((t2) => terms.add(t2));
+});
+return Array.from(terms);
+};
+const smartProductScore = (p, rawQuery) => {
+const qNorm = normalizeTxt(rawQuery);
+const nameNorm = normalizeTxt(getProductName(p));
+const inspiradoNorm = normalizeTxt(p.inspiradoEn);
+let score = 0;
+if (qNorm && nameNorm.includes(qNorm)) score += 10;
+if (qNorm && normalizeTxt(p.descripcion).includes(qNorm)) score += 4;
+if (qNorm && inspiradoNorm && inspiradoNorm.includes(qNorm)) score += 8;
+const terms = expandQueryTerms(rawQuery);
+if (terms.length === 0) return score;
+const haystack = buildProductHaystack(p);
+terms.forEach((term) => {
+if (!term) return;
+if (nameNorm.includes(term)) score += 3;
+if (inspiradoNorm && inspiradoNorm.includes(term)) score += 5;
+if (haystack.includes(term)) score += 1;
+});
+return score;
+};
+
+let filteredProducts = products.filter(p => {
+
+const q = searchQuery.trim();
 if (q) {
-const nameMatch = getProductName(p).toLowerCase().includes(q);
-const descMatch = (p.descripcion || "").toLowerCase().includes(q);
-if (!nameMatch && !descMatch) return false;
+if (smartProductScore(p, q) <= 0) return false;
 }
 if (filter === "stock") return getProductDisp(p) === "stock";
 if (filter === "pedido") return getProductDisp(p) === "pedido";
@@ -464,6 +504,10 @@ if (filterPrecioMin && getProductPrice(p) < Number(filterPrecioMin)) return fals
 if (filterPrecioMax && getProductPrice(p) > Number(filterPrecioMax)) return false;
 return true;
 });
+
+if (searchQuery.trim()) {
+filteredProducts = [...filteredProducts].sort((a, b) => smartProductScore(b, searchQuery) - smartProductScore(a, searchQuery));
+}
 
 const S = {
 body: { margin: 0, fontFamily: "'Inter', 'Segoe UI', sans-serif", background: "#0f0f0f", color: "#ffffff", minHeight: "100vh" },
@@ -775,7 +819,7 @@ return (
 <div style={S.sectionTitle}>Productos Disponibles</div>
 <div style={S.searchWrap}>
 <svg style={S.searchIconSvg} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-<input type="text" placeholder="Buscar producto por nombre..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={S.searchInput} />
+<input type="text" placeholder="Ej: perfume dulce, para verano, parecido a Sauvage..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={S.searchInput} />
 </div>
 <div style={S.filterBar}>
 <button style={S.filterBtnPrimary(filter === "todos")} onClick={() => setFilter("todos")}>Todos</button>
