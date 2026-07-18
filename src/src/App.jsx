@@ -118,7 +118,7 @@ return () => unsub2();
 
 useEffect(() => {
 if (products.length > 0) {
-setTickerProducts(shuffleArray(products));
+setTickerProducts(shuffleArray(products.filter(isPerfume)));
 }
 }, [products.length]);
 
