@@ -647,7 +647,8 @@ specValue: { fontSize: "14px", color: "#ffffff", fontWeight: "700" },
 input: { width: "100%", padding: "10px 14px", background: "#1a1a1a", border: "1px solid #2b2b2b", color: "#ffffff", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box" },
 select: { width: "100%", padding: "10px 14px", background: "#1a1a1a", border: "1px solid #2b2b2b", color: "#ffffff", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box" },
 label: { display: "block", marginBottom: "6px", color: "#bdbdbd", fontSize: "14px" },
-cartOverlay: { position: "fixed", right: 0, top: 0, bottom: 0, width: "320px", background: "#0f0f0f", borderLeft: "2px solid #d4af37", padding: "70px 20px 20px 20px", overflowY: "auto", zIndex: 40 },
+cartOverlay: { position: "fixed", right: 0, top: 0, bottom: 0, width: "min(320px, 100vw)", background: "#0f0f0f", borderLeft: "2px solid #d4af37", padding: "70px 20px 20px 20px", overflowY: "auto", zIndex: 101, boxSizing: "border-box" },
+cartBackdrop: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 100 },
 adminWrap: { maxWidth: "640px", margin: "40px auto", padding: "20px" },
 adminCard: { background: "#1a1a1a", borderRadius: "12px", padding: "28px", border: "1px solid #2b2b2b" },
 loginWrap: { display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0f0f0f" },
@@ -1115,7 +1116,8 @@ return (
 </div>
 )}
 {showCart && (
-<div style={S.cartOverlay}>
+<div onClick={() => setShowCart(false)} style={S.cartBackdrop}>
+<div onClick={(e) => e.stopPropagation()} style={S.cartOverlay}>
 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
 <h3 style={{ margin: 0 }}>Tu Carrito</h3>
 <button onClick={() => setShowCart(false)} style={{ background: "none", border: "none", color: "#fff", fontSize: "22px", cursor: "pointer" }}>x</button>
@@ -1144,6 +1146,7 @@ Pedir por WhatsApp
 </div>
 </>
 )}
+</div>
 </div>
 )}
 <button style={S.assistantBtn} onClick={() => setAssistantOpen(!assistantOpen)} title="Asistente virtual">
