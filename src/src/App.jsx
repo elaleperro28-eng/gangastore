@@ -74,6 +74,7 @@ const [editingId, setEditingId] = useState(null);
 const [form, setForm] = useState({
 nombre: "",
 precio: "",
+precioOriginal: "",
 descripcion: "",
 imageUrl: "",
 foto2: "",
@@ -202,6 +203,7 @@ if (!form.imageUrl) return alert("Sube una imagen primero");
 const productData = {
 nombre: form.nombre,
 precio: Number(form.precio),
+precioOriginal: form.precioOriginal ? Number(form.precioOriginal) : null,
 descripcion: form.descripcion,
 imageUrl: form.imageUrl,
 foto2: form.foto2 || null,
@@ -227,7 +229,7 @@ setEditingId(null);
 } else {
 await addDoc(collection(db, "productos"), { ...productData, createdAt: serverTimestamp() });
 }
-setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "", stockBajo: "", etiquetas: [] });
+setForm({ nombre: "", precio: "", precioOriginal: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "", stockBajo: "", etiquetas: [] });
 setUploadMsg("");
 if (fileInputRef.current) fileInputRef.current.value = "";
 if (foto2Ref.current) foto2Ref.current.value = "";
@@ -243,6 +245,7 @@ setEditingId(p.id);
 setForm({
 nombre: p.nombre || "",
 precio: p.precio || "",
+precioOriginal: p.precioOriginal || "",
 descripcion: p.descripcion || "",
 imageUrl: p.imageUrl || p.foto || p.image || p.img || "",
 foto2: p.foto2 || "",
@@ -267,7 +270,7 @@ window.scrollTo({ top: 0, behavior: "smooth" });
 
 const handleCancelEdit = () => {
 setEditingId(null);
-setForm({ nombre: "", precio: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "", stockBajo: "", etiquetas: [] });
+setForm({ nombre: "", precio: "", precioOriginal: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "", stockBajo: "", etiquetas: [] });
 setUploadMsg("");
 };
 
@@ -472,6 +475,13 @@ return "$" + n.toLocaleString("es-CL");
 
 const getProductName = (p) => p.nombre || p.name || p.title || "Producto";
 const getProductPrice = (p) => p.precio || p.price || 0;
+const getProductOriginalPrice = (p) => p.precioOriginal || null;
+const getDiscountPercent = (p) => {
+const orig = getProductOriginalPrice(p);
+const price = getProductPrice(p);
+if (!orig || orig <= price) return null;
+return Math.round((1 - price / orig) * 100);
+};
 const getProductImage = (p) => p.imageUrl || p.foto || p.image || p.img || "";
 const getProductDisp = (p) => p.disponibilidad || "stock";
 const getProductDias = (p) => p.diasHabiles || "3-5";
@@ -630,6 +640,8 @@ cardImg: { width: "100%", aspectRatio: "4/5", objectFit: "contain", background: 
 cardBody: { padding: "14px" },
 cardName: { fontSize: "15px", fontWeight: "700", marginBottom: "6px", color: "#ffffff" },
 cardPrice: { fontSize: "16px", fontWeight: "900", color: "#d4af37", marginBottom: "8px" },
+originalPrice: { fontSize: "13px", color: "#999", textDecoration: "line-through", marginRight: "8px" },
+discountBadge: { display: "inline-block", background: "#cc0000", color: "#fff", padding: "2px 8px", borderRadius: "12px", fontSize: "12px", fontWeight: "700", marginLeft: "0px" },
 badgeStock: { display: "inline-block", background: "#1a1a1a", color: "#d4af37", padding: "3px 10px", borderRadius: "20px", fontSize: "12px" },
 urgencyBadge: { display: "inline-block", background: "#c0392b", color: "#ffffff", padding: "3px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "700", marginTop: "4px" },
 resenaCard: { background: "#ffffff", borderRadius: "12px", padding: "18px", boxShadow: "0 2px 10px rgba(0,0,0,0.08)", border: "1px solid #e8ddc0" },
@@ -688,6 +700,8 @@ return (
 <input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: Perfume Lattafa Khamrah" value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
 <label style={S.label}>Precio (CLP) *</label>
 <input style={{ ...S.input, marginBottom: "16px" }} type="number" placeholder="Ej: 45000" value={form.precio} onChange={e => setForm(f => ({ ...f, precio: e.target.value }))} />
+<label style={S.label}>Precio Original (opcional, para mostrar tachado con descuento)</label>
+<input style={{ ...S.input, marginBottom: "16px" }} type="number" placeholder="Ej: 60000" value={form.precioOriginal} onChange={e => setForm(f => ({ ...f, precioOriginal: e.target.value }))} />
 <label style={S.label}>Categoria *</label>
 <select style={{ ...S.select, marginBottom: "16px" }} value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}>
 <option value="perfume">Perfume</option>
@@ -879,7 +893,11 @@ return (
 <img src={getProductImage(p)} alt={getProductName(p)} style={S.cardImg} onError={(e) => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.cardBody}>
 <div style={S.cardName}>{getProductName(p)}</div>
-<div style={S.cardPrice}>{formatPrice(getProductPrice(p))}</div>
+<div style={S.cardPrice}>
+{getDiscountPercent(p) && <span style={S.originalPrice}>{formatPrice(getProductOriginalPrice(p))}</span>}
+{formatPrice(getProductPrice(p))}
+{getDiscountPercent(p) && <span style={S.discountBadge}>-{getDiscountPercent(p)}%</span>}
+</div>
 {getProductDisp(p) === "stock"
 ? <span style={S.badgeStock}>En Stock</span>
 : <span style={S.badgePedido}>Por Pedido: {getProductDias(p)} dias hab.</span>
@@ -979,7 +997,11 @@ return (
 <img src={getProductImage(product)} alt={getProductName(product)} style={S.cardImg} onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.cardBody}>
 <div style={S.cardName}>{getProductName(product)}</div>
-<div style={S.cardPrice}>{formatPrice(getProductPrice(product))}</div>
+<div style={S.cardPrice}>
+{getDiscountPercent(product) && <span style={S.originalPrice}>{formatPrice(getProductOriginalPrice(product))}</span>}
+{formatPrice(getProductPrice(product))}
+{getDiscountPercent(product) && <span style={S.discountBadge}>-{getDiscountPercent(product)}%</span>}
+</div>
 {getProductDisp(product) === "stock"
 ? <span style={S.badgeStock}>En Stock</span>
 : <span style={S.badgePedido}>Por Pedido: {getProductDias(product)} dias hab.</span>
@@ -1037,7 +1059,11 @@ return (
 <video src={selectedProduct.videoUrl} controls style={{ width: "100%", borderRadius: "10px", marginBottom: "16px", background: "#000" }} />
 )}
 <h2 style={{ marginTop: 0, marginBottom: "8px", fontFamily: "'Playfair Display', serif" }}>{getProductName(selectedProduct)}</h2>
-<div style={{ fontSize: "28px", fontWeight: "900", color: "#d4af37", marginBottom: "12px" }}>{formatPrice(getProductPrice(selectedProduct))}</div>
+<div style={{ fontSize: "28px", fontWeight: "900", color: "#d4af37", marginBottom: "12px" }}>
+{getDiscountPercent(selectedProduct) && <span style={{ ...S.originalPrice, fontSize: "18px" }}>{formatPrice(getProductOriginalPrice(selectedProduct))}</span>}
+{formatPrice(getProductPrice(selectedProduct))}
+{getDiscountPercent(selectedProduct) && <span style={S.discountBadge}>-{getDiscountPercent(selectedProduct)}%</span>}
+</div>
 {getProductDisp(selectedProduct) === "stock"
 ? <span style={S.badgeStock}>En Stock - Disponible ahora</span>
 : <span style={S.badgePedido}>Por Pedido: {getProductDias(selectedProduct)} dias habiles</span>
