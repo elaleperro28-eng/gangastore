@@ -463,7 +463,7 @@ setReferralPendingIds(referralPendingIds.slice(1));
 }
 const totalAEnviar = Math.max(totalCart - usedDiscount, 0);
 msg += " - Total: " + formatPrice(totalAEnviar);
-window.open("https://wa.me/2914261941?text=" + encodeURIComponent(msg), "_blank");
+window.location.href = "https://wa.me/2914261941?text=" + encodeURIComponent(msg);
 };
 
 const formatPrice = (p) => {
