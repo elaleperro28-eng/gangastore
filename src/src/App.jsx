@@ -33,7 +33,7 @@ const path = window.location.pathname;
 if (path === "/admin-login" || path === "/admin-login/") return "adminLogin";
 return "home";
 });
-const [products, setProducts] = useState([]);
+const [products, setProducts] = useState([]);  const [productsLoading, setProductsLoading] = useState(true);
 const [resenas, setResenas] = useState([]);
 const [resenaForm, setResenaForm] = useState({ nombre: "", ciudad: "", estrellas: "5", texto: "", foto: "" });
 const [resenaSaving, setResenaSaving] = useState(false);
@@ -109,7 +109,7 @@ const [modalActiveImg, setModalActiveImg] = useState(null);
 useEffect(() => {
 const q = query(collection(db, "productos"), orderBy("createdAt", "desc"));
 const unsub = onSnapshot(q, (snap) => {
-setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setProductsLoading(false);
 });
 return () => unsub();
 }, []);
@@ -1012,7 +1012,7 @@ return (
 </div>
 </div>
 ))}
-{filteredProducts.length === 0 && <p style={{ color: "#bdbdbd", gridColumn: "1/-1" }}>No hay productos en esta categoria.</p>}
+{productsLoading && <p style={{ color: "#bdbdbd", gridColumn: "1/-1" }}>Cargando productos...</p>} {!productsLoading && filteredProducts.length === 0 && <p style={{ color: "#bdbdbd", gridColumn: "1/-1" }}>No hay productos en esta categoria.</p>}
 </div>
 </div>
 
