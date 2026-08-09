@@ -903,8 +903,8 @@ return (
 .gs-hero{min-height:88vh;}
 }
 `}</style>
-<video className="gs-hero-video" autoPlay muted loop playsInline preload="auto" poster="https://images.pexels.com/videos/7815884/background-bath-black-bloom-7815884.jpeg?auto=compress&cs=tinysrgb&w=1920">
-<source src="https://videos.pexels.com/video-files/7815883/7815883-hd_720_1280_25fps.mp4" type="video/mp4" />
+<video className="gs-hero-video" autoPlay muted loop playsInline preload="auto" poster="https://images.pexels.com/videos/7815759/background-beach-black-cold-7815759.jpeg?auto=compress&cs=tinysrgb&w=1920">
+<source src="https://videos.pexels.com/video-files/7815759/7815759-hd_1280_720_25fps.mp4" type="video/mp4" />
 </video>
 <div style={S.heroOverlay}></div>
 <div style={S.heroContent}>
