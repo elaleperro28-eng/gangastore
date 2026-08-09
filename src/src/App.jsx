@@ -606,9 +606,14 @@ navCartBtn: { position: "fixed", top: "16px", right: "24px", background: "linear
 navAccountBtn: { position: "fixed", top: "16px", right: "150px", background: "transparent", color: "#d4af37", border: "1px solid #d4af37", padding: "10px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "700", zIndex: 55 },
 navPromo: { position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", fontFamily: "'Playfair Display', serif", fontWeight: "700", fontSize: "13px", letterSpacing: "1px", textAlign: "center", maxWidth: "55%" },
 hero: { textAlign: "center", padding: "130px 20px 100px", backgroundImage: "linear-gradient(rgba(10,10,10,0.6), rgba(10,10,10,0.72)), url('https://images.unsplash.com/photo-1622618991746-fe6004db3a47?q=80&w=1920&auto=format&fit=crop')", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" },
-heroTag: { fontSize: "15px", color: "#ffffff", letterSpacing: "4px", textTransform: "uppercase", marginBottom: "16px", fontWeight: "700", textShadow: "0 2px 12px rgba(0,0,0,0.7)" },
-heroMainTitle: { fontSize: "clamp(32px,6vw,58px)", fontWeight: 800, color: "#fff", textTransform: "uppercase", margin: "10px 0", lineHeight: 1.15 }, heroBtnRow: { display: "flex", gap: 14, flexWrap: "wrap", marginTop: 22 }, heroBtnPrimary: { background: "#d4af37", color: "#1a1a1a", border: "none", padding: "16px 36px", fontSize: 18, fontWeight: 800, borderRadius: 8, cursor: "pointer", textTransform: "uppercase", letterSpacing: 1 }, heroBtnSecondary: { background: "transparent", color: "#fff", border: "2px solid #fff", padding: "16px 36px", fontSize: 16, fontWeight: 700, borderRadius: 8, cursor: "pointer", textTransform: "uppercase", letterSpacing: 1 }, heroTitle: { fontSize: "clamp(28px,5vw,52px)", fontWeight: "700", margin: "0 16px 14px", fontFamily: "'Playfair Display', serif", color: "#d4af37" },
-heroSub: { fontSize: "18px", color: "#ffffff", textTransform: "uppercase", letterSpacing: "1px", margin: "0 0 8px", maxWidth: "620px", marginLeft: "auto", marginRight: "auto", lineHeight: "1.7", textShadow: "0 2px 12px rgba(0,0,0,0.7)" },
+heroWrap: { position: "relative", minHeight: "92vh", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", padding: "150px 20px 110px", boxSizing: "border-box" },
+heroOverlay: { position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(10,10,10,0.45) 0%, rgba(10,10,10,0.65) 55%, rgba(8,8,8,0.9) 100%)", zIndex: 1 },
+heroContent: { position: "relative", zIndex: 2, textAlign: "center", maxWidth: "920px", margin: "0 auto", padding: "0 12px" },
+heroDivider: { width: "64px", height: "3px", background: "#d4af37", margin: "0 auto 20px", borderRadius: "2px" },
+heroScrollCue: { position: "absolute", bottom: 22, left: "50%", transform: "translateX(-50%)", zIndex: 2, color: "#d4af37", fontSize: 24, opacity: 0.85 },
+heroTag: { fontSize: "clamp(13px,1.6vw,16px)", color: "#d4af37", letterSpacing: "5px", textTransform: "uppercase", marginBottom: "18px", fontWeight: "700" },
+heroMainTitle: { fontFamily: "'Playfair Display', serif", fontSize: "clamp(38px,7vw,76px)", fontWeight: 800, color: "#fff", textTransform: "uppercase", margin: "6px 0 20px", lineHeight: 1.12, letterSpacing: "1px", textShadow: "0 4px 24px rgba(0,0,0,0.55)" }, heroBtnRow: { display: "flex", gap: 18, flexWrap: "wrap", marginTop: 32, justifyContent: "center" }, heroBtnPrimary: { background: "linear-gradient(135deg, #d4af37, #b8912c)", color: "#1a1a1a", border: "none", padding: "18px 42px", fontSize: "clamp(15px,1.6vw,18px)", fontWeight: 800, borderRadius: 10, cursor: "pointer", textTransform: "uppercase", letterSpacing: 1.2, boxShadow: "0 8px 24px rgba(212,175,55,0.35)" }, heroBtnSecondary: { background: "rgba(255,255,255,0.06)", color: "#fff", border: "2px solid rgba(255,255,255,0.85)", padding: "18px 40px", fontSize: "clamp(14px,1.5vw,16px)", fontWeight: 700, borderRadius: 10, cursor: "pointer", textTransform: "uppercase", letterSpacing: 1 }, heroTitle: { fontSize: "clamp(28px,5vw,52px)", fontWeight: "700", margin: "0 16px 14px", fontFamily: "'Playfair Display', serif", color: "#d4af37" },
+heroSub: { fontSize: "clamp(15px,2.2vw,19px)", color: "rgba(255,255,255,0.92)", textTransform: "uppercase", letterSpacing: "1.5px", margin: "0 0 10px", maxWidth: "680px", marginLeft: "auto", marginRight: "auto", lineHeight: "1.7", fontWeight: 500, textShadow: "0 2px 12px rgba(0,0,0,0.6)" },
 section: { padding: "70px 20px", maxWidth: "1200px", margin: "0 auto", background: "#f5efe0", borderRadius: "20px" },
 sectionTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "24px", borderBottom: "2px solid #d4af37", paddingBottom: "8px", fontFamily: "'Playfair Display', serif", color: "#1a1a1a" },
 filterBar: { display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap", justifyContent: "center" },
@@ -881,9 +886,40 @@ return (
 <button onClick={() => { setAccountError(""); setShowAccountModal(true); }} style={S.navAccountBtn} className="gs-nav-account-btn">{user ? "Mi Cuenta" : "Ingresar"}</button>
 <button onClick={() => setShowCart(true)} style={S.navCartBtn} className="gs-nav-cart-btn">Carrito ({cart.length})</button>
 </div>
-<div style={S.hero}>
+<div style={S.heroWrap} className="gs-hero">
+<style>{`
+.gs-hero-video{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0;}
+.gs-hero-btn-primary,.gs-hero-btn-secondary{transition:transform .25s ease, box-shadow .25s ease, background .25s ease;}
+.gs-hero-btn-primary:hover{transform:translateY(-3px) scale(1.03);box-shadow:0 14px 32px rgba(212,175,55,0.5);}
+.gs-hero-btn-secondary:hover{transform:translateY(-3px) scale(1.03);background:rgba(255,255,255,0.16);}
+.gs-hero-scroll{animation:gsBounce 2s infinite;}
+@keyframes gsBounce{0%,100%{transform:translateX(-50%) translateY(0);}50%{transform:translateX(-50%) translateY(8px);}}
+@media (max-width:700px){
+.gs-hero{min-height:80vh !important;padding:120px 16px 90px !important;}
+.gs-hero-btn-row{flex-direction:column !important;width:100%;align-items:stretch !important;}
+.gs-hero-btn-primary,.gs-hero-btn-secondary{width:100% !important;text-align:center;}
+}
+@media (min-width:1600px){
+.gs-hero{min-height:88vh;}
+}
+`}</style>
+<video className="gs-hero-video" autoPlay muted loop playsInline preload="auto" poster="https://images.pexels.com/videos/6810589/pexels-photo-6810589.jpeg?auto=compress&cs=tinysrgb&w=1920">
+<source src="https://videos.pexels.com/video-files/6810589/6810589-sd_960_464_30fps.mp4" type="video/mp4" />
+</video>
+<div style={S.heroOverlay}></div>
+<div style={S.heroContent}>
+<div style={S.heroDivider}></div>
 <div style={S.heroTag}>PERFUMES ORIGINALES</div>
-<h1 style={S.heroMainTitle}>Más de 300 fragancias</h1><p style={S.heroSub}>Diseñador · Árabes · Nicho</p><p style={S.heroSub}>Envío gratis a Bahía Blanca - Envíos a todo el país</p><p style={S.heroSub}>Más de 500 clientes</p><div style={S.heroBtnRow}><button style={S.heroBtnPrimary} onClick={() => { setFilter("perfumes"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Ver Perfumes</button><button style={S.heroBtnSecondary} onClick={() => { setAdvFilterOpen(true); setTimeout(() => document.getElementById("advFilterSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Elegí según tu personalidad</button></div>
+<h1 style={S.heroMainTitle}>Más de 300 fragancias</h1>
+<p style={S.heroSub}>Diseñador · Árabes · Nicho</p>
+<p style={S.heroSub}>Envío gratis a Bahía Blanca - Envíos a todo el país</p>
+<p style={S.heroSub}>Más de 500 clientes</p>
+<div style={S.heroBtnRow} className="gs-hero-btn-row">
+<button className="gs-hero-btn-primary" style={S.heroBtnPrimary} onClick={() => { setFilter("perfumes"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Ver Perfumes</button>
+<button className="gs-hero-btn-secondary" style={S.heroBtnSecondary} onClick={() => { setAdvFilterOpen(true); setTimeout(() => document.getElementById("advFilterSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Elegí según tu personalidad</button>
+</div>
+</div>
+<div className="gs-hero-scroll" style={S.heroScrollCue}>↓</div>
 </div>
 <div style={S.tickerSection}>
 <style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } } @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } } .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; animation: fadeInUp 0.6s ease both; } .product-card:hover, .product-card:active { transform: translateY(-6px); box-shadow: 0 14px 28px rgba(212,175,55,0.18); }`}</style>
