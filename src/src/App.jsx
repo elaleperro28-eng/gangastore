@@ -92,7 +92,7 @@ tipoPerfume: "",
 duracion: "",
 notas: "",
 inspiradoEn: "",
-similitud: "", stockBajo: "", etiquetas: []
+similitud: "", stockBajo: "", etiquetas: [], precioDecant5: "", precioDecant10: ""
 });
 const [uploading, setUploading] = useState(false);
 const [uploadMsg, setUploadMsg] = useState("");
@@ -221,7 +221,7 @@ tipoPerfume: form.tipoPerfume || null,
 duracion: form.duracion || null,
 notas: form.notas || null,
 inspiradoEn: form.inspiradoEn || null,
-similitud: form.similitud ? Number(form.similitud) : null, stockBajo: form.stockBajo ? Number(form.stockBajo) : null, etiquetas: form.etiquetas || []
+similitud: form.similitud ? Number(form.similitud) : null, stockBajo: form.stockBajo ? Number(form.stockBajo) : null, etiquetas: form.etiquetas || [], precioDecant5: form.precioDecant5 ? Number(form.precioDecant5) : null, precioDecant10: form.precioDecant10 ? Number(form.precioDecant10) : null
 };
 if (editingId) {
 await updateDoc(doc(db, "productos", editingId), productData);
@@ -229,7 +229,7 @@ setEditingId(null);
 } else {
 await addDoc(collection(db, "productos"), { ...productData, createdAt: serverTimestamp() });
 }
-setForm({ nombre: "", precio: "", precioOriginal: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "", stockBajo: "", etiquetas: [] });
+setForm({ nombre: "", precio: "", precioOriginal: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "", stockBajo: "", etiquetas: [], precioDecant5: "", precioDecant10: "" });
 setUploadMsg("");
 if (fileInputRef.current) fileInputRef.current.value = "";
 if (foto2Ref.current) foto2Ref.current.value = "";
@@ -263,14 +263,14 @@ tipoPerfume: p.tipoPerfume || "",
 duracion: p.duracion || "",
 notas: p.notas || "",
 inspiradoEn: p.inspiradoEn || "",
-similitud: p.similitud || "", stockBajo: p.stockBajo || "", etiquetas: p.etiquetas || []
+similitud: p.similitud || "", stockBajo: p.stockBajo || "", etiquetas: p.etiquetas || [], precioDecant5: p.precioDecant5 || "", precioDecant10: p.precioDecant10 || ""
 });
 window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
 const handleCancelEdit = () => {
 setEditingId(null);
-setForm({ nombre: "", precio: "", precioOriginal: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "", stockBajo: "", etiquetas: [] });
+setForm({ nombre: "", precio: "", precioOriginal: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "", stockBajo: "", etiquetas: [], precioDecant5: "", precioDecant10: "" });
 setUploadMsg("");
 };
 
@@ -331,6 +331,20 @@ setCart(c => {
 const exists = c.find(i => i.id === product.id);
 if (exists) return c.map(i => i.id === product.id ? { ...i, qty: i.qty + 1 } : i);
 return [...c, { ...product, qty: 1 }];
+});
+};
+
+const addDecantToCart = (product, size) => {
+const price = size === 5 ? product.precioDecant5 : product.precioDecant10;
+if (!price) return;
+addToCart({
+id: product.id + "_decant" + size,
+nombre: (product.nombre || product.name || product.title || "Producto") + " - Decant " + size + "ml",
+precio: Number(price),
+imageUrl: product.imageUrl || product.foto || product.image || product.img || "",
+disponibilidad: product.disponibilidad || "stock",
+isDecant: true,
+decantSize: size,
 });
 };
 
@@ -485,6 +499,9 @@ return Math.round((1 - price / orig) * 100);
 const getProductImage = (p) => p.imageUrl || p.foto || p.image || p.img || "";
 const getProductDisp = (p) => p.disponibilidad || "stock";
 const getProductDias = (p) => p.diasHabiles || "3-5";
+const getDecantPrice5 = (p) => (p.precioDecant5 !== undefined && p.precioDecant5 !== null && p.precioDecant5 !== "" ? Number(p.precioDecant5) : null);
+const getDecantPrice10 = (p) => (p.precioDecant10 !== undefined && p.precioDecant10 !== null && p.precioDecant10 !== "" ? Number(p.precioDecant10) : null);
+const hasDecant = (p) => !!(getDecantPrice5(p) || getDecantPrice10(p));
 const getUrgencyMsg = (p) => {
 const sb = (p.stockBajo !== undefined && p.stockBajo !== null && p.stockBajo !== "") ? Number(p.stockBajo) : null;
 if (sb !== null && !isNaN(sb) && sb > 0 && sb <= 5) return `Quedan ${sb} unidades`;
@@ -579,7 +596,7 @@ if (smartProductScore(p, q) <= 0) return false;
 if (filter === "stock") return getProductDisp(p) === "stock";
 if (filter === "pedido") return getProductDisp(p) === "pedido";
 if (filter === "perfumes") return isPerfume(p);
-if (filter === "gangatech") return !isPerfume(p); if (filter === "menos100k") return getProductPrice(p) < 100000; if (filter === "arabes") return (p.tipoPerfume || "") === "arabe"; if (filter === "disenador") return (p.tipoPerfume || "") === "disenador"; if (["mas_vendidos","novedades","larga_duracion","para_regalar","top_invierno","top_verano","top_oficina","top_citas"].includes(filter)) return (p.etiquetas || []).includes(filter);
+if (filter === "gangatech") return !isPerfume(p); if (filter === "decants") return hasDecant(p); if (filter === "menos100k") return getProductPrice(p) < 100000; if (filter === "arabes") return (p.tipoPerfume || "") === "arabe"; if (filter === "disenador") return (p.tipoPerfume || "") === "disenador"; if (["mas_vendidos","novedades","larga_duracion","para_regalar","top_invierno","top_verano","top_oficina","top_citas"].includes(filter)) return (p.etiquetas || []).includes(filter);
 if (filterMarca && (p.marca || "") !== filterMarca) return false;
 if (filterDuracion && getDuracionCategoria(p) !== filterDuracion) return false;
 if (filterNotas.trim() && !(p.notas || "").toLowerCase().includes(filterNotas.trim().toLowerCase())) return false;
@@ -707,6 +724,10 @@ return (
 <input style={{ ...S.input, marginBottom: "16px" }} type="number" placeholder="Ej: 45000" value={form.precio} onChange={e => setForm(f => ({ ...f, precio: e.target.value }))} />
 <label style={S.label}>Precio Original (opcional, para mostrar tachado con descuento)</label>
 <input style={{ ...S.input, marginBottom: "16px" }} type="number" placeholder="Ej: 60000" value={form.precioOriginal} onChange={e => setForm(f => ({ ...f, precioOriginal: e.target.value }))} />
+<label style={S.label}>Decant 5ml (CLP, opcional)</label>
+<input style={{ ...S.input, marginBottom: "16px" }} type="number" placeholder="Ej: 8000" value={form.precioDecant5} onChange={e => setForm(f => ({ ...f, precioDecant5: e.target.value }))} />
+<label style={S.label}>Decant 10ml (CLP, opcional)</label>
+<input style={{ ...S.input, marginBottom: "16px" }} type="number" placeholder="Ej: 14000" value={form.precioDecant10} onChange={e => setForm(f => ({ ...f, precioDecant10: e.target.value }))} />
 <label style={S.label}>Categoria *</label>
 <select style={{ ...S.select, marginBottom: "16px" }} value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}>
 <option value="perfume">Perfume</option>
@@ -957,7 +978,7 @@ return (
 <button style={S.filterBtnPrimary(filter === "perfumes")} onClick={() => setFilter("perfumes")}>Perfumes</button>
 <button style={S.filterBtnPrimary(filter === "stock")} onClick={() => setFilter("stock")}>En Stock</button>
 <button style={S.filterBtnPrimary(filter === "pedido")} onClick={() => setFilter("pedido")}>Por Pedido</button>
-<button style={S.filterBtnPrimary(filter === "gangatech")} onClick={() => setFilter("gangatech")}>Ganga Tech</button></div><div style={S.filterBar}><button style={S.filterBtn(filter === "mas_vendidos")} onClick={() => setFilter("mas_vendidos")}>Mas Vendidos</button><button style={S.filterBtn(filter === "novedades")} onClick={() => setFilter("novedades")}>Novedades</button><button style={S.filterBtn(filter === "larga_duracion")} onClick={() => setFilter("larga_duracion")}>Larga Duracion</button><button style={S.filterBtn(filter === "menos100k")} onClick={() => setFilter("menos100k")}>Menos de $100.000</button><button style={S.filterBtn(filter === "arabes")} onClick={() => setFilter("arabes")}>Perfumes Arabes</button><button style={S.filterBtn(filter === "disenador")} onClick={() => setFilter("disenador")}>Perfumes de Disenador</button><button style={S.filterBtn(filter === "para_regalar")} onClick={() => setFilter("para_regalar")}>Para Regalar</button><button style={S.filterBtn(filter === "top_invierno")} onClick={() => setFilter("top_invierno")}>Top Invierno</button><button style={S.filterBtn(filter === "top_verano")} onClick={() => setFilter("top_verano")}>Top Verano</button><button style={S.filterBtn(filter === "top_oficina")} onClick={() => setFilter("top_oficina")}>Top Oficina</button><button style={S.filterBtn(filter === "top_citas")} onClick={() => setFilter("top_citas")}>Top Citas</button>
+<button style={S.filterBtnPrimary(filter === "gangatech")} onClick={() => setFilter("gangatech")}>Ganga Tech</button><button style={S.filterBtnPrimary(filter === "decants")} onClick={() => setFilter("decants")}>Decant</button></div><div style={S.filterBar}><button style={S.filterBtn(filter === "mas_vendidos")} onClick={() => setFilter("mas_vendidos")}>Mas Vendidos</button><button style={S.filterBtn(filter === "novedades")} onClick={() => setFilter("novedades")}>Novedades</button><button style={S.filterBtn(filter === "larga_duracion")} onClick={() => setFilter("larga_duracion")}>Larga Duracion</button><button style={S.filterBtn(filter === "menos100k")} onClick={() => setFilter("menos100k")}>Menos de $100.000</button><button style={S.filterBtn(filter === "arabes")} onClick={() => setFilter("arabes")}>Perfumes Arabes</button><button style={S.filterBtn(filter === "disenador")} onClick={() => setFilter("disenador")}>Perfumes de Disenador</button><button style={S.filterBtn(filter === "para_regalar")} onClick={() => setFilter("para_regalar")}>Para Regalar</button><button style={S.filterBtn(filter === "top_invierno")} onClick={() => setFilter("top_invierno")}>Top Invierno</button><button style={S.filterBtn(filter === "top_verano")} onClick={() => setFilter("top_verano")}>Top Verano</button><button style={S.filterBtn(filter === "top_oficina")} onClick={() => setFilter("top_oficina")}>Top Oficina</button><button style={S.filterBtn(filter === "top_citas")} onClick={() => setFilter("top_citas")}>Top Citas</button>
 </div>
 <div style={S.advFilterWrap} id="advFilterSection">
 <button style={S.advFilterToggle} onClick={() => setAdvFilterOpen(!advFilterOpen)}>
@@ -1033,6 +1054,8 @@ return (
 <img src={getProductImage(product)} alt={getProductName(product)} style={S.cardImg} onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.cardBody}>
 <div style={S.cardName}>{getProductName(product)}</div>
+{filter !== "decants" && (
+<>
 <div style={S.cardPrice}>
 {getDiscountPercent(product) && <span style={S.originalPrice}>{formatPrice(getProductOriginalPrice(product))}</span>}
 {formatPrice(getProductPrice(product))}
@@ -1045,6 +1068,19 @@ return (
 {getUrgencyMsg(product) && <div style={S.urgencyBadge}>🔥 {getUrgencyMsg(product)}</div>}
 <br />
 <button style={{ ...S.btn, width: "100%", marginTop: "10px" }} onClick={e => { e.stopPropagation(); addToCart(product); }}>Agregar al Carrito</button>
+</>
+)}
+{hasDecant(product) && (
+<div style={{ marginTop: filter === "decants" ? "0" : "12px", borderTop: filter === "decants" ? "none" : "1px solid #2b2b2b", paddingTop: filter === "decants" ? "0" : "10px" }}>
+<div style={{ color: "#d4af37", fontSize: "13px", fontWeight: "bold", marginBottom: "6px" }}>Decant disponible</div>
+{getDecantPrice5(product) && (
+<button style={{ ...S.btn, width: "100%", marginTop: "6px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }} onClick={e => { e.stopPropagation(); addDecantToCart(product, 5); }}>5ml - {formatPrice(getDecantPrice5(product))}</button>
+)}
+{getDecantPrice10(product) && (
+<button style={{ ...S.btn, width: "100%", marginTop: "6px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }} onClick={e => { e.stopPropagation(); addDecantToCart(product, 10); }}>10ml - {formatPrice(getDecantPrice10(product))}</button>
+)}
+</div>
+)}
 </div>
 </div>
 ))}
@@ -1140,6 +1176,17 @@ return (
 </div>
 )}
 <button style={{ ...S.btn, width: "100%", padding: "13px", marginTop: "20px", fontSize: "16px" }} onClick={() => { addToCart(selectedProduct); setSelectedProduct(null); }}>Agregar al Carrito</button>
+{hasDecant(selectedProduct) && (
+<div style={{ marginTop: "16px", borderTop: "1px solid #2b2b2b", paddingTop: "14px" }}>
+<div style={{ color: "#d4af37", fontSize: "14px", fontWeight: "bold", marginBottom: "8px" }}>Tambien disponible en Decant (sin comprar el frasco completo)</div>
+{getDecantPrice5(selectedProduct) && (
+<button style={{ ...S.btn, width: "100%", marginTop: "8px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }} onClick={() => { addDecantToCart(selectedProduct, 5); setSelectedProduct(null); }}>Agregar Decant 5ml - {formatPrice(getDecantPrice5(selectedProduct))}</button>
+)}
+{getDecantPrice10(selectedProduct) && (
+<button style={{ ...S.btn, width: "100%", marginTop: "8px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }} onClick={() => { addDecantToCart(selectedProduct, 10); setSelectedProduct(null); }}>Agregar Decant 10ml - {formatPrice(getDecantPrice10(selectedProduct))}</button>
+)}
+</div>
+)}
 <a href={`https://wa.me/2914261941?text=${encodeURIComponent("Hola! Quiero consultar sobre: " + getProductName(selectedProduct))}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "13px", marginTop: "10px", fontSize: "15px", fontWeight: "700", borderRadius: "10px", background: "#25D366", color: "#fff", textDecoration: "none" }}>💬 Consultar por WhatsApp</a>
 </div>
 </div>
