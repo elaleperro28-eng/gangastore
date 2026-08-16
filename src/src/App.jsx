@@ -16,7 +16,20 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-const ADMIN_PASSWORD = "ganga2024";
+// SEGURIDAD: el panel de administracion ahora se protege con Firebase Authentication
+// (el mismo sistema de cuentas que ya usan los clientes para sumar puntos), en vez de
+// una contrasena fija escrita en el codigo. Eso evita que cualquiera que abra el codigo
+// fuente del sitio (por ejemplo en GitHub, o con "Ver codigo fuente" del navegador)
+// pueda copiar la clave de administrador y entrar.
+//
+// Para que esto funcione hay que crear una cuenta con este correo desde la propia tienda:
+// 1) Entra a la tienda y toca "Ingresar" (arriba a la derecha).
+// 2) Elegi "Crear cuenta", usa el correo de abajo y una contrasena segura tuya.
+// 3) Esa contrasena es la que vas a usar para entrar a /admin-login de ahora en mas.
+// 4) Ademas, actualiza las Reglas de Seguridad de Firestore (ver README/INSTRUCCIONES)
+//    para que solo ese correo pueda escribir en la base de datos. Sin ese paso, el
+//    panel se ve mas seguro pero la base de datos todavia queda abierta por detras.
+const ADMIN_EMAIL = "elaleperro28@gmail.com";
 const IMGUR_CLIENT_ID = "546c25a59c58ad7"; const TAG_OPTIONS = [{ key: "mas_vendidos", label: "Mas vendidos" }, { key: "novedades", label: "Novedades" }, { key: "larga_duracion", label: "Larga duracion" }, { key: "para_regalar", label: "Para regalar" }, { key: "top_invierno", label: "Top invierno" }, { key: "top_verano", label: "Top verano" }, { key: "top_oficina", label: "Top oficina" }, { key: "top_citas", label: "Top citas" }];
 const shuffleArray = (arr) => {
 const a = [...arr];
@@ -46,6 +59,9 @@ const [adminError, setAdminError] = useState("");
 const [isAdmin, setIsAdmin] = useState(false);
 const [filter, setFilter] = useState("todos");
 const [searchQuery, setSearchQuery] = useState("");
+const PAGE_SIZE = 24;
+const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+const [sortBy, setSortBy] = useState("relevancia");
 const [advFilterOpen, setAdvFilterOpen] = useState(false);
 const [filterMarca, setFilterMarca] = useState("");
 const [filterPrecioMin, setFilterPrecioMin] = useState("");
@@ -124,9 +140,21 @@ return () => unsub2();
 
 useEffect(() => {
 if (products.length > 0) {
-setTickerProducts(shuffleArray(products.filter(isPerfume)));
+const seenKeys = new Set();
+const onlyPerfumes = products.filter(p => {
+if (!isPerfume(p)) return false;
+const key = normalizeTxt(getProductName(p)) + "|" + getProductPrice(p);
+if (seenKeys.has(key)) return false;
+seenKeys.add(key);
+return true;
+});
+setTickerProducts(shuffleArray(onlyPerfumes).slice(0, 18));
 }
 }, [products.length]);
+
+useEffect(() => {
+setVisibleCount(PAGE_SIZE);
+}, [filter, searchQuery, sortBy, filterMarca, filterPrecioMin, filterPrecioMax, filterDuracion, filterNotas, filterTemporada, filterGenero, filterTipo]);
 
 useEffect(() => {
 const handlePop = () => {
@@ -159,14 +187,26 @@ setRedeemPoints(false);
 return () => unsub();
 }, []);
 
-const handleAdminLogin = () => {
-if (adminPass === ADMIN_PASSWORD) {
-setIsAdmin(true);
+const [adminLoginBusy, setAdminLoginBusy] = useState(false);
+const handleAdminLogin = async () => {
+if (!adminPass) { setAdminError("Ingresa tu contrasena"); return; }
+setAdminLoginBusy(true);
 setAdminError("");
-setPage("admin");
+try {
+const cred = await signInWithEmailAndPassword(auth, ADMIN_EMAIL, adminPass);
+if (cred.user.email !== ADMIN_EMAIL) {
+setAdminError("Esta cuenta no tiene permisos de administrador");
+await signOut(auth);
 } else {
-setAdminError("Contrasena incorrecta");
+setIsAdmin(true);
+setAdminPass("");
+setPage("admin");
 }
+} catch (e) {
+const map = { "auth/invalid-credential": "Correo o contrasena incorrectos.", "auth/wrong-password": "Correo o contrasena incorrectos.", "auth/user-not-found": "Todavia no creaste la cuenta de administrador. Mira las instrucciones en el codigo (ADMIN_EMAIL)." };
+setAdminError(map[e.code] || "No pudimos iniciar sesion. Intenta de nuevo.");
+}
+setAdminLoginBusy(false);
 };
 
 const handleImageUpload = async (file, field = "imageUrl") => {
@@ -213,7 +253,7 @@ fotoCaja: form.fotoCaja || null,
 videoUrl: form.videoUrl || null,
 disponibilidad: form.disponibilidad,
 diasHabiles: form.disponibilidad === "pedido" ? form.diasHabiles : null,
-categoria: form.categoria,
+categoria: "perfume",
 marca: form.marca || null,
 genero: form.genero || null,
 temporada: form.temporada || null,
@@ -534,13 +574,34 @@ return DURACION_CATEGORIAS[3];
 const generoLabel = (g) => ({ masculino: "Masculino", femenino: "Femenino", unisex: "Unisex" }[g] || g);
 const temporadaLabel = (t) => ({ invierno: "Invierno", verano: "Verano", todo_anio: "Todo el ano" }[t] || t);
 const tipoLabel = (t) => ({ arabe: "Arabe", disenador: "Disenador" }[t] || t);
+const specIconProps = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "#d4af37", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" };
+const SpecIcon = ({ name }) => {
+if (name === "marca") return (<svg {...specIconProps}><path d="M12 2l2.9 6.3L21 9.3l-4.5 4.4 1 6.3L12 17l-5.5 3 1-6.3L3 9.3l6.1-1z"></path></svg>);
+if (name === "genero") return (<svg {...specIconProps}><circle cx="12" cy="8" r="5"></circle><path d="M12 13v8M9 18h6"></path></svg>);
+if (name === "tipo") return (<svg {...specIconProps}><path d="M20.6 12.6L12 21.2 2.8 12l8.6-8.6H20.6z"></path><circle cx="16" cy="8" r="1.4" fill="#d4af37" stroke="none"></circle></svg>);
+if (name === "temporada") return (<svg {...specIconProps}><circle cx="12" cy="12" r="4.5"></circle><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg>);
+if (name === "duracion") return (<svg {...specIconProps}><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l3 2M9 2h6"></path></svg>);
+if (name === "notas") return (<svg {...specIconProps}><path d="M12 21c-4.5-3-8-6.5-8-11a8 8 0 0116 0c0 4.5-3.5 8-8 11z"></path><path d="M12 12c2-2 2-5 0-7-2 2-2 5 0 7z" fill="#d4af37" stroke="none"></path></svg>);
+return null;
+};
+const SkeletonCard = () => (
+<div style={{ background: "#1a1a1a", borderRadius: "14px", overflow: "hidden", border: "1px solid #2b2b2b" }}>
+<div className="skel" style={{ width: "100%", aspectRatio: "4/5" }}></div>
+<div style={{ padding: "16px" }}>
+<div className="skel" style={{ height: "14px", borderRadius: "4px", marginBottom: "8px", width: "90%" }}></div>
+<div className="skel" style={{ height: "14px", borderRadius: "4px", marginBottom: "14px", width: "60%" }}></div>
+<div className="skel" style={{ height: "18px", borderRadius: "4px", marginBottom: "14px", width: "45%" }}></div>
+<div className="skel" style={{ height: "38px", borderRadius: "6px", width: "100%" }}></div>
+</div>
+</div>
+);
 
 const assistantFaqs = [
 { q: "Como comprar", a: "Elegi el producto que te guste, toca 'Agregar al Carrito' y despues 'Pedir por WhatsApp' para confirmar el pedido. Asi de facil!" },
 { q: "Envios", a: "Hacemos envio gratis dentro de Bahia Blanca. Tambien enviamos a todo el pais, coordinando el costo por WhatsApp." },
 { q: "Formas de pago", a: "Coordinamos la forma de pago (efectivo, transferencia, etc.) directamente por WhatsApp para confirmarte todas las opciones disponibles." },
 { q: "Stock y por pedido", a: "Los productos 'En Stock' se entregan de inmediato. Los que dicen 'Por Pedido' muestran en su tarjeta cuantos dias habiles tardan en llegar." },
-{ q: "No encuentro lo que busco", a: "No hay problema! Si no encontras el producto que buscas, sea perfumeria, tecnologia o cualquier otra cosa, escribinos por WhatsApp contandonos que necesitas y te ayudamos a conseguirlo o pedirlo especialmente para vos." },
+{ q: "No encuentro lo que busco", a: "No hay problema! Si no encontras la fragancia que buscas, escribinos por WhatsApp contandonos que necesitas y te ayudamos a conseguirla o pedirla especialmente para vos." },
 { q: "Programa de Referidos", a: "Invita a un amigo: compartile tu codigo desde Mi Cuenta y cuando lo use en su pedido, ambos reciben $5.000 de descuento." },
 ];
 const askAssistant = (faq) => {
@@ -587,7 +648,16 @@ if (haystack.includes(term)) score += 1;
 return score;
 };
 
-let filteredProducts = products.filter(p => {
+const seenProductKeys = new Set();
+const dedupedProducts = products.filter(p => {
+if (!isPerfume(p)) return false;
+const key = normalizeTxt(getProductName(p)) + "|" + getProductPrice(p);
+if (seenProductKeys.has(key)) return false;
+seenProductKeys.add(key);
+return true;
+});
+
+let filteredProducts = dedupedProducts.filter(p => {
 
 const q = searchQuery.trim();
 if (q) {
@@ -596,7 +666,7 @@ if (smartProductScore(p, q) <= 0) return false;
 if (filter === "stock") return getProductDisp(p) === "stock";
 if (filter === "pedido") return getProductDisp(p) === "pedido";
 if (filter === "perfumes") return isPerfume(p);
-if (filter === "gangatech") return !isPerfume(p); if (filter === "decants") return hasDecant(p); if (filter === "menos100k") return getProductPrice(p) < 100000; if (filter === "arabes") return (p.tipoPerfume || "") === "arabe"; if (filter === "disenador") return (p.tipoPerfume || "") === "disenador"; if (["mas_vendidos","novedades","larga_duracion","para_regalar","top_invierno","top_verano","top_oficina","top_citas"].includes(filter)) return (p.etiquetas || []).includes(filter);
+if (filter === "decants") return hasDecant(p); if (filter === "menos100k") return getProductPrice(p) < 100000; if (filter === "arabes") return (p.tipoPerfume || "") === "arabe"; if (filter === "disenador") return (p.tipoPerfume || "") === "disenador"; if (["mas_vendidos","novedades","larga_duracion","para_regalar","top_invierno","top_verano","top_oficina","top_citas"].includes(filter)) return (p.etiquetas || []).includes(filter);
 if (filterMarca && (p.marca || "") !== filterMarca) return false;
 if (filterDuracion && getDuracionCategoria(p) !== filterDuracion) return false;
 if (filterNotas.trim() && !(p.notas || "").toLowerCase().includes(filterNotas.trim().toLowerCase())) return false;
@@ -610,6 +680,12 @@ return true;
 
 if (searchQuery.trim()) {
 filteredProducts = [...filteredProducts].sort((a, b) => smartProductScore(b, searchQuery) - smartProductScore(a, searchQuery));
+} else if (sortBy === "precio_asc") {
+filteredProducts = [...filteredProducts].sort((a, b) => getProductPrice(a) - getProductPrice(b));
+} else if (sortBy === "precio_desc") {
+filteredProducts = [...filteredProducts].sort((a, b) => getProductPrice(b) - getProductPrice(a));
+} else if (sortBy === "vendidos") {
+filteredProducts = [...filteredProducts].sort((a, b) => ((b.etiquetas || []).includes("mas_vendidos") ? 1 : 0) - ((a.etiquetas || []).includes("mas_vendidos") ? 1 : 0));
 }
 
 const S = {
@@ -632,6 +708,8 @@ heroScrollCue: { position: "absolute", bottom: 22, left: "50%", transform: "tran
 heroTag: { fontSize: "clamp(13px,1.6vw,16px)", color: "#d4af37", letterSpacing: "5px", textTransform: "uppercase", marginBottom: "18px", fontWeight: "700" },
 heroMainTitle: { fontFamily: "'Playfair Display', serif", fontSize: "clamp(38px,7vw,76px)", fontWeight: 800, color: "#fff", textTransform: "uppercase", margin: "6px 0 20px", lineHeight: 1.12, letterSpacing: "1px", textShadow: "0 4px 24px rgba(0,0,0,0.55)" }, heroBtnRow: { display: "flex", gap: 18, flexWrap: "wrap", marginTop: 32, justifyContent: "center" }, heroBtnPrimary: { background: "linear-gradient(135deg, #d4af37, #b8912c)", color: "#1a1a1a", border: "none", padding: "18px 42px", fontSize: "clamp(15px,1.6vw,18px)", fontWeight: 800, borderRadius: 10, cursor: "pointer", textTransform: "uppercase", letterSpacing: 1.2, boxShadow: "0 8px 24px rgba(212,175,55,0.35)" }, heroBtnSecondary: { background: "rgba(255,255,255,0.06)", color: "#fff", border: "2px solid rgba(255,255,255,0.85)", padding: "18px 40px", fontSize: "clamp(14px,1.5vw,16px)", fontWeight: 700, borderRadius: 10, cursor: "pointer", textTransform: "uppercase", letterSpacing: 1 }, heroTitle: { fontSize: "clamp(28px,5vw,52px)", fontWeight: "700", margin: "0 16px 14px", fontFamily: "'Playfair Display', serif", color: "#d4af37" },
 heroSub: { fontSize: "clamp(15px,2.2vw,19px)", color: "rgba(255,255,255,0.92)", textTransform: "uppercase", letterSpacing: "1.5px", margin: "0 0 10px", maxWidth: "680px", marginLeft: "auto", marginRight: "auto", lineHeight: "1.7", fontWeight: 500, textShadow: "0 2px 12px rgba(0,0,0,0.6)" },
+heroTrustRow: { display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "center", margin: "18px 0 4px" },
+heroTrustBadge: { display: "flex", alignItems: "center", gap: "7px", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(212,175,55,0.5)", borderRadius: "24px", padding: "8px 16px", fontSize: "13px", color: "#fff", fontWeight: 600, letterSpacing: "0.3px", backdropFilter: "blur(2px)" },
 section: { padding: "70px 20px", maxWidth: "1200px", margin: "0 auto", background: "#f5efe0", borderRadius: "20px" },
 sectionTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "24px", borderBottom: "2px solid #d4af37", paddingBottom: "8px", fontFamily: "'Playfair Display', serif", color: "#1a1a1a" },
 filterBar: { display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap", justifyContent: "center" },
@@ -657,26 +735,29 @@ tickerTrack: { display: "flex", gap: "30px", width: "max-content", animation: "g
 tickerItem: { background: "#1a1a1a", borderRadius: "12px", overflow: "hidden", border: "1px solid #2b2b2b", width: "220px", flexShrink: 0, cursor: "pointer" },
 filterBtnPrimary: (a) => ({ background: a ? "linear-gradient(135deg, #d4af37, #a8842c)" : "#2b2210", color: a ? "#000000" : "#d4af37", border: a ? "none" : "2px solid #d4af37", padding: "12px 26px", borderRadius: "24px", cursor: "pointer", fontWeight: "800", fontSize: "16px" }),
 filterBtn: (a) => ({ background: a ? "linear-gradient(135deg, #d4af37, #a8842c)" : "#1a1a1a", color: a ? "#000000" : "#9a9a9a", border: a ? "none" : "1px solid #2b2b2b", padding: "6px 14px", borderRadius: "16px", cursor: "pointer", fontWeight: "500", fontSize: "12px" }),
-grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "30px" },
-card: { background: "#1a1a1a", borderRadius: "12px", overflow: "hidden", border: "1px solid #2b2b2b", cursor: "pointer" },
+grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "26px" },
+card: { background: "#1a1a1a", borderRadius: "14px", overflow: "hidden", border: "1px solid #2b2b2b", cursor: "pointer", display: "flex", flexDirection: "column" },
 cardImg: { width: "100%", aspectRatio: "4/5", objectFit: "contain", background: "#fff", display: "block", padding: "14px", boxSizing: "border-box" },
-cardBody: { padding: "14px" },
-cardName: { fontSize: "15px", fontWeight: "700", marginBottom: "6px", color: "#ffffff" },
-cardPrice: { fontSize: "16px", fontWeight: "900", color: "#d4af37", marginBottom: "8px" },
-originalPrice: { fontSize: "13px", color: "#999", textDecoration: "line-through", marginRight: "8px" },
-discountBadge: { display: "inline-block", background: "#cc0000", color: "#fff", padding: "2px 8px", borderRadius: "12px", fontSize: "12px", fontWeight: "700", marginLeft: "0px" },
-badgeStock: { display: "inline-block", background: "#1a1a1a", color: "#d4af37", padding: "3px 10px", borderRadius: "20px", fontSize: "12px" },
-urgencyBadge: { display: "inline-block", background: "#c0392b", color: "#ffffff", padding: "3px 10px", borderRadius: "20px", fontSize: "12px", fontWeight: "700", marginTop: "4px" },
+cardBody: { padding: "16px", display: "flex", flexDirection: "column", flex: 1 },
+cardName: { fontSize: "14.5px", fontWeight: "700", marginBottom: "8px", color: "#ffffff", lineHeight: "1.35", minHeight: "38px" },
+cardPrice: { fontSize: "17px", fontWeight: "900", color: "#d4af37", marginBottom: "10px", display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" },
+originalPrice: { fontSize: "12.5px", color: "#7a7a7a", textDecoration: "line-through", fontWeight: "500" },
+discountBadge: { display: "inline-block", background: "rgba(139,26,42,0.9)", color: "#fff", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: "700", letterSpacing: "0.3px" },
+badgeRow: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px", marginBottom: "10px" },
+badgeStock: { display: "inline-flex", alignItems: "center", gap: "5px", color: "#9ddb9d", fontSize: "12px", fontWeight: "600" },
+badgeStockDot: { width: "6px", height: "6px", borderRadius: "50%", background: "#4caf50", flexShrink: 0 },
+urgencyBadge: { display: "inline-block", background: "rgba(212,175,55,0.14)", color: "#e0b84a", border: "1px solid rgba(212,175,55,0.4)", padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: "700" },
 resenaCard: { background: "#ffffff", borderRadius: "12px", padding: "18px", boxShadow: "0 2px 10px rgba(0,0,0,0.08)", border: "1px solid #e8ddc0" },
 resenaFoto: { width: "48px", height: "48px", borderRadius: "50%", objectFit: "cover", border: "2px solid #d4af37" },
 resenaAvatar: { width: "48px", height: "48px", borderRadius: "50%", background: "#d4af37", color: "#000000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", fontSize: "18px" },
-badgePedido: { display: "inline-block", background: "#1a1a1a", color: "#ffffff", padding: "3px 10px", borderRadius: "20px", fontSize: "12px" },
+badgePedido: { display: "inline-flex", alignItems: "center", gap: "5px", color: "#bdbdbd", fontSize: "12px", fontWeight: "600" },
+loadMoreBtn: { display: "block", margin: "36px auto 0", background: "transparent", color: "#d4af37", border: "2px solid #d4af37", padding: "13px 36px", borderRadius: "10px", cursor: "pointer", fontWeight: "700", fontSize: "14px", letterSpacing: "0.3px" },
 modal: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 100 },
 modalBox: { background: "#1a1a1a", borderRadius: "16px", maxWidth: "500px", width: "100%", padding: "24px", position: "relative", maxHeight: "90vh", overflowY: "auto", border: "1px solid #2b2b2b" },
 modalImg: { width: "100%", maxHeight: "360px", objectFit: "contain", background: "#fff", borderRadius: "10px", marginBottom: "16px", display: "block" },
 specsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px", margin: "18px 0", padding: "18px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "12px" },
 specItem: { display: "flex", alignItems: "flex-start", gap: "10px" },
-specIcon: { fontSize: "20px", lineHeight: "1", marginTop: "1px" },
+specIcon: { display: "flex", alignItems: "center", justifyContent: "center", width: "18px", height: "18px", marginTop: "2px", flexShrink: 0 },
 specLabel: { fontSize: "11px", color: "#9a9a9a", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "3px" },
 specValue: { fontSize: "14px", color: "#ffffff", fontWeight: "700" },
 input: { width: "100%", padding: "10px 14px", background: "#1a1a1a", border: "1px solid #2b2b2b", color: "#ffffff", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box" },
@@ -688,6 +769,15 @@ adminWrap: { maxWidth: "640px", margin: "40px auto", padding: "20px" },
 adminCard: { background: "#1a1a1a", borderRadius: "12px", padding: "28px", border: "1px solid #2b2b2b" },
 loginWrap: { display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0f0f0f" },
 loginBox: { background: "#1a1a1a", borderRadius: "16px", padding: "40px", width: "100%", maxWidth: "400px", border: "1px solid #2b2b2b", textAlign: "center" }, loyaltySection: { padding: "50px 20px", maxWidth: "1200px", margin: "0 auto" }, loyaltyCard: { background: "linear-gradient(135deg, #1a1a1a, #2b2b2b)", border: "1px solid #d4af37", borderRadius: "16px", padding: "36px 24px", textAlign: "center" }, loyaltyTitle: { fontFamily: "'Playfair Display', serif", color: "#d4af37", fontSize: "clamp(22px,4vw,32px)", fontWeight: "700", marginBottom: "10px" }, loyaltyGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "18px", marginTop: "24px" }, loyaltyStep: { background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "12px", padding: "18px" }, cartPointsBox: { background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "12px", marginBottom: "12px" },
+footer: { background: "#0a0a0a", borderTop: "1px solid #2b2b2b", padding: "56px 20px 28px", marginTop: "10px" },
+footerInner: { maxWidth: "1200px", margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "36px" },
+footerBrand: { fontFamily: "'Playfair Display', serif", color: "#d4af37", fontSize: "24px", fontWeight: "700", marginBottom: "10px" },
+footerText: { color: "#9a9a9a", fontSize: "13px", lineHeight: "1.7", margin: 0 },
+footerHeading: { color: "#ffffff", fontSize: "14px", fontWeight: "700", marginBottom: "14px", textTransform: "uppercase", letterSpacing: "0.5px" },
+footerLink: { display: "block", color: "#9a9a9a", fontSize: "13px", lineHeight: "2.1", textDecoration: "none" },
+footerTrustRow: { display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "4px" },
+footerTrustBadge: { display: "flex", alignItems: "center", gap: "6px", background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "6px 12px", fontSize: "12px", color: "#bdbdbd" },
+footerBottom: { maxWidth: "1200px", margin: "40px auto 0", paddingTop: "20px", borderTop: "1px solid #2b2b2b", display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "space-between", color: "#6b6b6b", fontSize: "12px" },
 };
 
 if (page === "adminLogin") {
@@ -696,10 +786,10 @@ return (
 <div style={S.loginBox}>
 <div style={{ fontSize: "42px", marginBottom: "16px" }}>&#128274;</div>
 <h2 style={{ color: "#d4af37", marginBottom: "8px", fontFamily: "'Playfair Display', serif" }}>Panel Administrador</h2>
-<p style={{ color: "#bdbdbd", marginBottom: "28px" }}>Ingresa la contrasena para acceder</p>
+<p style={{ color: "#bdbdbd", marginBottom: "8px" }}>Ingresa con la contrasena de la cuenta {ADMIN_EMAIL}</p>
 <input type="password" placeholder="Contrasena" value={adminPass} onChange={e => setAdminPass(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAdminLogin()} style={{ ...S.input, marginBottom: "16px", textAlign: "center" }} />
 {adminError && <p style={{ color: "#ff4444", marginBottom: "12px" }}>{adminError}</p>}
-<button onClick={handleAdminLogin} style={{ ...S.btn, width: "100%", padding: "12px" }}>Ingresar</button>
+<button onClick={handleAdminLogin} disabled={adminLoginBusy} style={{ ...S.btn, width: "100%", padding: "12px", opacity: adminLoginBusy ? 0.6 : 1 }}>{adminLoginBusy ? "Ingresando..." : "Ingresar"}</button>
 <button onClick={() => { setPage("home"); window.history.pushState({}, "", "/"); }} style={{ ...S.btnOutline, width: "100%", padding: "12px", marginTop: "10px" }}>Volver a la tienda</button>
 </div>
 </div>
@@ -712,7 +802,7 @@ return (
 <div style={S.nav}>
 <div style={{ display: "flex", gap: "10px", marginLeft: "auto" }}>
 <button onClick={() => { setPage("home"); window.history.pushState({}, "", "/"); }} style={S.btnOutline}>Ver Tienda</button>
-<button onClick={() => { setIsAdmin(false); setPage("adminLogin"); }} style={S.btnGray}>Cerrar Sesion</button>
+<button onClick={async () => { await signOut(auth); setIsAdmin(false); setPage("adminLogin"); }} style={S.btnGray}>Cerrar Sesion</button>
 </div>
 </div>
 <div style={S.adminWrap}>
@@ -729,12 +819,6 @@ return (
 <input style={{ ...S.input, marginBottom: "16px" }} type="number" placeholder="Ej: 8000" value={form.precioDecant5} onChange={e => setForm(f => ({ ...f, precioDecant5: e.target.value }))} />
 <label style={S.label}>Decant 10ml (CLP, opcional)</label>
 <input style={{ ...S.input, marginBottom: "16px" }} type="number" placeholder="Ej: 14000" value={form.precioDecant10} onChange={e => setForm(f => ({ ...f, precioDecant10: e.target.value }))} />
-<label style={S.label}>Categoria *</label>
-<select style={{ ...S.select, marginBottom: "16px" }} value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}>
-<option value="perfume">Perfume</option>
-<option value="tecnologia">Tecnologia</option>
-<option value="otro">Otro</option>
-</select>
 <label style={S.label}>Marca</label>
 <input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: Lattafa, Armaf, Dior..." value={form.marca} onChange={e => setForm(f => ({ ...f, marca: e.target.value }))} />
 <label style={S.label}>Genero</label>
@@ -935,8 +1019,12 @@ return (
 <div style={S.heroTag}>PERFUMES ORIGINALES</div>
 <h1 style={S.heroMainTitle}>Más de 300 fragancias</h1>
 <p style={S.heroSub}>Diseñador · Árabes · Nicho</p>
-<p style={S.heroSub}>Envío gratis a Bahía Blanca - Envíos a todo el país</p>
-<p style={S.heroSub}>Más de 500 clientes</p>
+<div style={S.heroTrustRow}>
+<span style={S.heroTrustBadge}>✔ 100% Originales</span>
+<span style={S.heroTrustBadge}>🚚 Envío gratis en Bahía Blanca</span>
+<span style={S.heroTrustBadge}>📦 Envíos a todo el país</span>
+<span style={S.heroTrustBadge}>⭐ +500 clientes</span>
+</div>
 <div style={S.heroBtnRow} className="gs-hero-btn-row">
 <button className="gs-hero-btn-primary" style={S.heroBtnPrimary} onClick={() => { setFilter("perfumes"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Ver Perfumes</button>
 <button className="gs-hero-btn-secondary" style={S.heroBtnSecondary} onClick={() => { setAdvFilterOpen(true); setTimeout(() => document.getElementById("advFilterSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Elegí según tu personalidad</button>
@@ -945,25 +1033,26 @@ return (
 <div className="gs-hero-scroll" style={S.heroScrollCue}>↓</div>
 </div>
 <div style={S.tickerSection}>
-<style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } } @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } } .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; animation: fadeInUp 0.6s ease both; } .product-card:hover, .product-card:active { transform: translateY(-6px); box-shadow: 0 14px 28px rgba(212,175,55,0.18); }`}</style>
+<style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } } @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } } .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; animation: fadeInUp 0.6s ease both; } .product-card:hover, .product-card:active { transform: translateY(-6px); box-shadow: 0 14px 28px rgba(212,175,55,0.18); } @keyframes skeletonPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } } .skel { animation: skeletonPulse 1.4s ease-in-out infinite; background: #23231f; }`}</style>
 <div style={S.tickerTrack}>
 {[...tickerProducts, ...tickerProducts].map((p, i) => (
 <div key={i} className="product-card" style={S.tickerItem} onClick={() => setSelectedProduct(p)}>
-<img src={getProductImage(p)} alt={getProductName(p)} style={S.cardImg} onError={(e) => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+<img src={getProductImage(p)} alt={getProductName(p)} style={S.cardImg} loading="lazy" decoding="async" onError={(e) => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.cardBody}>
 <div style={S.cardName}>{getProductName(p)}</div>
 <div style={S.cardPrice}>
+<span>{formatPrice(getProductPrice(p))}</span>
 {getDiscountPercent(p) && <span style={S.originalPrice}>{formatPrice(getProductOriginalPrice(p))}</span>}
-{formatPrice(getProductPrice(p))}
 {getDiscountPercent(p) && <span style={S.discountBadge}>-{getDiscountPercent(p)}%</span>}
 </div>
+<div style={S.badgeRow}>
 {getProductDisp(p) === "stock"
-? <span style={S.badgeStock}>En Stock</span>
-: <span style={S.badgePedido}>Por Pedido: {getProductDias(p)} dias hab.</span>
+? <span style={S.badgeStock}><span style={S.badgeStockDot}></span>En Stock</span>
+: <span style={S.badgePedido}>Por Pedido · {getProductDias(p)} dias hab.</span>
 }
-{getUrgencyMsg(p) && <div style={S.urgencyBadge}>🔥 {getUrgencyMsg(p)}</div>}
-<br />
-<button style={{ ...S.btn, width: "100%", marginTop: "10px" }} onClick={e => { e.stopPropagation(); addToCart(p); }}>Agregar al Carrito</button>
+{getUrgencyMsg(p) && <span style={S.urgencyBadge}>{getUrgencyMsg(p)}</span>}
+</div>
+<button style={{ ...S.btn, width: "100%", marginTop: "auto" }} onClick={e => { e.stopPropagation(); addToCart(p); }}>Agregar al Carrito</button>
 </div>
 </div>
 ))}
@@ -975,12 +1064,20 @@ return (
 <svg style={S.searchIconSvg} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
 <input type="text" placeholder="Ej: perfume dulce, para verano, parecido a Sauvage..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={S.searchInput} />
 </div>
+<div style={{ maxWidth: "260px", margin: "0 auto 20px" }}>
+<select style={S.select} value={sortBy} onChange={e => setSortBy(e.target.value)} disabled={!!searchQuery.trim()} title={searchQuery.trim() ? "Al buscar, se ordena por relevancia" : "Ordenar por"}>
+<option value="relevancia">Ordenar: Novedades</option>
+<option value="vendidos">Ordenar: Más vendidos</option>
+<option value="precio_asc">Ordenar: Precio menor a mayor</option>
+<option value="precio_desc">Ordenar: Precio mayor a menor</option>
+</select>
+</div>
 <div style={S.filterBar}>
 <button style={S.filterBtnPrimary(filter === "todos")} onClick={() => setFilter("todos")}>Todos</button>
 <button style={S.filterBtnPrimary(filter === "perfumes")} onClick={() => setFilter("perfumes")}>Perfumes</button>
 <button style={S.filterBtnPrimary(filter === "stock")} onClick={() => setFilter("stock")}>En Stock</button>
 <button style={S.filterBtnPrimary(filter === "pedido")} onClick={() => setFilter("pedido")}>Por Pedido</button>
-<button style={S.filterBtnPrimary(filter === "gangatech")} onClick={() => setFilter("gangatech")}>Ganga Tech</button><button style={S.filterBtnPrimary(filter === "decants")} onClick={() => setFilter("decants")}>Decant</button></div><div style={S.filterBar}><button style={S.filterBtn(filter === "mas_vendidos")} onClick={() => setFilter("mas_vendidos")}>Mas Vendidos</button><button style={S.filterBtn(filter === "novedades")} onClick={() => setFilter("novedades")}>Novedades</button><button style={S.filterBtn(filter === "larga_duracion")} onClick={() => setFilter("larga_duracion")}>Larga Duracion</button><button style={S.filterBtn(filter === "menos100k")} onClick={() => setFilter("menos100k")}>Menos de $100.000</button><button style={S.filterBtn(filter === "arabes")} onClick={() => setFilter("arabes")}>Perfumes Arabes</button><button style={S.filterBtn(filter === "disenador")} onClick={() => setFilter("disenador")}>Perfumes de Disenador</button><button style={S.filterBtn(filter === "para_regalar")} onClick={() => setFilter("para_regalar")}>Para Regalar</button><button style={S.filterBtn(filter === "top_invierno")} onClick={() => setFilter("top_invierno")}>Top Invierno</button><button style={S.filterBtn(filter === "top_verano")} onClick={() => setFilter("top_verano")}>Top Verano</button><button style={S.filterBtn(filter === "top_oficina")} onClick={() => setFilter("top_oficina")}>Top Oficina</button><button style={S.filterBtn(filter === "top_citas")} onClick={() => setFilter("top_citas")}>Top Citas</button>
+<button style={S.filterBtnPrimary(filter === "decants")} onClick={() => setFilter("decants")}>Decant</button></div><div style={S.filterBar}><button style={S.filterBtn(filter === "mas_vendidos")} onClick={() => setFilter("mas_vendidos")}>Mas Vendidos</button><button style={S.filterBtn(filter === "novedades")} onClick={() => setFilter("novedades")}>Novedades</button><button style={S.filterBtn(filter === "larga_duracion")} onClick={() => setFilter("larga_duracion")}>Larga Duracion</button><button style={S.filterBtn(filter === "menos100k")} onClick={() => setFilter("menos100k")}>Menos de $100.000</button><button style={S.filterBtn(filter === "arabes")} onClick={() => setFilter("arabes")}>Perfumes Arabes</button><button style={S.filterBtn(filter === "disenador")} onClick={() => setFilter("disenador")}>Perfumes de Disenador</button><button style={S.filterBtn(filter === "para_regalar")} onClick={() => setFilter("para_regalar")}>Para Regalar</button><button style={S.filterBtn(filter === "top_invierno")} onClick={() => setFilter("top_invierno")}>Top Invierno</button><button style={S.filterBtn(filter === "top_verano")} onClick={() => setFilter("top_verano")}>Top Verano</button><button style={S.filterBtn(filter === "top_oficina")} onClick={() => setFilter("top_oficina")}>Top Oficina</button><button style={S.filterBtn(filter === "top_citas")} onClick={() => setFilter("top_citas")}>Top Citas</button>
 </div>
 <div style={S.advFilterWrap} id="advFilterSection">
 <button style={S.advFilterToggle} onClick={() => setAdvFilterOpen(!advFilterOpen)}>
@@ -1050,26 +1147,31 @@ return (
 </div>
 )}
 </div>
+<div style={{ textAlign: "center", color: "#8a8a8a", fontSize: "13px", marginBottom: "16px" }}>
+{!productsLoading && filteredProducts.length > 0 && `Mostrando ${Math.min(visibleCount, filteredProducts.length)} de ${filteredProducts.length} perfumes`}
+</div>
 <div style={S.grid}>
-{filteredProducts.map(product => (
+{productsLoading && Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={"skel" + i} />)}
+{!productsLoading && filteredProducts.slice(0, visibleCount).map(product => (
 <div key={product.id} className="product-card" style={S.card} onClick={() => setSelectedProduct(product)}>
-<img src={getProductImage(product)} alt={getProductName(product)} style={S.cardImg} onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+<img src={getProductImage(product)} alt={getProductName(product)} style={S.cardImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.cardBody}>
 <div style={S.cardName}>{getProductName(product)}</div>
 {filter !== "decants" && (
 <>
 <div style={S.cardPrice}>
+<span>{formatPrice(getProductPrice(product))}</span>
 {getDiscountPercent(product) && <span style={S.originalPrice}>{formatPrice(getProductOriginalPrice(product))}</span>}
-{formatPrice(getProductPrice(product))}
 {getDiscountPercent(product) && <span style={S.discountBadge}>-{getDiscountPercent(product)}%</span>}
 </div>
+<div style={S.badgeRow}>
 {getProductDisp(product) === "stock"
-? <span style={S.badgeStock}>En Stock</span>
-: <span style={S.badgePedido}>Por Pedido: {getProductDias(product)} dias hab.</span>
+? <span style={S.badgeStock}><span style={S.badgeStockDot}></span>En Stock</span>
+: <span style={S.badgePedido}>Por Pedido · {getProductDias(product)} dias hab.</span>
 }
-{getUrgencyMsg(product) && <div style={S.urgencyBadge}>🔥 {getUrgencyMsg(product)}</div>}
-<br />
-<button style={{ ...S.btn, width: "100%", marginTop: "10px" }} onClick={e => { e.stopPropagation(); addToCart(product); }}>Agregar al Carrito</button>
+{getUrgencyMsg(product) && <span style={S.urgencyBadge}>{getUrgencyMsg(product)}</span>}
+</div>
+<button style={{ ...S.btn, width: "100%", marginTop: "auto" }} onClick={e => { e.stopPropagation(); addToCart(product); }}>Agregar al Carrito</button>
 </>
 )}
 {hasDecant(product) && (
@@ -1086,8 +1188,11 @@ return (
 </div>
 </div>
 ))}
-{productsLoading && <p style={{ color: "#bdbdbd", gridColumn: "1/-1" }}>Cargando productos...</p>} {!productsLoading && filteredProducts.length === 0 && <p style={{ color: "#bdbdbd", gridColumn: "1/-1" }}>No hay productos en esta categoria.</p>}
+{!productsLoading && filteredProducts.length === 0 && <p style={{ color: "#bdbdbd", gridColumn: "1/-1" }}>No hay productos en esta categoria.</p>}
 </div>
+{visibleCount < filteredProducts.length && (
+<button style={S.loadMoreBtn} onClick={() => setVisibleCount(v => v + PAGE_SIZE)}>Ver más perfumes ({filteredProducts.length - visibleCount} más)</button>
+)}
 </div>
 
 <div style={S.section}>
@@ -1139,29 +1244,29 @@ return (
 {getDiscountPercent(selectedProduct) && <span style={S.discountBadge}>-{getDiscountPercent(selectedProduct)}%</span>}
 </div>
 {getProductDisp(selectedProduct) === "stock"
-? <span style={S.badgeStock}>En Stock - Disponible ahora</span>
-: <span style={S.badgePedido}>Por Pedido: {getProductDias(selectedProduct)} dias habiles</span>
+? <span style={S.badgeStock}><span style={S.badgeStockDot}></span>En Stock - Disponible ahora</span>
+: <span style={S.badgePedido}>Por Pedido · {getProductDias(selectedProduct)} dias habiles</span>
 }
-{getUrgencyMsg(selectedProduct) && <div style={{ ...S.urgencyBadge, marginTop: "8px" }}>🔥 {getUrgencyMsg(selectedProduct)}</div>}
+{getUrgencyMsg(selectedProduct) && <div style={{ ...S.urgencyBadge, display: "inline-block", marginTop: "8px" }}>{getUrgencyMsg(selectedProduct)}</div>}
 {(selectedProduct.marca || selectedProduct.genero || selectedProduct.tipoPerfume || selectedProduct.temporada || selectedProduct.duracion || selectedProduct.notas) && (
 <div style={S.specsGrid}>
 {selectedProduct.marca && (
-<div style={S.specItem}><span style={S.specIcon}>&#128142;</span><div><div style={S.specLabel}>Marca</div><div style={S.specValue}>{selectedProduct.marca}</div></div></div>
+<div style={S.specItem}><span style={S.specIcon}><SpecIcon name="marca" /></span><div><div style={S.specLabel}>Marca</div><div style={S.specValue}>{selectedProduct.marca}</div></div></div>
 )}
 {selectedProduct.genero && (
-<div style={S.specItem}><span style={S.specIcon}>&#128694;</span><div><div style={S.specLabel}>Genero</div><div style={S.specValue}>{generoLabel(selectedProduct.genero)}</div></div></div>
+<div style={S.specItem}><span style={S.specIcon}><SpecIcon name="genero" /></span><div><div style={S.specLabel}>Genero</div><div style={S.specValue}>{generoLabel(selectedProduct.genero)}</div></div></div>
 )}
 {selectedProduct.tipoPerfume && (
-<div style={S.specItem}><span style={S.specIcon}>&#127991;&#65039;</span><div><div style={S.specLabel}>Tipo</div><div style={S.specValue}>{tipoLabel(selectedProduct.tipoPerfume)}</div></div></div>
+<div style={S.specItem}><span style={S.specIcon}><SpecIcon name="tipo" /></span><div><div style={S.specLabel}>Tipo</div><div style={S.specValue}>{tipoLabel(selectedProduct.tipoPerfume)}</div></div></div>
 )}
 {selectedProduct.temporada && (
-<div style={S.specItem}><span style={S.specIcon}>&#127780;&#65039;</span><div><div style={S.specLabel}>Temporada ideal</div><div style={S.specValue}>{temporadaLabel(selectedProduct.temporada)}</div></div></div>
+<div style={S.specItem}><span style={S.specIcon}><SpecIcon name="temporada" /></span><div><div style={S.specLabel}>Temporada ideal</div><div style={S.specValue}>{temporadaLabel(selectedProduct.temporada)}</div></div></div>
 )}
 {selectedProduct.duracion && (
-<div style={S.specItem}><span style={S.specIcon}>&#9203;</span><div><div style={S.specLabel}>Duracion</div><div style={S.specValue}>{selectedProduct.duracion}</div></div></div>
+<div style={S.specItem}><span style={S.specIcon}><SpecIcon name="duracion" /></span><div><div style={S.specLabel}>Duracion</div><div style={S.specValue}>{selectedProduct.duracion}</div></div></div>
 )}
 {selectedProduct.notas && (
-<div style={S.specItem}><span style={S.specIcon}>&#127804;</span><div><div style={S.specLabel}>Notas olfativas</div><div style={S.specValue}>{selectedProduct.notas}</div></div></div>
+<div style={S.specItem}><span style={S.specIcon}><SpecIcon name="notas" /></span><div><div style={S.specLabel}>Notas olfativas</div><div style={S.specValue}>{selectedProduct.notas}</div></div></div>
 )}
 </div>
 )}
@@ -1239,7 +1344,7 @@ return (
 <>
 {cart.map(item => (
 <div key={item.id} style={{ display: "flex", gap: "12px", marginBottom: "16px", alignItems: "center" }}>
-<img src={getProductImage(item)} alt={getProductName(item)} style={{ width: "60px", height: "60px", objectFit: "contain", background: "#fff", borderRadius: "6px" }} />
+<img src={getProductImage(item)} alt={getProductName(item)} loading="lazy" decoding="async" style={{ width: "60px", height: "60px", objectFit: "contain", background: "#fff", borderRadius: "6px" }} />
 <div style={{ flex: 1 }}>
 <div style={{ fontWeight: "bold", fontSize: "14px" }}>{getProductName(item)}</div>
 <div style={{ color: "#d4af37" }}>{formatPrice(getProductPrice(item))} x{item.qty}</div>
@@ -1287,6 +1392,42 @@ Pedir por WhatsApp
 </div>
 </div>
 )}
+<footer style={S.footer}>
+<div style={S.footerInner}>
+<div>
+<div style={S.footerBrand}>Esencia Perfumeria</div>
+<p style={S.footerText}>Perfumes originales de diseñador y arabes en Bahia Blanca, con envios a todo el pais. Mas de 300 fragancias seleccionadas.</p>
+<div style={S.footerTrustRow}>
+<span style={S.footerTrustBadge}>✔ 100% Original</span>
+<span style={S.footerTrustBadge}>🚚 Envios a todo el pais</span>
+<span style={S.footerTrustBadge}>🔄 Cambios sin problema</span>
+</div>
+</div>
+<div>
+<div style={S.footerHeading}>Ayuda</div>
+<a href="https://wa.me/2914261941" target="_blank" rel="noreferrer" style={S.footerLink}>Hacer un pedido por WhatsApp</a>
+<a href="https://wa.me/2914261941?text=Hola!%20Tengo%20una%20consulta%20sobre%20un%20pedido" target="_blank" rel="noreferrer" style={S.footerLink}>Consultar sobre un pedido</a>
+<a href="#" onClick={(e) => { e.preventDefault(); setAssistantOpen(true); }} style={S.footerLink}>Preguntas frecuentes</a>
+<a href="#advFilterSection" style={S.footerLink}>Encontra tu perfume ideal</a>
+</div>
+<div>
+<div style={S.footerHeading}>Contacto</div>
+<a href="https://wa.me/2914261941" target="_blank" rel="noreferrer" style={S.footerLink}>WhatsApp: +54 9 291 426-1941</a>
+<a href="https://www.instagram.com/esenciaperfumeria.bb/" target="_blank" rel="noreferrer" style={S.footerLink}>Instagram: @esenciaperfumeria.bb</a>
+<span style={S.footerLink}>Bahia Blanca, Argentina</span>
+</div>
+<div>
+<div style={S.footerHeading}>Compras</div>
+<span style={S.footerLink}>Pago: coordinado por WhatsApp (efectivo, transferencia)</span>
+<span style={S.footerLink}>Envio gratis dentro de Bahia Blanca</span>
+<span style={S.footerLink}>Envios a todo el pais a coordinar</span>
+</div>
+</div>
+<div style={S.footerBottom}>
+<span>© {new Date().getFullYear()} Esencia Perfumeria. Todos los derechos reservados.</span>
+<span>Precios en pesos argentinos. Stock sujeto a disponibilidad.</span>
+</div>
+</footer>
 </div>
 );
 }
