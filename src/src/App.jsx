@@ -35,6 +35,7 @@ return authModPromise;
 //    para que solo ese correo pueda escribir en la base de datos. Sin ese paso, el
 //    panel se ve mas seguro pero la base de datos todavia queda abierta por detras.
 const ADMIN_EMAIL = "elaleperro28@gmail.com";
+const BANK_TRANSFER_INFO = { banco: "Banco Galicia", titular: "Alejo Francisco Ciulo", cuil: "20-46743275-4", cbu: "0070082530004087084624", alias: "Teatro.ale" };
 const IMGUR_CLIENT_ID = "546c25a59c58ad7"; const TAG_OPTIONS = [{ key: "mas_vendidos", label: "Mas vendidos" }, { key: "novedades", label: "Novedades" }, { key: "larga_duracion", label: "Larga duracion" }, { key: "para_regalar", label: "Para regalar" }, { key: "top_invierno", label: "Top invierno" }, { key: "top_verano", label: "Top verano" }, { key: "top_oficina", label: "Top oficina" }, { key: "top_citas", label: "Top citas" }];
 const shuffleArray = (arr) => {
 const a = [...arr];
@@ -84,6 +85,7 @@ const [assistantOpen, setAssistantOpen] = useState(false);
 const [assistantChat, setAssistantChat] = useState([{ from: "bot", text: "Hola! Soy el asistente virtual de Esencia Perfumeria. Elegi una opcion para que te ayude:" }]);
 const [promoCode, setPromoCode] = useState(""); const [customerPhone, setCustomerPhone] = useState(""); const [customerPoints, setCustomerPoints] = useState(null); const [pointsLoading, setPointsLoading] = useState(false); const [redeemPoints, setRedeemPoints] = useState(false);
 const [isGift, setIsGift] = useState(false); const [giftMessage, setGiftMessage] = useState("");
+const [payByTransfer, setPayByTransfer] = useState(false);
 const [user, setUser] = useState(null);
 const [referralCode, setReferralCode] = useState("");
 const [referralCredit, setReferralCredit] = useState(0);
@@ -541,6 +543,7 @@ let msg = "Hola! Quiero pedir: " + cartUsed.map(i => getProductName(i) + " x" + 
 if (promoCode) msg += " - Codigo promocional: " + promoCode;
 if (customerPhone) msg += " - Mi telefono: " + customerPhone;
 if (isGift) msg += " - Es un regalo" + (giftMessage.trim() ? (": \"" + giftMessage.trim() + "\"") : "");
+if (payByTransfer) msg += " - Pago por transferencia bancaria (ya envio el comprobante por este chat)";
 let usedDiscount = 0;
 const referralCodeEntered = referralInput.trim().toUpperCase();
 let referralUsedThisOrder = false;
@@ -1530,6 +1533,19 @@ return (
 <div style={{ background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px 12px", marginBottom: "12px" }}>
 <label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}><input type="checkbox" checked={isGift} onChange={e => setIsGift(e.target.checked)} />🎁 Es un regalo</label>
 {isGift && (<textarea value={giftMessage} onChange={e => setGiftMessage(e.target.value)} placeholder="Mensaje para incluir (opcional)" style={{ ...S.input, marginTop: "8px", minHeight: "50px", resize: "vertical", width: "100%", boxSizing: "border-box" }} />)}
+</div>
+<div style={{ background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px 12px", marginBottom: "12px" }}>
+<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}><input type="checkbox" checked={payByTransfer} onChange={e => setPayByTransfer(e.target.checked)} />🏦 Pagar por transferencia bancaria</label>
+{payByTransfer && (
+<div style={{ marginTop: "10px", fontSize: "13px", color: "#e8ddc0", lineHeight: "1.7" }}>
+<div><strong style={{ color: "#d4af37" }}>Banco:</strong> {BANK_TRANSFER_INFO.banco}</div>
+<div><strong style={{ color: "#d4af37" }}>Titular:</strong> {BANK_TRANSFER_INFO.titular}</div>
+<div><strong style={{ color: "#d4af37" }}>CUIL:</strong> {BANK_TRANSFER_INFO.cuil}</div>
+<div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}><strong style={{ color: "#d4af37" }}>CBU:</strong><span>{BANK_TRANSFER_INFO.cbu}</span><button type="button" onClick={() => { navigator.clipboard.writeText(BANK_TRANSFER_INFO.cbu); showToast("CBU copiado"); }} style={{ background: "transparent", border: "1px solid #d4af37", color: "#d4af37", borderRadius: "5px", padding: "2px 8px", fontSize: "11px", cursor: "pointer" }}>Copiar</button></div>
+<div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginTop: "2px" }}><strong style={{ color: "#d4af37" }}>Alias:</strong><span>{BANK_TRANSFER_INFO.alias}</span><button type="button" onClick={() => { navigator.clipboard.writeText(BANK_TRANSFER_INFO.alias); showToast("Alias copiado"); }} style={{ background: "transparent", border: "1px solid #d4af37", color: "#d4af37", borderRadius: "5px", padding: "2px 8px", fontSize: "11px", cursor: "pointer" }}>Copiar</button></div>
+<p style={{ marginTop: "8px", marginBottom: 0, color: "#bdbdbd" }}>Despues de transferir, mandanos el comprobante por este mismo WhatsApp para confirmar tu pedido y coordinar el envio.</p>
+</div>
+)}
 </div>
 <button onClick={() => handleCheckout()} style={{ ...S.btn, display: "block", width: "100%", border: "none", textAlign: "center", padding: "12px", cursor: "pointer" }}>
 Pedir por WhatsApp
