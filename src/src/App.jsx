@@ -1071,6 +1071,9 @@ return (
 .gs-hero-btn-row{flex-direction:column !important;width:100%;align-items:stretch !important;margin-top:22px !important;gap:12px !important;}
 .gs-hero-btn-primary,.gs-hero-btn-secondary{width:100% !important;text-align:center;padding:16px 30px !important;}
 .gs-assistant-btn{width:48px !important;height:48px !important;right:14px !important;bottom:14px !important;font-size:16px !important;}
+.product-grid{grid-template-columns:repeat(2,1fr) !important;gap:10px 8px !important;}
+.product-grid .card-img{padding:8px !important;}
+.product-grid .add-cart-btn{font-size:12.5px !important;padding:9px 8px !important;}
 }
 @media (min-width:1600px){
 .gs-hero{min-height:88vh;}
@@ -1236,7 +1239,7 @@ return (
 <div style={{ textAlign: "center", color: "#8a8a8a", fontSize: "13px", marginBottom: "16px" }}>
 {!productsLoading && filteredProducts.length > 0 && `Mostrando ${Math.min(visibleCount, filteredProducts.length)} de ${filteredProducts.length} perfumes`}
 </div>
-<div style={S.grid}>
+<div style={S.grid} className="product-grid">
 {productsLoading && Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={"skel" + i} />)}
 {!productsLoading && filteredProducts.slice(0, visibleCount).map(product => (
 <div key={product.id} className="product-card" style={{ ...S.card, position: "relative" }} onClick={() => setSelectedProduct(product)}>
