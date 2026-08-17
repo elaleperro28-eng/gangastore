@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy, getDoc, setDoc, where, getDocs } from "firebase/firestore";
-import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "firebase/auth";
 
 const firebaseConfig = {
 apiKey: "AIzaSyAQlmsNO4bF9SVfwrcK6_-HJ_KFrcjTINg",
@@ -14,7 +13,13 @@ appId: "1:167884959340:web:0cd7f22b3506eff1c3b249"
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const auth = getAuth(app);
+// firebase/auth (~53kb gzip) se carga bajo demanda para achicar el bundle inicial:
+// la primera pantalla (grilla de productos) no depende de auth, solo el login/cuenta/admin.
+let authModPromise = null;
+const loadAuthMod = () => {
+if (!authModPromise) authModPromise = import("firebase/auth");
+return authModPromise;
+};
 
 // SEGURIDAD: el panel de administracion ahora se protege con Firebase Authentication
 // (el mismo sistema de cuentas que ya usan los clientes para sumar puntos), en vez de
@@ -210,7 +215,12 @@ return next;
 }, [selectedProduct]);
 
 useEffect(() => {
-const unsub = onAuthStateChanged(auth, (u) => {
+let unsub = () => {};
+let cancelled = false;
+loadAuthMod().then((mod) => {
+if (cancelled) return;
+const authInstance = mod.getAuth(app);
+unsub = mod.onAuthStateChanged(authInstance, (u) => {
 setUser(u);
 if (u) {
 loadMyPoints(u.uid);
@@ -220,7 +230,8 @@ setCustomerPoints(null);
 setRedeemPoints(false);
 }
 });
-return () => unsub();
+});
+return () => { cancelled = true; unsub(); };
 }, []);
 
 const [adminLoginBusy, setAdminLoginBusy] = useState(false);
@@ -229,10 +240,12 @@ if (!adminPass) { setAdminError("Ingresa tu contrasena"); return; }
 setAdminLoginBusy(true);
 setAdminError("");
 try {
-const cred = await signInWithEmailAndPassword(auth, ADMIN_EMAIL, adminPass);
+const mod = await loadAuthMod();
+const authInstance = mod.getAuth(app);
+const cred = await mod.signInWithEmailAndPassword(authInstance, ADMIN_EMAIL, adminPass);
 if (cred.user.email !== ADMIN_EMAIL) {
 setAdminError("Esta cuenta no tiene permisos de administrador");
-await signOut(auth);
+await mod.signOut(authInstance);
 } else {
 setIsAdmin(true);
 setAdminPass("");
@@ -483,10 +496,12 @@ if (!accountEmail.trim() || !accountPassword) { setAccountError("Completa tu cor
 if (accountPassword.length < 6) { setAccountError("La contrasena debe tener al menos 6 caracteres"); return; }
 setAccountBusy(true);
 try {
+const mod = await loadAuthMod();
+const authInstance = mod.getAuth(app);
 if (accountMode === "signup") {
-await createUserWithEmailAndPassword(auth, accountEmail.trim(), accountPassword);
+await mod.createUserWithEmailAndPassword(authInstance, accountEmail.trim(), accountPassword);
 } else {
-await signInWithEmailAndPassword(auth, accountEmail.trim(), accountPassword);
+await mod.signInWithEmailAndPassword(authInstance, accountEmail.trim(), accountPassword);
 }
 setShowAccountModal(false);
 setAccountEmail("");
@@ -498,7 +513,8 @@ setAccountError(map[e.code] || "No pudimos procesar tu solicitud. Intenta de nue
 setAccountBusy(false);
 };
 const handleLogout = async () => {
-await signOut(auth);
+const mod = await loadAuthMod();
+await mod.signOut(mod.getAuth(app));
 setCustomerPoints(null);
 setRedeemPoints(false);
 };
@@ -895,7 +911,7 @@ return (
 <div style={S.nav}>
 <div style={{ display: "flex", gap: "10px", marginLeft: "auto" }}>
 <button onClick={() => { setPage("home"); window.history.pushState({}, "", "/"); }} style={S.btnOutline}>Ver Tienda</button>
-<button onClick={async () => { await signOut(auth); setIsAdmin(false); setPage("adminLogin"); }} style={S.btnGray}>Cerrar Sesion</button>
+<button onClick={async () => { const mod = await loadAuthMod(); await mod.signOut(mod.getAuth(app)); setIsAdmin(false); setPage("adminLogin"); }} style={S.btnGray}>Cerrar Sesion</button>
 </div>
 </div>
 <div style={S.adminWrap}>
