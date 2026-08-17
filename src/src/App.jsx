@@ -410,6 +410,12 @@ return [...c, { ...product, qty: 1 }];
 if (!opts || !opts.silent) {
 showToast((product.nombre || product.name || product.title || "Producto") + " agregado al carrito");
 }
+try {
+const name = product.nombre || product.name || product.title || "Producto";
+const price = Number(product.precio) || 0;
+if (window.fbq) window.fbq("track", "AddToCart", { content_name: name, content_type: "product", value: price, currency: "ARS" });
+if (window.gtag) window.gtag("event", "add_to_cart", { currency: "ARS", value: price, items: [{ item_name: name, price }] });
+} catch (e) {}
 };
 
 const addDecantToCart = (product, size) => {
@@ -508,6 +514,10 @@ const handleCheckout = async (cartOverride) => {
 const waWindow = window.open("", "_blank");
 const cartUsed = cartOverride || cart;
 const totalCartUsed = cartUsed.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
+try {
+if (window.fbq) window.fbq("track", "InitiateCheckout", { value: totalCartUsed, currency: "ARS", num_items: cartUsed.reduce((a, i) => a + i.qty, 0), content_type: "product", contents: cartUsed.map(i => ({ id: i.id, quantity: i.qty })) });
+if (window.gtag) window.gtag("event", "begin_checkout", { currency: "ARS", value: totalCartUsed, items: cartUsed.map(i => ({ item_id: i.id, item_name: getProductName(i), quantity: i.qty, price: Number(i.precio) || 0 })) });
+} catch (e) {}
 let msg = "Hola! Quiero pedir: " + cartUsed.map(i => getProductName(i) + " x" + i.qty).join(", ");
 if (promoCode) msg += " - Codigo promocional: " + promoCode;
 if (customerPhone) msg += " - Mi telefono: " + customerPhone;
@@ -1303,6 +1313,13 @@ return (
 </div>
   
 <div style={S.loyaltySection} id="loyaltySection"><div style={S.loyaltyCard}><div style={S.loyaltyTitle}>Programa de Fidelizacion Esencia Perfumeria</div><p style={{ color: "#fff", maxWidth: 560, margin: "0 auto" }}>Cada compra suma puntos! Por cada $100.000 de compra sumas 100 puntos, y con 300 puntos obtenes $10.000 de descuento en tu proximo pedido.</p><div style={S.loyaltyGrid}><div style={S.loyaltyStep}><div style={{ color: "#d4af37", fontWeight: 700, marginBottom: 4 }}>1. Compra</div><div style={{ color: "#bdbdbd", fontSize: 13 }}>Crea tu cuenta con tu correo y compra tus perfumes favoritos.</div></div><div style={S.loyaltyStep}><div style={{ color: "#d4af37", fontWeight: 700, marginBottom: 4 }}>2. Suma puntos</div><div style={{ color: "#bdbdbd", fontSize: 13 }}>$100.000 de compra = 100 puntos acumulados a tu cuenta.</div></div><div style={S.loyaltyStep}><div style={{ color: "#d4af37", fontWeight: 700, marginBottom: 4 }}>3. Canjea</div><div style={{ color: "#bdbdbd", fontSize: 13 }}>300 puntos = $10.000 de descuento en tu proximo pedido.</div></div></div><div style={{ marginTop: 22, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, maxWidth: 380, marginLeft: "auto", marginRight: "auto" }}>{user ? (<><p style={{ color: "#bdbdbd", fontSize: 13, margin: 0 }}>Conectado como {user.email}</p>{customerPoints !== null && (<p style={{ color: "#d4af37", fontWeight: 700, margin: 0 }}>Tenes {customerPoints} puntos = {formatPrice(pointsToDiscount(customerPoints))} de descuento disponible</p>)}<button style={S.btnOutline} onClick={() => loadMyPoints(user.uid)} disabled={pointsLoading}>{pointsLoading ? "Consultando..." : "Actualizar mis puntos"}</button></>) : (<><p style={{ color: "#bdbdbd", fontSize: 14, margin: 0 }}>Inicia sesion con tu correo para ver y usar tus puntos.</p><button style={S.btn} onClick={() => { setAccountMode("login"); setAccountError(""); setShowAccountModal(true); }}>Ingresar / Crear cuenta</button></>)}</div></div></div>
+<div style={{ padding: "10px 20px 40px", maxWidth: "1200px", margin: "0 auto" }}>
+<div style={{ background: "linear-gradient(135deg, #14311f, #0f0f0f)", border: "1px solid #25D366", borderRadius: "16px", padding: "30px 24px", textAlign: "center" }}>
+<div style={{ fontFamily: "'Playfair Display', serif", color: "#fff", fontSize: "clamp(20px,3.5vw,26px)", fontWeight: "700", marginBottom: "8px" }}>Sumate a la Lista VIP de WhatsApp</div>
+<p style={{ color: "#bdbdbd", maxWidth: 520, margin: "0 auto 18px" }}>Enterate primero de lanzamientos, stock nuevo y promos exclusivas, directo por WhatsApp. Sin spam, te escribimos solo cuando vale la pena.</p>
+<a href={`https://wa.me/2914261941?text=${encodeURIComponent("Hola! Quiero sumarme a la Lista VIP para enterarme de promos y novedades")}`} target="_blank" rel="noreferrer" onClick={() => { try { if (window.fbq) window.fbq("track", "Lead"); if (window.gtag) window.gtag("event", "generate_lead"); } catch (e) {} }} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "13px 24px", fontSize: "15px", fontWeight: "700", borderRadius: "10px", background: "#25D366", color: "#fff", textDecoration: "none" }}>💬 Sumarme a la Lista VIP</a>
+</div>
+</div>
 <div style={S.section}>
 <div style={S.sectionTitle}>Opiniones de Clientes</div>
 {resenas.length === 0 ? (
