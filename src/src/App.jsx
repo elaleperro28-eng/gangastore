@@ -1065,9 +1065,12 @@ return (
 .gs-hero-scroll{animation:gsBounce 2s infinite;}
 @keyframes gsBounce{0%,100%{transform:translateX(-50%) translateY(0);}50%{transform:translateX(-50%) translateY(8px);}}
 @media (max-width:700px){
-.gs-hero{min-height:80vh !important;padding:120px 16px 90px !important;}
-.gs-hero-btn-row{flex-direction:column !important;width:100%;align-items:stretch !important;}
-.gs-hero-btn-primary,.gs-hero-btn-secondary{width:100% !important;text-align:center;}
+.gs-hero{min-height:auto !important;padding:105px 16px 64px !important;}
+.gs-hero-trust-row{display:grid !important;grid-template-columns:1fr 1fr;gap:8px !important;margin:16px 0 4px !important;}
+.gs-hero-trust-row span{font-size:11px !important;padding:7px 8px !important;justify-content:center;line-height:1.3;}
+.gs-hero-btn-row{flex-direction:column !important;width:100%;align-items:stretch !important;margin-top:22px !important;gap:12px !important;}
+.gs-hero-btn-primary,.gs-hero-btn-secondary{width:100% !important;text-align:center;padding:16px 30px !important;}
+.gs-assistant-btn{width:48px !important;height:48px !important;right:14px !important;bottom:14px !important;font-size:16px !important;}
 }
 @media (min-width:1600px){
 .gs-hero{min-height:88vh;}
@@ -1082,7 +1085,7 @@ return (
 <div style={S.heroTag}>PERFUMES ORIGINALES</div>
 <h1 style={S.heroMainTitle}>Más de 300 fragancias</h1>
 <p style={S.heroSub}>Diseñador · Árabes · Nicho</p>
-<div style={S.heroTrustRow}>
+<div style={S.heroTrustRow} className="gs-hero-trust-row">
 <span style={S.heroTrustBadge}>✔ 100% Originales</span>
 <span style={S.heroTrustBadge}>🚚 Envío gratis en Bahía Blanca</span>
 <span style={S.heroTrustBadge}>📦 Envíos a todo el país</span>
@@ -1096,12 +1099,12 @@ return (
 <div className="gs-hero-scroll" style={S.heroScrollCue}>↓</div>
 </div>
 <div style={S.tickerSection}>
-<style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } } @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } } .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; animation: fadeInUp 0.6s ease both; } .product-card:hover, .product-card:active { transform: translateY(-6px); box-shadow: 0 14px 28px rgba(212,175,55,0.18); } @keyframes skeletonPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } } .skel { animation: skeletonPulse 1.4s ease-in-out infinite; background: #23231f; } @keyframes toastPop { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }`}</style>
+<style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } } @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } } .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; animation: fadeInUp 0.6s ease both; } .product-card:hover, .product-card:active { transform: translateY(-6px); box-shadow: 0 14px 28px rgba(212,175,55,0.18); } .card-img { transition: transform 0.35s ease; } .product-card:hover .card-img { transform: scale(1.06); } .fav-btn { transition: transform 0.2s ease, background 0.2s ease; } .fav-btn:hover { transform: scale(1.12); } .fav-btn.active { animation: favPop 0.3s ease; } @keyframes favPop { 0% { transform: scale(1); } 45% { transform: scale(1.3); } 100% { transform: scale(1); } } .add-cart-btn { transition: transform 0.2s ease, box-shadow 0.2s ease; } .add-cart-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(212,175,55,0.4); } .add-cart-btn:active { transform: scale(0.96); } @keyframes skeletonPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } } .skel { animation: skeletonPulse 1.4s ease-in-out infinite; background: #23231f; } @keyframes toastPop { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }`}</style>
 <div style={S.tickerTrack}>
 {[...tickerProducts, ...tickerProducts].map((p, i) => (
 <div key={i} className="product-card" style={{ ...S.tickerItem, position: "relative" }} onClick={() => setSelectedProduct(p)}>
-<button onClick={e => { e.stopPropagation(); toggleFavorite(p.id); }} style={S.favBtn(favorites.includes(p.id))} aria-label="Favorito">{favorites.includes(p.id) ? "♥" : "♡"}</button>
-<img src={getProductImage(p)} alt={getProductName(p)} style={S.cardImg} loading="lazy" decoding="async" onError={(e) => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+<button className={"fav-btn" + (favorites.includes(p.id) ? " active" : "")} onClick={e => { e.stopPropagation(); toggleFavorite(p.id); }} style={S.favBtn(favorites.includes(p.id))} aria-label="Favorito">{favorites.includes(p.id) ? "♥" : "♡"}</button>
+<img className="card-img" src={getProductImage(p)} alt={getProductName(p)} style={S.cardImg} loading="lazy" decoding="async" onError={(e) => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.cardBody}>
 <div style={S.cardName}>{getProductName(p)}</div>
 <div style={S.cardPrice}>
@@ -1116,7 +1119,7 @@ return (
 }
 {getUrgencyMsg(p) && <span style={S.urgencyBadge}>{getUrgencyMsg(p)}</span>}
 </div>
-<button style={{ ...S.btn, width: "100%", marginTop: "auto" }} onClick={e => { e.stopPropagation(); addToCart(p); }}>Agregar al Carrito</button>
+<button className="add-cart-btn" style={{ ...S.btn, width: "100%", marginTop: "auto" }} onClick={e => { e.stopPropagation(); addToCart(p); }}>Agregar al Carrito</button>
 </div>
 </div>
 ))}
@@ -1128,7 +1131,7 @@ return (
 <div style={S.recentlyViewedRow}>
 {recentlyViewedProducts.map(p => (
 <div key={p.id} className="product-card" style={S.recentlyViewedCard} onClick={() => setSelectedProduct(p)}>
-<img src={getProductImage(p)} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+<img className="card-img" src={getProductImage(p)} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.recentlyViewedName}>{getProductName(p)}</div>
 <div style={S.recentlyViewedPrice}>{formatPrice(getProductPrice(p))}</div>
 </div>
@@ -1237,8 +1240,8 @@ return (
 {productsLoading && Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={"skel" + i} />)}
 {!productsLoading && filteredProducts.slice(0, visibleCount).map(product => (
 <div key={product.id} className="product-card" style={{ ...S.card, position: "relative" }} onClick={() => setSelectedProduct(product)}>
-<button onClick={e => { e.stopPropagation(); toggleFavorite(product.id); }} style={S.favBtn(favorites.includes(product.id))} aria-label="Favorito">{favorites.includes(product.id) ? "♥" : "♡"}</button>
-<img src={getProductImage(product)} alt={getProductName(product)} style={S.cardImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+<button className={"fav-btn" + (favorites.includes(product.id) ? " active" : "")} onClick={e => { e.stopPropagation(); toggleFavorite(product.id); }} style={S.favBtn(favorites.includes(product.id))} aria-label="Favorito">{favorites.includes(product.id) ? "♥" : "♡"}</button>
+<img className="card-img" src={getProductImage(product)} alt={getProductName(product)} style={S.cardImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.cardBody}>
 <div style={S.cardName}>{getProductName(product)}</div>
 {filter !== "decants" && (
@@ -1255,7 +1258,7 @@ return (
 }
 {getUrgencyMsg(product) && <span style={S.urgencyBadge}>{getUrgencyMsg(product)}</span>}
 </div>
-<button style={{ ...S.btn, width: "100%", marginTop: "auto" }} onClick={e => { e.stopPropagation(); addToCart(product); }}>Agregar al Carrito</button>
+<button className="add-cart-btn" style={{ ...S.btn, width: "100%", marginTop: "auto" }} onClick={e => { e.stopPropagation(); addToCart(product); }}>Agregar al Carrito</button>
 </>
 )}
 {hasDecant(product) && (
@@ -1471,7 +1474,7 @@ Pedir por WhatsApp
 <span style={S.mobileCartBarBtn}>Ver carrito</span>
 </div>
 )}
-<button style={S.assistantBtn} onClick={() => setAssistantOpen(!assistantOpen)} title="Asistente virtual">
+<button className="gs-assistant-btn" style={S.assistantBtn} onClick={() => setAssistantOpen(!assistantOpen)} title="Asistente virtual">
 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0f0f0f" strokeWidth="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
 </button>
 {assistantOpen && (
