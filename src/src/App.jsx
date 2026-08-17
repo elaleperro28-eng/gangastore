@@ -46,6 +46,7 @@ const path = window.location.pathname;
 if (path === "/admin-login" || path === "/admin-login/") return "adminLogin";
 return "home";
 });
+const [isMobileHero, setIsMobileHero] = useState(() => typeof window !== "undefined" && window.innerWidth <= 700);
 const [products, setProducts] = useState([]);  const [productsLoading, setProductsLoading] = useState(true);
 const [resenas, setResenas] = useState([]);
 const [resenaForm, setResenaForm] = useState({ nombre: "", ciudad: "", estrellas: "5", texto: "", foto: "" });
@@ -584,6 +585,11 @@ if (!orig || orig <= price) return null;
 return Math.round((1 - price / orig) * 100);
 };
 const getProductImage = (p) => p.imageUrl || p.foto || p.image || p.img || "";
+const optimizeImg = (url) => {
+  if (!url) return url;
+  const m = url.match(/^(https?:\/\/i\.imgur\.com\/[a-zA-Z0-9]+)(\.(?:jpe?g|png|gif))$/i);
+  return m ? `${m[1]}l${m[2]}` : url;
+};
 const getProductDisp = (p) => p.disponibilidad || "stock";
 const getProductDias = (p) => p.diasHabiles || "3-5";
 const getDecantPrice5 = (p) => (p.precioDecant5 !== undefined && p.precioDecant5 !== null && p.precioDecant5 !== "" ? Number(p.precioDecant5) : null);
@@ -988,7 +994,7 @@ return (
 <h3 style={{ marginTop: "36px", marginBottom: "16px" }}>Productos Existentes ({products.length})</h3>
 {products.map(p => (
 <div key={p.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center" }}>
-<img src={getProductImage(p)} alt={getProductName(p)} style={{ width: "80px", height: "80px", objectFit: "contain", background: "#fff", borderRadius: "8px", flexShrink: 0 }} />
+<img src={optimizeImg(getProductImage(p))} alt={getProductName(p)} loading="lazy" decoding="async" style={{ width: "80px", height: "80px", objectFit: "contain", background: "#fff", borderRadius: "8px", flexShrink: 0 }} />
 <div style={{ flex: 1 }}>
 <div style={{ fontWeight: "bold", marginBottom: "4px" }}>{getProductName(p)}</div>
 <div style={{ color: "#d4af37", fontWeight: "bold" }}>{formatPrice(getProductPrice(p))}</div>
@@ -1079,9 +1085,12 @@ return (
 .gs-hero{min-height:88vh;}
 }
 `}</style>
-<video className="gs-hero-video" autoPlay muted loop playsInline preload="auto" poster="https://images.pexels.com/videos/10537262/adolescent-afro-beautiful-bridal-10537262.jpeg?auto=compress&cs=tinysrgb&w=1920">
+<img className="gs-hero-video" src="https://images.pexels.com/videos/10537262/adolescent-afro-beautiful-bridal-10537262.jpeg?auto=compress&cs=tinysrgb&w=1920" alt="" />
+{!isMobileHero && (
+<video className="gs-hero-video" autoPlay muted loop playsInline preload="auto">
 <source src="https://videos.pexels.com/video-files/10537262/10537262-sd_960_506_25fps.mp4" type="video/mp4" />
 </video>
+)}
 <div style={S.heroOverlay}></div>
 <div style={S.heroContent}>
 <div style={S.heroDivider}></div>
@@ -1107,7 +1116,7 @@ return (
 {[...tickerProducts, ...tickerProducts].map((p, i) => (
 <div key={i} className="product-card" style={{ ...S.tickerItem, position: "relative" }} onClick={() => setSelectedProduct(p)}>
 <button className={"fav-btn" + (favorites.includes(p.id) ? " active" : "")} onClick={e => { e.stopPropagation(); toggleFavorite(p.id); }} style={S.favBtn(favorites.includes(p.id))} aria-label="Favorito">{favorites.includes(p.id) ? "♥" : "♡"}</button>
-<img className="card-img" src={getProductImage(p)} alt={getProductName(p)} style={S.cardImg} loading="lazy" decoding="async" onError={(e) => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+<img className="card-img" src={optimizeImg(getProductImage(p))} alt={getProductName(p)} style={S.cardImg} loading="lazy" decoding="async" onError={(e) => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.cardBody}>
 <div style={S.cardName}>{getProductName(p)}</div>
 <div style={S.cardPrice}>
@@ -1134,7 +1143,7 @@ return (
 <div style={S.recentlyViewedRow}>
 {recentlyViewedProducts.map(p => (
 <div key={p.id} className="product-card" style={S.recentlyViewedCard} onClick={() => setSelectedProduct(p)}>
-<img className="card-img" src={getProductImage(p)} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+<img className="card-img" src={optimizeImg(getProductImage(p))} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.recentlyViewedName}>{getProductName(p)}</div>
 <div style={S.recentlyViewedPrice}>{formatPrice(getProductPrice(p))}</div>
 </div>
@@ -1244,7 +1253,7 @@ return (
 {!productsLoading && filteredProducts.slice(0, visibleCount).map(product => (
 <div key={product.id} className="product-card" style={{ ...S.card, position: "relative" }} onClick={() => setSelectedProduct(product)}>
 <button className={"fav-btn" + (favorites.includes(product.id) ? " active" : "")} onClick={e => { e.stopPropagation(); toggleFavorite(product.id); }} style={S.favBtn(favorites.includes(product.id))} aria-label="Favorito">{favorites.includes(product.id) ? "♥" : "♡"}</button>
-<img className="card-img" src={getProductImage(product)} alt={getProductName(product)} style={S.cardImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+<img className="card-img" src={optimizeImg(getProductImage(product))} alt={getProductName(product)} style={S.cardImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.cardBody}>
 <div style={S.cardName}>{getProductName(product)}</div>
 {filter !== "decants" && (
@@ -1296,7 +1305,7 @@ return (
 <div key={r.id} style={S.resenaCard}>
 <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
 {r.foto ? (
-<img src={r.foto} alt={r.nombre} style={S.resenaFoto} />
+<img src={optimizeImg(r.foto)} alt={r.nombre} loading="lazy" decoding="async" style={S.resenaFoto} />
 ) : (
 <div style={S.resenaAvatar}>{(r.nombre || "?").trim().charAt(0).toUpperCase()}</div>
 )}
@@ -1318,11 +1327,11 @@ return (
 <div style={S.modalBox} onClick={e => e.stopPropagation()}>
 <button onClick={() => setSelectedProduct(null)} style={{ position: "fixed", top: "16px", right: "16px", background: "rgba(0,0,0,0.65)", border: "none", color: "#fff", fontSize: "20px", cursor: "pointer", width: "40px", height: "40px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60 }}>x</button>
 <button onClick={() => toggleFavorite(selectedProduct.id)} style={S.favBtn(favorites.includes(selectedProduct.id))} aria-label="Favorito">{favorites.includes(selectedProduct.id) ? "♥" : "♡"}</button>
-<img src={modalActiveImg || getProductImage(selectedProduct)} alt={getProductName(selectedProduct)} style={S.modalImg} />
+<img src={optimizeImg(modalActiveImg || getProductImage(selectedProduct))} alt={getProductName(selectedProduct)} style={S.modalImg} />
 {[selectedProduct.imageUrl, selectedProduct.foto2, selectedProduct.foto3, selectedProduct.fotoMano, selectedProduct.fotoCaja].filter(Boolean).length > 1 && (
 <div style={{ display: "flex", gap: "8px", marginBottom: "16px", overflowX: "auto" }}>
 {[selectedProduct.imageUrl, selectedProduct.foto2, selectedProduct.foto3, selectedProduct.fotoMano, selectedProduct.fotoCaja].filter(Boolean).map((src, i) => (
-<img key={i} src={src} onClick={() => setModalActiveImg(src)} style={{ width: "56px", height: "56px", objectFit: "cover", borderRadius: "6px", cursor: "pointer", border: (modalActiveImg || getProductImage(selectedProduct)) === src ? "2px solid #d4af37" : "2px solid transparent", flexShrink: 0, background: "#fff" }} />
+<img key={i} src={optimizeImg(src)} loading="lazy" decoding="async" onClick={() => setModalActiveImg(src)} style={{ width: "56px", height: "56px", objectFit: "cover", borderRadius: "6px", cursor: "pointer", border: (modalActiveImg || getProductImage(selectedProduct)) === src ? "2px solid #d4af37" : "2px solid transparent", flexShrink: 0, background: "#fff" }} />
 ))}
 </div>
 )}
@@ -1437,7 +1446,7 @@ return (
 <>
 {cart.map(item => (
 <div key={item.id} style={{ display: "flex", gap: "12px", marginBottom: "16px", alignItems: "center" }}>
-<img src={getProductImage(item)} alt={getProductName(item)} loading="lazy" decoding="async" style={{ width: "60px", height: "60px", objectFit: "contain", background: "#fff", borderRadius: "6px" }} />
+<img src={optimizeImg(getProductImage(item))} alt={getProductName(item)} loading="lazy" decoding="async" style={{ width: "60px", height: "60px", objectFit: "contain", background: "#fff", borderRadius: "6px" }} />
 <div style={{ flex: 1 }}>
 <div style={{ fontWeight: "bold", fontSize: "14px" }}>{getProductName(item)}</div>
 <div style={{ color: "#d4af37" }}>{formatPrice(getProductPrice(item))}</div>
