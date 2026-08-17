@@ -1447,7 +1447,7 @@ return (
 <button onClick={() => updateCartQty(item.id, 1)} style={S.qtyBtn} aria-label="Sumar">+</button>
 </div>
 </div>
-<button onClick={() => removeFromCart(item.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "4px 10px", borderRadius: "4px", cursor: "pointer" }}>x</button>
+<button onClick={() => removeFromCart(item.id)} style={{ background: "rgba(139,26,42,0.9)", color: "#fff", border: "none", padding: "4px 10px", borderRadius: "6px", cursor: "pointer", fontSize: "13px" }}>✕</button>
 </div>
 ))}
 <div style={{ borderTop: "1px solid #2b2b2b", paddingTop: "16px", marginTop: "16px" }}>
