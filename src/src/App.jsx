@@ -78,6 +78,7 @@ const [filterTipo, setFilterTipo] = useState("");
 const [assistantOpen, setAssistantOpen] = useState(false);
 const [assistantChat, setAssistantChat] = useState([{ from: "bot", text: "Hola! Soy el asistente virtual de Esencia Perfumeria. Elegi una opcion para que te ayude:" }]);
 const [promoCode, setPromoCode] = useState(""); const [customerPhone, setCustomerPhone] = useState(""); const [customerPoints, setCustomerPoints] = useState(null); const [pointsLoading, setPointsLoading] = useState(false); const [redeemPoints, setRedeemPoints] = useState(false);
+const [isGift, setIsGift] = useState(false); const [giftMessage, setGiftMessage] = useState("");
 const [user, setUser] = useState(null);
 const [referralCode, setReferralCode] = useState("");
 const [referralCredit, setReferralCredit] = useState(0);
@@ -437,6 +438,9 @@ const updateCartQty = (id, delta) => {
 setCart(c => c.map(i => i.id === id ? { ...i, qty: i.qty + delta } : i).filter(i => i.qty > 0));
 };
 const totalCart = cart.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
+const reviewCount = resenas.length;
+const avgRating = reviewCount > 0 ? (resenas.reduce((acc, r) => acc + (Number(r.estrellas) || 5), 0) / reviewCount).toFixed(1) : null;
+const cartSuggestions = products.filter(p => isPerfume(p) && !cart.some(c => c.id === p.id) && (recentlyViewed.includes(p.id) || (p.etiquetas || []).includes("mas_vendidos"))).sort((a, b) => (recentlyViewed.includes(b.id) ? 1 : 0) - (recentlyViewed.includes(a.id) ? 1 : 0)).slice(0, 3);
 const pointsToDiscount = (pts) => Math.floor((pts || 0) / 300) * 10000;
 const loadMyPoints = async (uid) => {
 setPointsLoading(true);
@@ -521,6 +525,7 @@ if (window.gtag) window.gtag("event", "begin_checkout", { currency: "ARS", value
 let msg = "Hola! Quiero pedir: " + cartUsed.map(i => getProductName(i) + " x" + i.qty).join(", ");
 if (promoCode) msg += " - Codigo promocional: " + promoCode;
 if (customerPhone) msg += " - Mi telefono: " + customerPhone;
+if (isGift) msg += " - Es un regalo" + (giftMessage.trim() ? (": \"" + giftMessage.trim() + "\"") : "");
 let usedDiscount = 0;
 const referralCodeEntered = referralInput.trim().toUpperCase();
 let referralUsedThisOrder = false;
@@ -817,6 +822,7 @@ cardPrice: { fontSize: "17px", fontWeight: "900", color: "#d4af37", marginBottom
 originalPrice: { fontSize: "12.5px", color: "#7a7a7a", textDecoration: "line-through", fontWeight: "500" },
 discountBadge: { display: "inline-block", background: "rgba(139,26,42,0.9)", color: "#fff", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: "700", letterSpacing: "0.3px" },
 badgeRow: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px", marginBottom: "10px" },
+ratingBadge: { display: "inline-flex", alignItems: "center", gap: "4px", color: "#d4af37", fontSize: "12px", fontWeight: "700" },
 badgeStock: { display: "inline-flex", alignItems: "center", gap: "5px", color: "#9ddb9d", fontSize: "12px", fontWeight: "600" },
 badgeStockDot: { width: "6px", height: "6px", borderRadius: "50%", background: "#4caf50", flexShrink: 0 },
 urgencyBadge: { display: "inline-block", background: "rgba(212,175,55,0.14)", color: "#e0b84a", border: "1px solid rgba(212,175,55,0.4)", padding: "3px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: "700" },
@@ -1287,6 +1293,7 @@ return (
 : <span style={S.badgePedido}>Por Pedido · {getProductDias(product)} dias hab.</span>
 }
 {getUrgencyMsg(product) && <span style={S.urgencyBadge}>{getUrgencyMsg(product)}</span>}
+{avgRating && <span style={S.ratingBadge}>★ {avgRating} ({reviewCount})</span>}
 </div>
 <button className="add-cart-btn" style={{ ...S.btn, width: "100%", marginTop: "auto" }} onClick={e => { e.stopPropagation(); addToCart(product); }}>Agregar al Carrito</button>
 </>
@@ -1364,6 +1371,7 @@ return (
 <video src={selectedProduct.videoUrl} controls style={{ width: "100%", borderRadius: "10px", marginBottom: "16px", background: "#000" }} />
 )}
 <h2 style={{ marginTop: 0, marginBottom: "8px", fontFamily: "'Playfair Display', serif" }}>{getProductName(selectedProduct)}</h2>
+{avgRating && <div style={{ ...S.ratingBadge, marginBottom: "10px" }}>★ {avgRating} de 5 · {reviewCount} {reviewCount === 1 ? "opinion" : "opiniones"}</div>}
 <div style={{ fontSize: "28px", fontWeight: "900", color: "#d4af37", marginBottom: "12px" }}>
 {getDiscountPercent(selectedProduct) && <span style={{ ...S.originalPrice, fontSize: "18px" }}>{formatPrice(getProductOriginalPrice(selectedProduct))}</span>}
 {formatPrice(getProductPrice(selectedProduct))}
@@ -1484,10 +1492,29 @@ return (
 <button onClick={() => removeFromCart(item.id)} style={{ background: "rgba(139,26,42,0.9)", color: "#fff", border: "none", padding: "4px 10px", borderRadius: "6px", cursor: "pointer", fontSize: "13px" }}>✕</button>
 </div>
 ))}
+{cartSuggestions.length > 0 && (
+<div style={{ marginBottom: "16px" }}>
+<div style={{ fontSize: "13px", fontWeight: "700", color: "#d4af37", marginBottom: "10px" }}>Tambien te puede interesar</div>
+<div style={{ display: "flex", gap: "10px", overflowX: "auto", paddingBottom: "4px" }}>
+{cartSuggestions.map(p => (
+<div key={p.id} style={{ flexShrink: 0, width: "108px", background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px", textAlign: "center" }}>
+<img src={optimizeImg(getProductImage(p))} alt={getProductName(p)} loading="lazy" decoding="async" style={{ width: "100%", height: "70px", objectFit: "contain", background: "#fff", borderRadius: "6px", marginBottom: "6px" }} />
+<div style={{ fontSize: "11px", color: "#fff", marginBottom: "4px", minHeight: "28px", lineHeight: "1.3" }}>{getProductName(p)}</div>
+<div style={{ fontSize: "12px", color: "#d4af37", fontWeight: "700", marginBottom: "6px" }}>{formatPrice(getProductPrice(p))}</div>
+<button onClick={() => addToCart(p)} style={{ width: "100%", background: "transparent", border: "1px solid #d4af37", color: "#d4af37", borderRadius: "6px", padding: "5px", fontSize: "11px", cursor: "pointer" }}>+ Agregar</button>
+</div>
+))}
+</div>
+</div>
+)}
 <div style={{ borderTop: "1px solid #2b2b2b", paddingTop: "16px", marginTop: "16px" }}>
 <div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(finalTotal)}{discountFromPoints > 0 && <span style={{ color: "#d4af37", fontSize: 13, display: "block" }}>(incluye descuento de {formatPrice(discountFromPoints)} por puntos)</span>}</div><div style={S.cartPointsBox}><input type="text" placeholder="Tu telefono de contacto (opcional)" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} style={{ ...S.input, marginBottom: 8 }} />{user ? (<>{customerPoints !== null && (<div style={{ color: "#d4af37", fontSize: 13 }}>Tenes {customerPoints} puntos ({formatPrice(pointsToDiscount(customerPoints))} disponibles){pointsToDiscount(customerPoints) > 0 && (<label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, color: "#fff" }}><input type="checkbox" checked={redeemPoints} onChange={e => setRedeemPoints(e.target.checked)} />Usar mis puntos en este pedido</label>)}</div>)}<button style={{ ...S.btnOutline, width: "100%", marginTop: 8 }} onClick={() => loadMyPoints(user.uid)} disabled={pointsLoading}>{pointsLoading ? "Consultando..." : "Actualizar mis puntos"}</button></>) : (<button style={{ ...S.btnOutline, width: "100%" }} onClick={() => { setAccountMode("login"); setAccountError(""); setShowAccountModal(true); }}>Ingresa para sumar/usar puntos</button>)}</div>
 <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Codigo promocional (opcional)" style={{ width: "100%", padding: "10px", marginBottom: "12px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", fontSize: "14px", boxSizing: "border-box" }} />
 <input type="text" value={referralInput} onChange={(e) => setReferralInput(e.target.value)} placeholder="Codigo de referido de un amigo (opcional)" style={{ width: "100%", padding: "10px", marginBottom: "8px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", fontSize: "14px", boxSizing: "border-box" }} />{referralInput.trim() && (<p style={{ color: "#d4af37", fontSize: "13px", margin: "0 0 12px" }}>Si el codigo es valido, se descuentan $5.000 al confirmar el pedido.</p>)}{user && referralCredit > 0 && !referralInput.trim() && (<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#d4af37", fontSize: "14px", marginBottom: "12px" }}><input type="checkbox" checked={redeemReferralCredit} onChange={(e) => setRedeemReferralCredit(e.target.checked)} />Usar mi credito de referidos ($5.000 de descuento en esta compra)</label>)}
+<div style={{ background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px 12px", marginBottom: "12px" }}>
+<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}><input type="checkbox" checked={isGift} onChange={e => setIsGift(e.target.checked)} />🎁 Es un regalo</label>
+{isGift && (<textarea value={giftMessage} onChange={e => setGiftMessage(e.target.value)} placeholder="Mensaje para incluir (opcional)" style={{ ...S.input, marginTop: "8px", minHeight: "50px", resize: "vertical", width: "100%", boxSizing: "border-box" }} />)}
+</div>
 <button onClick={() => handleCheckout()} style={{ ...S.btn, display: "block", width: "100%", border: "none", textAlign: "center", padding: "12px", cursor: "pointer" }}>
 Pedir por WhatsApp
 </button>
