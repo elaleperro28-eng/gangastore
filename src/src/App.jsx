@@ -53,7 +53,9 @@ const [resenaForm, setResenaForm] = useState({ nombre: "", ciudad: "", estrellas
 const [resenaSaving, setResenaSaving] = useState(false);
 const [resenaUploading, setResenaUploading] = useState(false);
 const [tickerProducts, setTickerProducts] = useState([]);
-const [cart, setCart] = useState([]);
+const [cart, setCart] = useState(() => {
+  try { return JSON.parse(localStorage.getItem("carritoEsencia") || "[]"); } catch { return []; }
+});
 const [showCart, setShowCart] = useState(false);
 const [adminPass, setAdminPass] = useState("");
 const [adminError, setAdminError] = useState("");
@@ -143,6 +145,10 @@ return next;
 const [recentlyViewed, setRecentlyViewed] = useState(() => {
 try { return JSON.parse(localStorage.getItem("vistosEsencia") || "[]"); } catch { return []; }
 });
+
+useEffect(() => {
+  try { localStorage.setItem("carritoEsencia", JSON.stringify(cart)); } catch {}
+}, [cart]);
 
 useEffect(() => {
 const q = query(collection(db, "productos"), orderBy("createdAt", "desc"));
@@ -499,6 +505,7 @@ handleCheckout(newCart);
 };
 
 const handleCheckout = async (cartOverride) => {
+const waWindow = window.open("", "_blank");
 const cartUsed = cartOverride || cart;
 const totalCartUsed = cartUsed.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
 let msg = "Hola! Quiero pedir: " + cartUsed.map(i => getProductName(i) + " x" + i.qty).join(", ");
@@ -565,7 +572,8 @@ setReferralPendingIds(referralPendingIds.slice(1));
 }
 const totalAEnviar = Math.max(totalCartUsed - usedDiscount, 0);
 msg += " - Total: " + formatPrice(totalAEnviar);
-window.location.href = "https://wa.me/2914261941?text=" + encodeURIComponent(msg);
+const waUrl = "https://wa.me/2914261941?text=" + encodeURIComponent(msg);
+if (waWindow) { waWindow.location.href = waUrl; } else { window.location.href = waUrl; }
 };
 
 const formatPrice = (p) => {
