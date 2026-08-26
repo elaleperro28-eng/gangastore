@@ -1773,6 +1773,11 @@ return (
 <p style={{ marginTop: "10px", marginBottom: 0, fontSize: "13px", color: "#bdbdbd" }}>Pagas en efectivo cuando te entreguemos el pedido.</p>
 )}
 </div>
+<div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "14px", padding: "12px 14px", background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px" }}>
+<div style={{ display: "flex", alignItems: "flex-start", gap: "8px", fontSize: "12.5px", color: "#e8ddc0" }}><span>✔️</span><span>100% original, con garantia</span></div>
+<div style={{ display: "flex", alignItems: "flex-start", gap: "8px", fontSize: "12.5px", color: "#e8ddc0" }}><span>🔄</span><span>Cambios sin problema si algo no es lo que esperabas</span></div>
+<div style={{ display: "flex", alignItems: "flex-start", gap: "8px", fontSize: "12.5px", color: "#e8ddc0" }}><span>📦</span><span>{cart.some(i => getProductDisp(i) === "pedido") ? "Algunos productos de tu pedido son por encargue: revisa los dias habiles en cada ficha" : "Coordinamos el envio apenas confirmes tu pedido por WhatsApp"}</span></div>
+</div>
 <button onClick={() => handleCheckout()} style={{ ...S.btn, display: "block", width: "100%", border: "none", textAlign: "center", padding: "12px", cursor: "pointer" }}>
 Pedir por WhatsApp
 </button>
