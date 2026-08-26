@@ -1687,4 +1687,3 @@ Pedir por WhatsApp
 </div>
 );
 }
-Forma de pago obligatoria antes de pedir por WhatsApp
