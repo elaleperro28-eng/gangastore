@@ -85,7 +85,7 @@ const [assistantOpen, setAssistantOpen] = useState(false);
 const [assistantChat, setAssistantChat] = useState([{ from: "bot", text: "Hola! Soy el asistente virtual de Esencia Perfumeria. Elegi una opcion para que te ayude:" }]);
 const [promoCode, setPromoCode] = useState(""); const [customerPhone, setCustomerPhone] = useState(""); const [customerName, setCustomerName] = useState(() => { try { return localStorage.getItem("nombreEsencia") || ""; } catch { return ""; } }); const [customerAddress, setCustomerAddress] = useState(() => { try { return localStorage.getItem("direccionEsencia") || ""; } catch { return ""; } }); const [checkoutError, setCheckoutError] = useState(""); const [customerPoints, setCustomerPoints] = useState(null); const [pointsLoading, setPointsLoading] = useState(false); const [redeemPoints, setRedeemPoints] = useState(false);
 const [isGift, setIsGift] = useState(false); const [giftMessage, setGiftMessage] = useState("");
-const [payByTransfer, setPayByTransfer] = useState(false);
+const [paymentMethod, setPaymentMethod] = useState(""); // "transferencia" | "efectivo" - obligatorio elegir antes de pedir por WhatsApp
 const [user, setUser] = useState(null);
 const [referralCode, setReferralCode] = useState("");
 const [referralCredit, setReferralCredit] = useState(0);
@@ -545,7 +545,7 @@ return [...cart, { ...product, qty: 1 }];
 })();
 setCart(newCart);
 setSelectedProduct(null);
-if (!customerName.trim() || !customerAddress.trim()) {
+if (!customerName.trim() || !customerAddress.trim() || !paymentMethod) {
 setShowCart(true);
 return;
 }
@@ -553,8 +553,8 @@ handleCheckout(newCart);
 };
 
 const handleCheckout = async (cartOverride) => {
-if (!customerName.trim() || !customerAddress.trim()) {
-setCheckoutError("Completa tu nombre y direccion de envio para poder enviar el pedido.");
+if (!customerName.trim() || !customerAddress.trim() || !paymentMethod) {
+setCheckoutError("Completa tu nombre, direccion y forma de pago (transferencia o efectivo) para poder enviar el pedido.");
 setShowCart(true);
 return;
 }
@@ -572,7 +572,8 @@ msg += " - Direccion de envio: " + customerAddress.trim();
 if (promoCode) msg += " - Codigo promocional: " + promoCode;
 if (customerPhone) msg += " - Mi telefono: " + customerPhone;
 if (isGift) msg += " - Es un regalo" + (giftMessage.trim() ? (": \"" + giftMessage.trim() + "\"") : "");
-if (payByTransfer) msg += " - Pago por transferencia bancaria (ya envio el comprobante por este chat)";
+if (paymentMethod === "transferencia") msg += " - Pago por transferencia bancaria (ya envio el comprobante por este chat)";
+else if (paymentMethod === "efectivo") msg += " - Pago en efectivo al momento de la entrega";
 let usedDiscount = 0;
 const referralCodeEntered = referralInput.trim().toUpperCase();
 let referralUsedThisOrder = false;
@@ -1568,6 +1569,7 @@ return (
 <textarea placeholder="Direccion de envio (calle, numero, ciudad) *" value={customerAddress} onChange={e => { setCustomerAddress(e.target.value); if (checkoutError) setCheckoutError(""); }} style={{ ...S.input, minHeight: 50, resize: "vertical", ...(checkoutError && !customerAddress.trim() ? { border: "1px solid #8b1a2a" } : {}) }} />
 {checkoutError && <p style={{ color: "#e57373", fontSize: 13, margin: "6px 0 0" }}>{checkoutError}</p>}
 </div>
+<p style={{ color: "#8a8a8a", fontSize: 12, margin: "-8px 0 12px" }}>* Campos obligatorios para poder pedir por WhatsApp</p>
 <div style={S.cartPointsBox}><input type="text" placeholder="Tu telefono de contacto (opcional)" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} style={{ ...S.input, marginBottom: 8 }} />{user ? (<>{customerPoints !== null && (<div style={{ color: "#d4af37", fontSize: 13 }}>Tenes {customerPoints} puntos ({formatPrice(pointsToDiscount(customerPoints))} disponibles){pointsToDiscount(customerPoints) > 0 && (<label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, color: "#fff" }}><input type="checkbox" checked={redeemPoints} onChange={e => setRedeemPoints(e.target.checked)} />Usar mis puntos en este pedido</label>)}</div>)}<button style={{ ...S.btnOutline, width: "100%", marginTop: 8 }} onClick={() => loadMyPoints(user.uid)} disabled={pointsLoading}>{pointsLoading ? "Consultando..." : "Actualizar mis puntos"}</button>{referralCode && (<div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #2b2b2b" }}><p style={{ color: "#bdbdbd", fontSize: 12, margin: "0 0 4px" }}>Tu codigo de referido: <strong style={{ color: "#fff" }}>{referralCode}</strong></p><a href={"https://wa.me/?text=" + encodeURIComponent("Te invito a comprar en Esencia Perfumeria! Usa mi codigo " + referralCode + " y ambos recibimos $5.000 de descuento en tu primera compra. https://www.esenciaperfumeria.com.ar")} target="_blank" rel="noreferrer" style={{ color: "#d4af37", fontSize: 12, textDecoration: "underline" }}>Compartir con un amigo y ganar $5.000</a></div>)}</>) : (<button style={{ ...S.btnOutline, width: "100%" }} onClick={() => { setAccountMode("login"); setAccountError(""); setShowAccountModal(true); }}>Ingresa para sumar/usar puntos</button>)}</div>
 <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Codigo promocional (opcional)" style={{ width: "100%", padding: "10px", marginBottom: "12px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", fontSize: "14px", boxSizing: "border-box" }} />
 <input type="text" value={referralInput} onChange={(e) => setReferralInput(e.target.value)} placeholder="Codigo de referido de un amigo (opcional)" style={{ width: "100%", padding: "10px", marginBottom: "8px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", fontSize: "14px", boxSizing: "border-box" }} />{referralInput.trim() && (<p style={{ color: "#d4af37", fontSize: "13px", margin: "0 0 12px" }}>Si el codigo es valido, se descuentan $5.000 al confirmar el pedido.</p>)}{user && referralCredit > 0 && !referralInput.trim() && (<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#d4af37", fontSize: "14px", marginBottom: "12px" }}><input type="checkbox" checked={redeemReferralCredit} onChange={(e) => setRedeemReferralCredit(e.target.checked)} />Usar mi credito de referidos ($5.000 de descuento en esta compra)</label>)}
@@ -1575,9 +1577,19 @@ return (
 <label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}><input type="checkbox" checked={isGift} onChange={e => setIsGift(e.target.checked)} />🎁 Es un regalo</label>
 {isGift && (<textarea value={giftMessage} onChange={e => setGiftMessage(e.target.value)} placeholder="Mensaje para incluir (opcional)" style={{ ...S.input, marginTop: "8px", minHeight: "50px", resize: "vertical", width: "100%", boxSizing: "border-box" }} />)}
 </div>
-<div style={{ background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px 12px", marginBottom: "12px" }}>
-<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}><input type="checkbox" checked={payByTransfer} onChange={e => setPayByTransfer(e.target.checked)} />🏦 Pagar por transferencia bancaria</label>
-{payByTransfer && (
+<div style={{ background: "#1a1a1a", border: "1px solid " + (checkoutError && !paymentMethod ? "#8b1a2a" : "#2b2b2b"), borderRadius: "8px", padding: "10px 12px", marginBottom: "12px" }}>
+<div style={{ color: "#fff", fontSize: "14px", marginBottom: "8px" }}>Forma de pago *</div>
+<div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+<label style={{ display: "flex", alignItems: "center", gap: "6px", color: "#fff", fontSize: "14px", cursor: "pointer", border: "1px solid " + (paymentMethod === "transferencia" ? "#d4af37" : "#2b2b2b"), borderRadius: "6px", padding: "8px 10px", flex: "1 1 140px" }}>
+<input type="radio" name="paymentMethod" checked={paymentMethod === "transferencia"} onChange={() => { setPaymentMethod("transferencia"); if (checkoutError) setCheckoutError(""); }} />
+🏦 Transferencia bancaria
+</label>
+<label style={{ display: "flex", alignItems: "center", gap: "6px", color: "#fff", fontSize: "14px", cursor: "pointer", border: "1px solid " + (paymentMethod === "efectivo" ? "#d4af37" : "#2b2b2b"), borderRadius: "6px", padding: "8px 10px", flex: "1 1 140px" }}>
+<input type="radio" name="paymentMethod" checked={paymentMethod === "efectivo"} onChange={() => { setPaymentMethod("efectivo"); if (checkoutError) setCheckoutError(""); }} />
+💵 Efectivo (al momento de la entrega)
+</label>
+</div>
+{paymentMethod === "transferencia" && (
 <div style={{ marginTop: "10px", fontSize: "13px", color: "#e8ddc0", lineHeight: "1.7" }}>
 <div><strong style={{ color: "#d4af37" }}>Banco:</strong> {BANK_TRANSFER_INFO.banco}</div>
 <div><strong style={{ color: "#d4af37" }}>Titular:</strong> {BANK_TRANSFER_INFO.titular}</div>
@@ -1586,6 +1598,9 @@ return (
 <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginTop: "2px" }}><strong style={{ color: "#d4af37" }}>Alias:</strong><span>{BANK_TRANSFER_INFO.alias}</span><button type="button" onClick={() => { navigator.clipboard.writeText(BANK_TRANSFER_INFO.alias); showToast("Alias copiado"); }} style={{ background: "transparent", border: "1px solid #d4af37", color: "#d4af37", borderRadius: "5px", padding: "2px 8px", fontSize: "11px", cursor: "pointer" }}>Copiar</button></div>
 <p style={{ marginTop: "8px", marginBottom: 0, color: "#bdbdbd" }}>Despues de transferir, mandanos el comprobante por este mismo WhatsApp para confirmar tu pedido y coordinar el envio.</p>
 </div>
+)}
+{paymentMethod === "efectivo" && (
+<p style={{ marginTop: "10px", marginBottom: 0, fontSize: "13px", color: "#bdbdbd" }}>Pagas en efectivo cuando te entreguemos el pedido.</p>
 )}
 </div>
 <button onClick={() => handleCheckout()} style={{ ...S.btn, display: "block", width: "100%", border: "none", textAlign: "center", padding: "12px", cursor: "pointer" }}>
@@ -1672,3 +1687,4 @@ Pedir por WhatsApp
 </div>
 );
 }
+Forma de pago obligatoria antes de pedir por WhatsApp
