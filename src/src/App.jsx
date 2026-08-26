@@ -36,6 +36,39 @@ return authModPromise;
 //    panel se ve mas seguro pero la base de datos todavia queda abierta por detras.
 const ADMIN_EMAIL = "elaleperro28@gmail.com";
 const BANK_TRANSFER_INFO = { banco: "Banco Galicia", titular: "Alejo Francisco Ciulo", cuil: "20-46743275-4", cbu: "0070082530004087084624", alias: "Teatro.ale" };
+const FREE_SHIPPING_THRESHOLD = 150000;
+const DECANT_COMBO_MIN = 3;
+const DECANT_COMBO_DISCOUNT_PCT = 0.10;
+const QUIZ_QUESTIONS = [
+{ key: "genero", pregunta: "¿Para quién es el perfume?", opciones: [
+{ value: "femenino", label: "Para ella" },
+{ value: "masculino", label: "Para él" },
+{ value: "unisex", label: "Unisex / no importa" },
+]},
+{ key: "ocasion", pregunta: "¿Para qué ocasión lo vas a usar más?", opciones: [
+{ value: "top_oficina", label: "Día a día / oficina" },
+{ value: "top_citas", label: "Salidas de noche" },
+{ value: "para_regalar", label: "Es para regalar" },
+{ value: "", label: "Un poco de todo" },
+]},
+{ key: "aroma", pregunta: "¿Qué tipo de aroma te gusta más?", opciones: [
+{ value: "dulce", label: "Dulce y goloso (vainilla, caramelo, frutal)" },
+{ value: "amaderado", label: "Amaderado e intenso (oud, cuero, especias)" },
+{ value: "fresco", label: "Fresco y cítrico (verde, marino, cítricos)" },
+{ value: "floral", label: "Floral suave (rosas, jazmín, flores blancas)" },
+]},
+{ key: "tipo", pregunta: "¿Preferís perfumes de diseñador o árabes?", opciones: [
+{ value: "disenador", label: "Diseñador (marcas clásicas)" },
+{ value: "arabe", label: "Árabes (más intensos y duraderos)" },
+{ value: "", label: "Me da igual, quiero el mejor match" },
+]},
+];
+const AROMA_KEYWORDS = {
+dulce: ["vainilla", "dulce", "caramelo", "gourmand", "frutal", "chocolate", "miel", "praline", "azucar"],
+amaderado: ["amaderado", "madera", "oud", "cuero", "especia", "especiado", "ambar", "sandalo", "tabaco"],
+fresco: ["fresco", "citrico", "citricos", "marino", "acuatico", "verde", "menta", "bergamota"],
+floral: ["floral", "flores", "rosa", "jazmin", "azahar", "peonia", "lavanda"],
+};
 const IMGUR_CLIENT_ID = "546c25a59c58ad7"; const TAG_OPTIONS = [{ key: "mas_vendidos", label: "Mas vendidos" }, { key: "novedades", label: "Novedades" }, { key: "larga_duracion", label: "Larga duracion" }, { key: "para_regalar", label: "Para regalar" }, { key: "top_invierno", label: "Top invierno" }, { key: "top_verano", label: "Top verano" }, { key: "top_oficina", label: "Top oficina" }, { key: "top_citas", label: "Top citas" }];
 const shuffleArray = (arr) => {
 const a = [...arr];
@@ -86,6 +119,9 @@ const [assistantChat, setAssistantChat] = useState([{ from: "bot", text: "Hola! 
 const [promoCode, setPromoCode] = useState(""); const [customerPhone, setCustomerPhone] = useState(""); const [customerName, setCustomerName] = useState(() => { try { return localStorage.getItem("nombreEsencia") || ""; } catch { return ""; } }); const [customerAddress, setCustomerAddress] = useState(() => { try { return localStorage.getItem("direccionEsencia") || ""; } catch { return ""; } }); const [checkoutError, setCheckoutError] = useState(""); const [customerPoints, setCustomerPoints] = useState(null); const [pointsLoading, setPointsLoading] = useState(false); const [redeemPoints, setRedeemPoints] = useState(false);
 const [isGift, setIsGift] = useState(false); const [giftMessage, setGiftMessage] = useState("");
 const [paymentMethod, setPaymentMethod] = useState(""); // "transferencia" | "efectivo" - obligatorio elegir antes de pedir por WhatsApp
+const [showQuiz, setShowQuiz] = useState(false);
+const [quizStep, setQuizStep] = useState(0);
+const [quizAnswers, setQuizAnswers] = useState({ genero: "", ocasion: "", aroma: "", tipo: "" });
 const [user, setUser] = useState(null);
 const [referralCode, setReferralCode] = useState("");
 const [referralCredit, setReferralCredit] = useState(0);
@@ -119,6 +155,7 @@ temporada: "",
 tipoPerfume: "",
 duracion: "",
 notas: "",
+notasSalida: "", notasCorazon: "", notasFondo: "",
 inspiradoEn: "",
 similitud: "", stockBajo: "", etiquetas: [], precioDecant5: "", precioDecant10: ""
 });
@@ -328,6 +365,7 @@ temporada: form.temporada || null,
 tipoPerfume: form.tipoPerfume || null,
 duracion: form.duracion || null,
 notas: form.notas || null,
+notasSalida: form.notasSalida || null, notasCorazon: form.notasCorazon || null, notasFondo: form.notasFondo || null,
 inspiradoEn: form.inspiradoEn || null,
 similitud: form.similitud ? Number(form.similitud) : null, stockBajo: form.stockBajo ? Number(form.stockBajo) : null, etiquetas: form.etiquetas || [], precioDecant5: form.precioDecant5 ? Number(form.precioDecant5) : null, precioDecant10: form.precioDecant10 ? Number(form.precioDecant10) : null
 };
@@ -337,7 +375,7 @@ setEditingId(null);
 } else {
 await addDoc(collection(db, "productos"), { ...productData, createdAt: serverTimestamp() });
 }
-setForm({ nombre: "", precio: "", precioOriginal: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "", stockBajo: "", etiquetas: [], precioDecant5: "", precioDecant10: "" });
+setForm({ nombre: "", precio: "", precioOriginal: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", notasSalida: "", notasCorazon: "", notasFondo: "", inspiradoEn: "", similitud: "", stockBajo: "", etiquetas: [], precioDecant5: "", precioDecant10: "" });
 setUploadMsg("");
 if (fileInputRef.current) fileInputRef.current.value = "";
 if (foto2Ref.current) foto2Ref.current.value = "";
@@ -370,6 +408,7 @@ temporada: p.temporada || "",
 tipoPerfume: p.tipoPerfume || "",
 duracion: p.duracion || "",
 notas: p.notas || "",
+notasSalida: p.notasSalida || "", notasCorazon: p.notasCorazon || "", notasFondo: p.notasFondo || "",
 inspiradoEn: p.inspiradoEn || "",
 similitud: p.similitud || "", stockBajo: p.stockBajo || "", etiquetas: p.etiquetas || [], precioDecant5: p.precioDecant5 || "", precioDecant10: p.precioDecant10 || ""
 });
@@ -378,7 +417,7 @@ window.scrollTo({ top: 0, behavior: "smooth" });
 
 const handleCancelEdit = () => {
 setEditingId(null);
-setForm({ nombre: "", precio: "", precioOriginal: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", inspiradoEn: "", similitud: "", stockBajo: "", etiquetas: [], precioDecant5: "", precioDecant10: "" });
+setForm({ nombre: "", precio: "", precioOriginal: "", descripcion: "", imageUrl: "", foto2: "", foto3: "", fotoMano: "", fotoCaja: "", videoUrl: "", disponibilidad: "stock", diasHabiles: "3", categoria: "perfume", marca: "", genero: "", temporada: "", tipoPerfume: "", duracion: "", notas: "", notasSalida: "", notasCorazon: "", notasFondo: "", inspiradoEn: "", similitud: "", stockBajo: "", etiquetas: [], precioDecant5: "", precioDecant10: "" });
 setUploadMsg("");
 };
 
@@ -507,7 +546,14 @@ console.error("REFERRAL_LOAD_ERROR", e);
 };
 const redeemableNow = redeemPoints && customerPoints ? Math.floor(customerPoints / 300) * 300 : 0;
 const discountFromPoints = pointsToDiscount(redeemableNow);
-const finalTotal = Math.max(totalCart - discountFromPoints, 0);
+const decantCartLines = cart.filter(i => i.isDecant);
+const decantComboCount = new Set(decantCartLines.map(i => i.id.split("_decant")[0])).size;
+const decantComboSubtotal = decantCartLines.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
+const decantComboActive = decantComboCount >= DECANT_COMBO_MIN;
+const decantComboDiscount = decantComboActive ? Math.round(decantComboSubtotal * DECANT_COMBO_DISCOUNT_PCT) : 0;
+const freeShippingRemaining = Math.max(FREE_SHIPPING_THRESHOLD - totalCart, 0);
+const freeShippingReached = freeShippingRemaining <= 0 && totalCart > 0;
+const finalTotal = Math.max(totalCart - discountFromPoints - decantComboDiscount, 0);
 
 const handleAccountAuth = async () => {
 setAccountError("");
@@ -574,7 +620,18 @@ if (customerPhone) msg += " - Mi telefono: " + customerPhone;
 if (isGift) msg += " - Es un regalo" + (giftMessage.trim() ? (": \"" + giftMessage.trim() + "\"") : "");
 if (paymentMethod === "transferencia") msg += " - Pago por transferencia bancaria (ya envio el comprobante por este chat)";
 else if (paymentMethod === "efectivo") msg += " - Pago en efectivo al momento de la entrega";
+if (totalCartUsed >= FREE_SHIPPING_THRESHOLD) msg += " - Envio gratis a todo el pais (el pedido supera $" + FREE_SHIPPING_THRESHOLD.toLocaleString("es-CL") + ")";
 let usedDiscount = 0;
+const decantLinesUsed = cartUsed.filter(i => i.isDecant);
+const decantComboCountUsed = new Set(decantLinesUsed.map(i => i.id.split("_decant")[0])).size;
+if (decantComboCountUsed >= DECANT_COMBO_MIN) {
+const decantComboSubtotalUsed = decantLinesUsed.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
+const decantComboDiscountUsed = Math.round(decantComboSubtotalUsed * DECANT_COMBO_DISCOUNT_PCT);
+if (decantComboDiscountUsed > 0) {
+usedDiscount += decantComboDiscountUsed;
+msg += " - Set de " + decantComboCountUsed + " decants distintos: " + Math.round(DECANT_COMBO_DISCOUNT_PCT * 100) + "% OFF ($" + decantComboDiscountUsed.toLocaleString("es-CL") + ")";
+}
+}
 const referralCodeEntered = referralInput.trim().toUpperCase();
 let referralUsedThisOrder = false;
 let referrerUidFound = null;
@@ -748,7 +805,7 @@ const generoTxt = { masculino: "masculino hombre", femenino: "femenino mujer", u
 const tempTxt = { invierno: "invierno frio calido amaderado especiado", verano: "verano fresco citrico liviano", todo_anio: "todo el ano versatil diario" }[p.temporada] || "";
 const tipoTxt = { arabe: "arabe arabes nicho", disenador: "disenador designer" }[p.tipoPerfume] || "";
 const etiquetasTxt = (p.etiquetas || []).map((e) => e.replace(/_/g, " ")).join(" ");
-return normalizeTxt([getProductName(p), p.marca, p.descripcion, p.notas, p.inspiradoEn, generoTxt, tempTxt, tipoTxt, etiquetasTxt, p.duracion].filter(Boolean).join(" "));
+return normalizeTxt([getProductName(p), p.marca, p.descripcion, p.notas, p.notasSalida, p.notasCorazon, p.notasFondo, p.inspiradoEn, generoTxt, tempTxt, tipoTxt, etiquetasTxt, p.duracion].filter(Boolean).join(" "));
 };
 const expandQueryTerms = (q) => {
 const words = normalizeTxt(q).split(/[^a-z0-9]+/).filter(Boolean);
@@ -790,6 +847,27 @@ return true;
 });
 
 const recentlyViewedProducts = recentlyViewed.map(id => dedupedProducts.find(p => p.id === id)).filter(Boolean).slice(0, 8);
+
+const getQuizRecommendations = () => {
+const { genero, ocasion, aroma, tipo } = quizAnswers;
+let pool = dedupedProducts.filter(isPerfume);
+if (genero) pool = pool.filter(p => !p.genero || p.genero === genero || p.genero === "unisex");
+if (tipo) pool = pool.filter(p => !p.tipoPerfume || p.tipoPerfume === tipo);
+const keywords = aroma ? (AROMA_KEYWORDS[aroma] || []) : [];
+const scored = pool.map(p => {
+const haystack = buildProductHaystack(p);
+let score = 0;
+keywords.forEach(k => { if (haystack.includes(normalizeTxt(k))) score += 3; });
+if (ocasion && (p.etiquetas || []).includes(ocasion)) score += 4;
+if (genero && p.genero === genero) score += 2;
+if (tipo && p.tipoPerfume === tipo) score += 1;
+if ((p.etiquetas || []).includes("mas_vendidos")) score += 1;
+if (getProductDisp(p) === "stock") score += 1;
+return { p, score };
+});
+scored.sort((a, b) => b.score - a.score);
+return scored.slice(0, 6).map(s => s.p);
+};
 
 let filteredProducts = dedupedProducts.filter(p => {
 
@@ -992,8 +1070,12 @@ return (
 </select>
 <label style={S.label}>Duracion</label>
 <input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: 8-10 horas" value={form.duracion} onChange={e => setForm(f => ({ ...f, duracion: e.target.value }))} />
-<label style={S.label}>Notas olfativas</label>
+<label style={S.label}>Notas olfativas (resumen general)</label>
 <input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: Vainilla, Ambar, Cuero" value={form.notas} onChange={e => setForm(f => ({ ...f, notas: e.target.value }))} />
+<label style={S.label}>Piramide olfativa (opcional, se muestra en la ficha si la cargas)</label>
+<input style={{ ...S.input, marginBottom: "10px" }} placeholder="Notas de salida - Ej: Bergamota, Mandarina" value={form.notasSalida} onChange={e => setForm(f => ({ ...f, notasSalida: e.target.value }))} />
+<input style={{ ...S.input, marginBottom: "10px" }} placeholder="Notas de corazon - Ej: Jazmin, Canela" value={form.notasCorazon} onChange={e => setForm(f => ({ ...f, notasCorazon: e.target.value }))} />
+<input style={{ ...S.input, marginBottom: "16px" }} placeholder="Notas de fondo - Ej: Ambar, Sandalo, Almizcle" value={form.notasFondo} onChange={e => setForm(f => ({ ...f, notasFondo: e.target.value }))} />
 <label style={S.label}>Se parece a / Inspirado en (opcional)</label>
 <input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: Creed Aventus" value={form.inspiradoEn} onChange={e => setForm(f => ({ ...f, inspiradoEn: e.target.value }))} />
 <label style={S.label}>Porcentaje de similitud (opcional)</label>
@@ -1185,7 +1267,7 @@ return (
 </div>
 <div style={S.heroBtnRow} className="gs-hero-btn-row">
 <button className="gs-hero-btn-primary" style={S.heroBtnPrimary} onClick={() => { setFilter("perfumes"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Ver Perfumes</button>
-<button className="gs-hero-btn-secondary" style={S.heroBtnSecondary} onClick={() => { setAdvFilterOpen(true); setTimeout(() => document.getElementById("advFilterSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Elegí según tu personalidad</button>
+<button className="gs-hero-btn-secondary" style={S.heroBtnSecondary} onClick={() => { setQuizStep(0); setQuizAnswers({ genero: "", ocasion: "", aroma: "", tipo: "" }); setShowQuiz(true); }}>🧭 Elegí según tu personalidad</button>
 </div>
 </div>
 <div className="gs-hero-scroll" style={S.heroScrollCue}>↓</div>
@@ -1325,6 +1407,11 @@ return (
 </div>
 )}
 </div>
+{filter === "decants" && (
+<div style={{ textAlign: "center", background: "rgba(212,175,55,0.12)", border: "1px solid #d4af37", borderRadius: "8px", padding: "10px 16px", marginBottom: "16px", fontSize: "13px", color: "#e8ddc0" }}>
+🎁 Armá tu set: llevate {DECANT_COMBO_MIN} decants distintos y obtené {Math.round(DECANT_COMBO_DISCOUNT_PCT * 100)}% OFF automático en el carrito
+</div>
+)}
 <div style={{ textAlign: "center", color: "#8a8a8a", fontSize: "13px", marginBottom: "16px" }}>
 {!productsLoading && filteredProducts.length > 0 && `Mostrando ${Math.min(visibleCount, filteredProducts.length)} de ${filteredProducts.length} perfumes`}
 </div>
@@ -1460,6 +1547,29 @@ return (
 )}
 </div>
 )}
+{(selectedProduct.notasSalida || selectedProduct.notasCorazon || selectedProduct.notasFondo) && (
+<div style={{ marginTop: "16px", background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "10px", padding: "16px" }}>
+<div style={{ color: "#d4af37", fontWeight: "bold", fontSize: "14px", marginBottom: "12px" }}>Piramide Olfativa</div>
+{selectedProduct.notasSalida && (
+<div style={{ marginBottom: "10px" }}>
+<div style={{ fontSize: "11px", color: "#8a8a8a", textTransform: "uppercase", letterSpacing: "0.05em" }}>Notas de salida</div>
+<div style={{ fontSize: "14px", color: "#fff" }}>{selectedProduct.notasSalida}</div>
+</div>
+)}
+{selectedProduct.notasCorazon && (
+<div style={{ marginBottom: "10px" }}>
+<div style={{ fontSize: "11px", color: "#8a8a8a", textTransform: "uppercase", letterSpacing: "0.05em" }}>Notas de corazon</div>
+<div style={{ fontSize: "14px", color: "#fff" }}>{selectedProduct.notasCorazon}</div>
+</div>
+)}
+{selectedProduct.notasFondo && (
+<div>
+<div style={{ fontSize: "11px", color: "#8a8a8a", textTransform: "uppercase", letterSpacing: "0.05em" }}>Notas de fondo</div>
+<div style={{ fontSize: "14px", color: "#fff" }}>{selectedProduct.notasFondo}</div>
+</div>
+)}
+</div>
+)}
 {selectedProduct.descripcion && <p style={{ color: "#bdbdbd", marginTop: "14px", lineHeight: "1.6" }}>{selectedProduct.descripcion}</p>}
 {selectedProduct.inspiradoEn && (
 <div style={S.compareBox}>
@@ -1522,6 +1632,45 @@ return (
 </div>
 </div>
 )}
+{showQuiz && (
+<div style={S.modal} onClick={() => setShowQuiz(false)}>
+<div style={S.modalBox} onClick={e => e.stopPropagation()}>
+<button onClick={() => setShowQuiz(false)} style={{ position: "fixed", top: "16px", right: "16px", background: "rgba(0,0,0,0.65)", border: "none", color: "#fff", fontSize: "20px", cursor: "pointer", width: "40px", height: "40px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60 }}>x</button>
+<h2 style={{ marginTop: 0, marginBottom: 4, fontFamily: "'Playfair Display', serif", color: "#d4af37" }}>Encontrá tu perfume ideal</h2>
+{quizStep < QUIZ_QUESTIONS.length ? (
+<div>
+<p style={{ color: "#8a8a8a", fontSize: 13, margin: "0 0 6px" }}>Pregunta {quizStep + 1} de {QUIZ_QUESTIONS.length}</p>
+<div style={{ height: "4px", background: "#2b2b2b", borderRadius: "2px", marginBottom: "22px", overflow: "hidden" }}>
+<div style={{ height: "100%", width: (quizStep / QUIZ_QUESTIONS.length * 100) + "%", background: "linear-gradient(135deg, #d4af37, #a8842c)", transition: "width .3s" }} />
+</div>
+<h3 style={{ marginTop: 0, marginBottom: "16px" }}>{QUIZ_QUESTIONS[quizStep].pregunta}</h3>
+<div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+{QUIZ_QUESTIONS[quizStep].opciones.map(o => (
+<button key={o.value + o.label} onClick={() => { setQuizAnswers(a => ({ ...a, [QUIZ_QUESTIONS[quizStep].key]: o.value })); setQuizStep(s => s + 1); }} style={{ ...S.btnOutline, textAlign: "left", padding: "13px 16px" }}>{o.label}</button>
+))}
+</div>
+{quizStep > 0 && <button onClick={() => setQuizStep(s => s - 1)} style={{ ...S.btnGray, marginTop: "16px" }}>← Volver</button>}
+</div>
+) : (
+<div>
+<p style={{ color: "#bdbdbd", marginBottom: "16px" }}>Estos son los que más se ajustan a lo que buscás:</p>
+<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+{getQuizRecommendations().map(p => (
+<div key={p.id} style={{ background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px", cursor: "pointer" }} onClick={() => { setShowQuiz(false); setSelectedProduct(p); }}>
+<img src={optimizeImg(getProductImage(p))} alt={getProductName(p)} loading="lazy" decoding="async" style={{ width: "100%", height: "90px", objectFit: "contain", background: "#fff", borderRadius: "6px", marginBottom: "8px" }} />
+<div style={{ fontSize: "12px", marginBottom: "4px", lineHeight: "1.3" }}>{getProductName(p)}</div>
+<div style={{ color: "#d4af37", fontWeight: "700", fontSize: "13px" }}>{formatPrice(getProductPrice(p))}</div>
+</div>
+))}
+</div>
+{getQuizRecommendations().length === 0 && <p style={{ color: "#bdbdbd" }}>No encontramos un match exacto todavía. Probá de nuevo con otras respuestas o mirá todo el catálogo.</p>}
+<button onClick={() => { setQuizStep(0); setQuizAnswers({ genero: "", ocasion: "", aroma: "", tipo: "" }); }} style={{ ...S.btnOutline, width: "100%", marginTop: "16px" }}>Volver a intentar</button>
+<button onClick={() => setShowQuiz(false)} style={{ ...S.btn, width: "100%", marginTop: "10px" }}>Ver todo el catálogo</button>
+</div>
+)}
+</div>
+</div>
+)}
 {showCart && (
 <div onClick={() => setShowCart(false)} style={S.cartBackdrop}>
 <div onClick={(e) => e.stopPropagation()} style={S.cartOverlay}>
@@ -1533,6 +1682,27 @@ return (
 <p style={{ color: "#bdbdbd" }}>El carrito esta vacio</p>
 ) : (
 <>
+<div style={{ background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "12px 14px", marginBottom: "16px" }}>
+<div style={{ fontSize: "13px", color: freeShippingReached ? "#7ea87a" : "#e8ddc0", marginBottom: "8px" }}>
+{freeShippingReached
+? "✅ Tenes envio gratis a todo el pais en este pedido"
+: <>🚚 Te faltan <strong style={{ color: "#d4af37" }}>{formatPrice(freeShippingRemaining)}</strong> para envio gratis a todo el pais</>}
+</div>
+<div style={{ height: "6px", background: "#2b2b2b", borderRadius: "3px", overflow: "hidden" }}>
+<div style={{ height: "100%", width: Math.min(100, (totalCart / FREE_SHIPPING_THRESHOLD) * 100) + "%", background: freeShippingReached ? "#7ea87a" : "linear-gradient(135deg, #d4af37, #a8842c)", transition: "width .3s" }} />
+</div>
+<div style={{ fontSize: "11px", color: "#8a8a8a", marginTop: "6px" }}>En Bahia Blanca el envio ya es gratis siempre.</div>
+</div>
+{decantComboCount > 0 && decantComboCount < DECANT_COMBO_MIN && (
+<div style={{ background: "rgba(212,175,55,0.12)", border: "1px solid #d4af37", borderRadius: "8px", padding: "10px 14px", marginBottom: "16px", fontSize: "13px", color: "#e8ddc0" }}>
+🎁 Sumá {DECANT_COMBO_MIN - decantComboCount} decant{DECANT_COMBO_MIN - decantComboCount > 1 ? "s" : ""} distinto{DECANT_COMBO_MIN - decantComboCount > 1 ? "s" : ""} más y llevate {Math.round(DECANT_COMBO_DISCOUNT_PCT * 100)}% OFF en todos tus decants
+</div>
+)}
+{decantComboActive && (
+<div style={{ background: "rgba(126,168,122,0.14)", border: "1px solid #7ea87a", borderRadius: "8px", padding: "10px 14px", marginBottom: "16px", fontSize: "13px", color: "#cfe8cd" }}>
+🎉 Set de {decantComboCount} decants distintos: {Math.round(DECANT_COMBO_DISCOUNT_PCT * 100)}% OFF aplicado (-{formatPrice(decantComboDiscount)})
+</div>
+)}
 {cart.map(item => (
 <div key={item.id} style={{ display: "flex", gap: "12px", marginBottom: "16px", alignItems: "center" }}>
 <img src={optimizeImg(getProductImage(item))} alt={getProductName(item)} loading="lazy" decoding="async" style={{ width: "60px", height: "60px", objectFit: "contain", background: "#fff", borderRadius: "6px" }} />
@@ -1564,7 +1734,7 @@ return (
 </div>
 )}
 <div style={{ borderTop: "1px solid #2b2b2b", paddingTop: "16px", marginTop: "16px" }}>
-<div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(finalTotal)}{discountFromPoints > 0 && <span style={{ color: "#d4af37", fontSize: 13, display: "block" }}>(incluye descuento de {formatPrice(discountFromPoints)} por puntos)</span>}</div><div style={{ marginBottom: 12 }}>
+<div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(finalTotal)}{discountFromPoints > 0 && <span style={{ color: "#d4af37", fontSize: 13, display: "block" }}>(incluye descuento de {formatPrice(discountFromPoints)} por puntos)</span>}{decantComboDiscount > 0 && <span style={{ color: "#7ea87a", fontSize: 13, display: "block" }}>(incluye {formatPrice(decantComboDiscount)} OFF por set de decants)</span>}</div><div style={{ marginBottom: 12 }}>
 <input type="text" placeholder="Nombre y apellido *" value={customerName} onChange={e => { setCustomerName(e.target.value); if (checkoutError) setCheckoutError(""); }} style={{ ...S.input, marginBottom: 8, ...(checkoutError && !customerName.trim() ? { border: "1px solid #8b1a2a" } : {}) }} />
 <textarea placeholder="Direccion de envio (calle, numero, ciudad) *" value={customerAddress} onChange={e => { setCustomerAddress(e.target.value); if (checkoutError) setCheckoutError(""); }} style={{ ...S.input, minHeight: 50, resize: "vertical", ...(checkoutError && !customerAddress.trim() ? { border: "1px solid #8b1a2a" } : {}) }} />
 {checkoutError && <p style={{ color: "#e57373", fontSize: 13, margin: "6px 0 0" }}>{checkoutError}</p>}
