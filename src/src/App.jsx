@@ -600,7 +600,7 @@ handleCheckout(newCart);
 
 const handleCheckout = async (cartOverride) => {
 if (!customerName.trim() || !customerAddress.trim() || !paymentMethod) {
-setCheckoutError("Completa tu nombre, direccion y forma de pago (transferencia o efectivo) para poder enviar el pedido.");
+setCheckoutError("Completa tu nombre, direccion y forma de pago (transferencia, Mercado Pago o efectivo) para poder enviar el pedido.");
 setShowCart(true);
 return;
 }
@@ -619,6 +619,7 @@ if (promoCode) msg += " - Codigo promocional: " + promoCode;
 if (customerPhone) msg += " - Mi telefono: " + customerPhone;
 if (isGift) msg += " - Es un regalo" + (giftMessage.trim() ? (": \"" + giftMessage.trim() + "\"") : "");
 if (paymentMethod === "transferencia") msg += " - Pago por transferencia bancaria (ya envio el comprobante por este chat)";
+else if (paymentMethod === "mercadopago") msg += " - Pago por Mercado Pago (ya envio el comprobante por este chat)";
 else if (paymentMethod === "efectivo") msg += " - Pago en efectivo al momento de la entrega";
 if (totalCartUsed >= FREE_SHIPPING_THRESHOLD) msg += " - Envio gratis a todo el pais (el pedido supera $" + FREE_SHIPPING_THRESHOLD.toLocaleString("es-CL") + ")";
 let usedDiscount = 0;
@@ -1758,7 +1759,18 @@ return (
 <input type="radio" name="paymentMethod" checked={paymentMethod === "efectivo"} onChange={() => { setPaymentMethod("efectivo"); if (checkoutError) setCheckoutError(""); }} />
 💵 Efectivo (al momento de la entrega)
 </label>
+<label style={{ display: "flex", alignItems: "center", gap: "6px", color: "#fff", fontSize: "14px", cursor: "pointer", border: "1px solid " + (paymentMethod === "mercadopago" ? "#d4af37" : "#2b2b2b"), borderRadius: "6px", padding: "8px 10px", flex: "1 1 140px" }}>
+<input type="radio" name="paymentMethod" checked={paymentMethod === "mercadopago"} onChange={() => { setPaymentMethod("mercadopago"); if (checkoutError) setCheckoutError(""); }} />
+💙 Mercado Pago
+</label>
 </div>
+{paymentMethod === "mercadopago" && (
+<div style={{ marginTop: "10px", fontSize: "13px", color: "#e8ddc0", lineHeight: "1.7" }}>
+<div><strong style={{ color: "#d4af37" }}>Titular:</strong> {BANK_TRANSFER_INFO.titular}</div>
+<div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}><strong style={{ color: "#d4af37" }}>Alias:</strong><span>{BANK_TRANSFER_INFO.alias}</span><button type="button" onClick={() => { navigator.clipboard.writeText(BANK_TRANSFER_INFO.alias); showToast("Alias copiado"); }} style={{ background: "transparent", border: "1px solid #d4af37", color: "#d4af37", borderRadius: "5px", padding: "2px 8px", fontSize: "11px", cursor: "pointer" }}>Copiar</button></div>
+<p style={{ marginTop: "8px", marginBottom: 0, color: "#bdbdbd" }}>Transferi por Mercado Pago a ese alias y mandanos el comprobante por este mismo WhatsApp para confirmar tu pedido y coordinar el envio.</p>
+</div>
+)}
 {paymentMethod === "transferencia" && (
 <div style={{ marginTop: "10px", fontSize: "13px", color: "#e8ddc0", lineHeight: "1.7" }}>
 <div><strong style={{ color: "#d4af37" }}>Banco:</strong> {BANK_TRANSFER_INFO.banco}</div>
@@ -1849,7 +1861,7 @@ Pedir por WhatsApp
 </div>
 <div>
 <div style={S.footerHeading}>Compras</div>
-<span style={S.footerLink}>Pago: coordinado por WhatsApp (efectivo, transferencia)</span>
+<span style={S.footerLink}>Pago: coordinado por WhatsApp (efectivo, transferencia, Mercado Pago)</span>
 <span style={S.footerLink}>Envio gratis dentro de Bahia Blanca</span>
 <span style={S.footerLink}>Envios a todo el pais a coordinar</span>
 </div>
