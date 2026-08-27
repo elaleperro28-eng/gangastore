@@ -163,6 +163,15 @@ similitud: "", stockBajo: "", etiquetas: [], precioDecant5: "", precioDecant10: 
 const [uploading, setUploading] = useState(false);
 const [uploadMsg, setUploadMsg] = useState("");
 const [uploadingField, setUploadingField] = useState(null);
+const [showBulkUpload, setShowBulkUpload] = useState(false);
+const [bulkRows, setBulkRows] = useState([]);
+const [bulkImagesCount, setBulkImagesCount] = useState(0);
+const [bulkPublishing, setBulkPublishing] = useState(false);
+const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
+const [bulkResults, setBulkResults] = useState([]);
+const bulkFilesRef = useRef({});
+const bulkCsvInputRef = useRef(null);
+const bulkImagesInputRef = useRef(null);
 const fileInputRef = useRef(null);
 const foto2Ref = useRef(null);
 const foto3Ref = useRef(null);
@@ -450,6 +459,168 @@ setUploadMsg("Error de conexion");
 }
 setUploading(false);
 setUploadingField(null);
+};
+
+// ---- Carga masiva de productos (CSV) ----
+const uploadFileToImgur = async (file) => {
+const formData = new FormData();
+formData.append("image", file);
+const res = await fetch("https://api.imgur.com/3/image", {
+method: "POST",
+headers: { Authorization: `Client-ID ${IMGUR_CLIENT_ID}` },
+body: formData,
+});
+const data = await res.json();
+if (data.success) return data.data.link;
+throw new Error("Error al subir la imagen a Imgur");
+};
+
+const normalizeTagInput = (input) => {
+const norm = (input || "").trim().toLowerCase();
+if (!norm) return null;
+const byKey = TAG_OPTIONS.find(t => t.key.toLowerCase() === norm);
+if (byKey) return byKey.key;
+const byLabel = TAG_OPTIONS.find(t => t.label.toLowerCase() === norm);
+if (byLabel) return byLabel.key;
+return null;
+};
+
+const BULK_CSV_HEADERS = ["nombre", "precio", "precioOriginal", "descripcion", "marca", "genero", "tipoPerfume", "temporada", "duracion", "notas", "disponibilidad", "diasHabiles", "imagen", "imageUrl", "foto2", "foto3", "inspiradoEn", "similitud", "stockBajo", "precioDecant5", "precioDecant10", "etiquetas"];
+
+const parseCSVText = (text) => {
+const rows = [];
+let row = [], field = "", inQuotes = false;
+const clean = text.replace(/^﻿/, "");
+for (let i = 0; i < clean.length; i++) {
+const c = clean[i], next = clean[i + 1];
+if (inQuotes) {
+if (c === '"' && next === '"') { field += '"'; i++; }
+else if (c === '"') { inQuotes = false; }
+else field += c;
+} else if (c === '"') {
+inQuotes = true;
+} else if (c === ",") {
+row.push(field); field = "";
+} else if (c === "\n" || c === "\r") {
+if (c === "\r" && next === "\n") i++;
+row.push(field); field = "";
+if (row.some(v => v.trim() !== "")) rows.push(row);
+row = [];
+} else {
+field += c;
+}
+}
+if (field !== "" || row.length) { row.push(field); if (row.some(v => v.trim() !== "")) rows.push(row); }
+return rows;
+};
+
+const downloadBulkTemplate = () => {
+const example = ["Dior Sauvage EDP 100 ml", "120000", "180000", "Fragancia amaderada y fresca, ideal para uso diario.", "Dior", "masculino", "disenador", "todo_anio", "8 a 10 horas", "Amaderado Aromatico. Citrico, especiado, elegante.", "stock", "", "", "https://i.imgur.com/ejemplo.jpg", "", "", "", "", "", "", "", "mas_vendidos|novedades"];
+const csv = BULK_CSV_HEADERS.join(",") + "\n" + example.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",") + "\n";
+const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+const url = URL.createObjectURL(blob);
+const a = document.createElement("a");
+a.href = url;
+a.download = "plantilla_productos_esencia.csv";
+document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
+URL.revokeObjectURL(url);
+};
+
+const handleBulkCsvSelect = async (file) => {
+if (!file) return;
+setBulkResults([]);
+try {
+const text = await file.text();
+const rows = parseCSVText(text);
+if (rows.length < 2) { alert("El CSV no tiene filas de datos debajo del encabezado."); return; }
+const headers = rows[0].map(h => h.trim());
+const objs = rows.slice(1).map(r => {
+const obj = {};
+headers.forEach((h, i) => { obj[h] = (r[i] || "").trim(); });
+return obj;
+});
+setBulkRows(objs);
+} catch (e) {
+alert("No pudimos leer ese archivo. Asegurate de que sea un CSV.");
+}
+};
+
+const handleBulkImagesSelect = (fileList) => {
+const map = {};
+Array.from(fileList || []).forEach(f => { map[f.name.trim().toLowerCase()] = f; });
+bulkFilesRef.current = map;
+setBulkImagesCount(Object.keys(map).length);
+};
+
+const bulkRowHasImage = (r) => !!(r.imageUrl && r.imageUrl.trim()) || !!(r.imagen && bulkFilesRef.current[r.imagen.trim().toLowerCase()]);
+
+const handleBulkPublish = async () => {
+if (!bulkRows.length || bulkPublishing) return;
+setBulkPublishing(true);
+setBulkResults([]);
+const results = [];
+for (let i = 0; i < bulkRows.length; i++) {
+const r = bulkRows[i];
+setBulkProgress({ done: i, total: bulkRows.length });
+const label = r.nombre || `Fila ${i + 2}`;
+try {
+if (!r.nombre || !r.nombre.trim()) throw new Error("Falta el nombre");
+if (!r.precio || isNaN(Number(r.precio))) throw new Error("Falta el precio o no es un numero");
+let imageUrl = (r.imageUrl || "").trim();
+if (!imageUrl && r.imagen) {
+const file = bulkFilesRef.current[r.imagen.trim().toLowerCase()];
+if (!file) throw new Error(`No se encontro el archivo de imagen "${r.imagen}" entre las fotos seleccionadas`);
+imageUrl = await uploadFileToImgur(file);
+}
+if (!imageUrl) throw new Error('Falta imagen: completa la columna "imageUrl" o "imagen"');
+const disp = ["stock", "pedido", "agotado"].includes((r.disponibilidad || "").trim()) ? r.disponibilidad.trim() : "stock";
+const etiquetas = (r.etiquetas || "").split("|").map(t => normalizeTagInput(t)).filter(Boolean);
+const productData = {
+nombre: r.nombre.trim(),
+precio: Number(r.precio),
+precioOriginal: r.precioOriginal ? Number(r.precioOriginal) : null,
+descripcion: r.descripcion || "",
+imageUrl,
+foto2: r.foto2 || null,
+foto3: r.foto3 || null,
+fotoMano: null,
+fotoCaja: null,
+videoUrl: null,
+disponibilidad: disp,
+diasHabiles: disp === "pedido" ? (r.diasHabiles || "3") : null,
+categoria: "perfume",
+marca: r.marca || null,
+genero: r.genero || null,
+temporada: r.temporada || null,
+tipoPerfume: r.tipoPerfume || null,
+duracion: r.duracion || null,
+notas: r.notas || null,
+notasSalida: null, notasCorazon: null, notasFondo: null,
+inspiradoEn: r.inspiradoEn || null,
+similitud: r.similitud ? Number(r.similitud) : null,
+stockBajo: r.stockBajo ? Number(r.stockBajo) : null,
+etiquetas,
+precioDecant5: r.precioDecant5 ? Number(r.precioDecant5) : null,
+precioDecant10: r.precioDecant10 ? Number(r.precioDecant10) : null,
+};
+await addDoc(collection(db, "productos"), { ...productData, createdAt: serverTimestamp() });
+results.push({ nombre: label, ok: true });
+} catch (e) {
+results.push({ nombre: label, ok: false, error: e.message });
+}
+}
+setBulkProgress({ done: bulkRows.length, total: bulkRows.length });
+setBulkResults(results);
+setBulkPublishing(false);
+if (results.every(r => r.ok)) {
+setBulkRows([]);
+bulkFilesRef.current = {};
+setBulkImagesCount(0);
+if (bulkCsvInputRef.current) bulkCsvInputRef.current.value = "";
+if (bulkImagesInputRef.current) bulkImagesInputRef.current.value = "";
+}
 };
 
 const handleAddProduct = async () => {
@@ -1177,6 +1348,65 @@ return (
 </div>
 <div style={S.adminWrap}>
 <h2 style={{ color: "#d4af37", marginBottom: "24px", fontFamily: "'Playfair Display', serif" }}>Panel de Administracion</h2>
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+<h3 style={{ margin: 0 }}>📦 Carga Masiva de Productos</h3>
+<button onClick={() => setShowBulkUpload(s => !s)} style={S.btnOutline}>{showBulkUpload ? "Ocultar" : "Cargar varios a la vez"}</button>
+</div>
+{showBulkUpload && (
+<div style={{ marginTop: "18px" }}>
+<p style={{ color: "#bdbdbd", fontSize: "14px", lineHeight: "1.6" }}>Cargá muchos perfumes de una sola vez con una planilla CSV (se puede armar y editar en Excel o Google Sheets). Cada fila es un producto nuevo.</p>
+<ol style={{ color: "#bdbdbd", fontSize: "14px", lineHeight: "1.9", paddingLeft: "20px" }}>
+<li>Descargá la plantilla, completala en Excel/Sheets (una fila por perfume) y guardala como CSV.</li>
+<li>En la columna <strong>imageUrl</strong> pegá el link de la foto (si ya la tenés subida a algún lado). Si preferís subir las fotos del celular/compu directo, dejá esa columna vacía y en <strong>imagen</strong> escribí el nombre exacto del archivo (ej: perfume1.jpg), y más abajo seleccioná esas fotos.</li>
+<li>En <strong>etiquetas</strong> podés escribir varias separadas por "|", por ejemplo: mas_vendidos|top_verano|tendencia_gourmand_oscuro</li>
+<li>Subí el CSV, revisá la vista previa y tocá "Publicar todos".</li>
+</ol>
+<button onClick={downloadBulkTemplate} style={{ ...S.btnOutline, marginBottom: "16px" }}>⬇ Descargar plantilla CSV</button>
+<label style={S.label}>1. Subir planilla CSV completa</label>
+<input ref={bulkCsvInputRef} type="file" accept=".csv,text/csv" onChange={e => handleBulkCsvSelect(e.target.files[0])} style={{ ...S.input, padding: "8px", marginBottom: "16px" }} />
+<label style={S.label}>2. (Opcional) Seleccionar las fotos, si usaste la columna "imagen" en vez de "imageUrl"</label>
+<input ref={bulkImagesInputRef} type="file" accept="image/*" multiple onChange={e => handleBulkImagesSelect(e.target.files)} style={{ ...S.input, padding: "8px", marginBottom: "8px" }} />
+{bulkImagesCount > 0 && <p style={{ color: "#9ddb9d", fontSize: "13px" }}>{bulkImagesCount} foto(s) seleccionada(s)</p>}
+{bulkRows.length > 0 && (
+<div style={{ marginTop: "16px" }}>
+<p style={{ color: "#d4af37", fontWeight: "700" }}>{bulkRows.length} productos listos para revisar</p>
+<div style={{ overflowX: "auto", marginBottom: "16px" }}>
+<table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+<thead>
+<tr style={{ color: "#d4af37", textAlign: "left" }}>
+<th style={{ padding: "6px" }}>Nombre</th>
+<th style={{ padding: "6px" }}>Precio</th>
+<th style={{ padding: "6px" }}>Marca</th>
+<th style={{ padding: "6px" }}>Imagen</th>
+</tr>
+</thead>
+<tbody>
+{bulkRows.map((r, i) => (
+<tr key={i} style={{ borderTop: "1px solid #2b2b2b" }}>
+<td style={{ padding: "6px" }}>{r.nombre || <span style={{ color: "#cc6666" }}>Sin nombre</span>}</td>
+<td style={{ padding: "6px" }}>{r.precio ? formatPrice(Number(r.precio)) : <span style={{ color: "#cc6666" }}>Sin precio</span>}</td>
+<td style={{ padding: "6px" }}>{r.marca || "-"}</td>
+<td style={{ padding: "6px" }}>{bulkRowHasImage(r) ? <span style={{ color: "#9ddb9d" }}>✓ OK</span> : <span style={{ color: "#cc6666" }}>✗ Falta</span>}</td>
+</tr>
+))}
+</tbody>
+</table>
+</div>
+<button onClick={handleBulkPublish} disabled={bulkPublishing} style={{ ...S.btn, width: "100%", padding: "12px", opacity: bulkPublishing ? 0.6 : 1 }}>{bulkPublishing ? `Publicando ${bulkProgress.done}/${bulkProgress.total}...` : `Publicar los ${bulkRows.length} productos`}</button>
+</div>
+)}
+{bulkResults.length > 0 && (
+<div style={{ marginTop: "16px" }}>
+<p style={{ fontWeight: "700", color: bulkResults.every(r => r.ok) ? "#9ddb9d" : "#e0b84a" }}>{bulkResults.filter(r => r.ok).length} de {bulkResults.length} publicados correctamente</p>
+{bulkResults.filter(r => !r.ok).map((r, i) => (
+<p key={i} style={{ color: "#cc6666", fontSize: "13px", margin: "4px 0" }}>✗ {r.nombre}: {r.error}</p>
+))}
+</div>
+)}
+</div>
+)}
+</div>
 <div style={S.adminCard}>
 <h3 style={{ marginTop: 0, marginBottom: "20px" }}>{editingId ? "Editar Producto" : "Agregar Nuevo Producto"}</h3>
 <label style={S.label}>Nombre del Producto *</label>
