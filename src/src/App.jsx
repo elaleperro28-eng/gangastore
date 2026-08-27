@@ -353,6 +353,16 @@ return next;
 }
 }, [selectedProduct]);
 
+// Al abrir la ficha de producto a pantalla completa, bloqueamos el scroll del fondo
+// para que se sienta como una pagina propia y no como un modal chico.
+useEffect(() => {
+if (selectedProduct) {
+const prevOverflow = document.body.style.overflow;
+document.body.style.overflow = "hidden";
+return () => { document.body.style.overflow = prevOverflow; };
+}
+}, [selectedProduct]);
+
 // Actualiza el link de la pagina (?p=<id>) para que el boton "Compartir" y los
 // links directos a un producto funcionen (deep-linking), sin recargar la pagina.
 useEffect(() => {
@@ -485,7 +495,9 @@ if (byLabel) return byLabel.key;
 return null;
 };
 
-const BULK_CSV_HEADERS = ["nombre", "precio", "precioOriginal", "descripcion", "marca", "genero", "tipoPerfume", "temporada", "duracion", "notas", "disponibilidad", "diasHabiles", "imagen", "imageUrl", "foto2", "foto3", "inspiradoEn", "similitud", "stockBajo", "precioDecant5", "precioDecant10", "etiquetas"];
+const BULK_CSV_HEADERS = ["id", "nombre", "precio", "precioOriginal", "descripcion", "marca", "genero", "tipoPerfume", "temporada", "duracion", "notas", "disponibilidad", "diasHabiles", "imagen", "imageUrl", "foto2", "foto3", "inspiradoEn", "similitud", "stockBajo", "precioDecant5", "precioDecant10", "etiquetas"];
+const BULK_NUMERIC_FIELDS = ["precio", "precioOriginal", "similitud", "stockBajo", "precioDecant5", "precioDecant10"];
+const BULK_TEXT_FIELDS = ["descripcion", "marca", "genero", "tipoPerfume", "temporada", "duracion", "notas", "foto2", "foto3", "inspiradoEn"];
 
 const parseCSVText = (text) => {
 const rows = [];
@@ -514,18 +526,56 @@ if (field !== "" || row.length) { row.push(field); if (row.some(v => v.trim() !=
 return rows;
 };
 
-const downloadBulkTemplate = () => {
-const example = ["Dior Sauvage EDP 100 ml", "120000", "180000", "Fragancia amaderada y fresca, ideal para uso diario.", "Dior", "masculino", "disenador", "todo_anio", "8 a 10 horas", "Amaderado Aromatico. Citrico, especiado, elegante.", "stock", "", "", "https://i.imgur.com/ejemplo.jpg", "", "", "", "", "", "", "", "mas_vendidos|novedades"];
-const csv = BULK_CSV_HEADERS.join(",") + "\n" + example.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",") + "\n";
+const downloadCSVFile = (rows, filename) => {
+const csv = rows.map(row => row.map(v => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`).join(",")).join("\n") + "\n";
 const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
 const url = URL.createObjectURL(blob);
 const a = document.createElement("a");
 a.href = url;
-a.download = "plantilla_productos_esencia.csv";
+a.download = filename;
 document.body.appendChild(a);
 a.click();
 document.body.removeChild(a);
 URL.revokeObjectURL(url);
+};
+
+const downloadBulkTemplate = () => {
+const example = ["", "Dior Sauvage EDP 100 ml", "120000", "180000", "Fragancia amaderada y fresca, ideal para uso diario.", "Dior", "masculino", "disenador", "todo_anio", "8 a 10 horas", "Amaderado Aromatico. Citrico, especiado, elegante.", "stock", "", "", "https://i.imgur.com/ejemplo.jpg", "", "", "", "", "", "", "", "mas_vendidos|novedades"];
+downloadCSVFile([BULK_CSV_HEADERS, example], "plantilla_productos_esencia.csv");
+};
+
+// Exporta el catalogo actual (con su "id" de cada producto) para poder editarlo en Excel/Sheets
+// y volver a subirlo: si una fila trae "id", el importador actualiza ese producto en vez de duplicarlo.
+// Asi se puede reponer stock, cambiar precios o marcar "agotado" de muchos perfumes a la vez.
+const exportCatalogToCSV = () => {
+const perfumes = products.filter(p => (p.categoria || "perfume") === "perfume" && !!p.nombre);
+if (!perfumes.length) { alert("Todavia no hay productos para exportar."); return; }
+const rows = perfumes.map(p => [
+p.id,
+p.nombre || "",
+p.precio ?? "",
+p.precioOriginal ?? "",
+p.descripcion || "",
+p.marca || "",
+p.genero || "",
+p.tipoPerfume || "",
+p.temporada || "",
+p.duracion || "",
+p.notas || "",
+p.disponibilidad || "stock",
+p.diasHabiles || "",
+"",
+p.imageUrl || "",
+p.foto2 || "",
+p.foto3 || "",
+p.inspiradoEn || "",
+p.similitud ?? "",
+p.stockBajo ?? "",
+p.precioDecant5 ?? "",
+p.precioDecant10 ?? "",
+(p.etiquetas || []).join("|"),
+]);
+downloadCSVFile([BULK_CSV_HEADERS, ...rows], "catalogo_esencia_" + new Date().toISOString().slice(0, 10) + ".csv");
 };
 
 const handleBulkCsvSelect = async (file) => {
@@ -554,7 +604,15 @@ bulkFilesRef.current = map;
 setBulkImagesCount(Object.keys(map).length);
 };
 
-const bulkRowHasImage = (r) => !!(r.imageUrl && r.imageUrl.trim()) || !!(r.imagen && bulkFilesRef.current[r.imagen.trim().toLowerCase()]);
+const bulkRowIsUpdate = (r) => !!(r.id && r.id.trim());
+const bulkRowExistingProduct = (r) => bulkRowIsUpdate(r) ? products.find(p => p.id === r.id.trim()) : null;
+const bulkRowHasImage = (r) => bulkRowIsUpdate(r) || !!(r.imageUrl && r.imageUrl.trim()) || !!(r.imagen && bulkFilesRef.current[r.imagen.trim().toLowerCase()]);
+const bulkRowAction = (r) => {
+if (!bulkRowIsUpdate(r)) return { type: "new" };
+const existing = bulkRowExistingProduct(r);
+if (!existing) return { type: "error", msg: "ID no encontrado" };
+return { type: "update", existing };
+};
 
 const handleBulkPublish = async () => {
 if (!bulkRows.length || bulkPublishing) return;
@@ -564,8 +622,33 @@ const results = [];
 for (let i = 0; i < bulkRows.length; i++) {
 const r = bulkRows[i];
 setBulkProgress({ done: i, total: bulkRows.length });
-const label = r.nombre || `Fila ${i + 2}`;
+const isUpdate = bulkRowIsUpdate(r);
+const label = r.nombre || (isUpdate ? "Actualizacion sin nombre" : `Fila ${i + 2}`);
 try {
+if (isUpdate) {
+const existing = products.find(p => p.id === r.id.trim());
+if (!existing) throw new Error(`No encontramos ningun producto con el id "${r.id.trim()}" (¿lo modificaste al editar el CSV?)`);
+const patch = {};
+if (r.nombre && r.nombre.trim()) patch.nombre = r.nombre.trim();
+BULK_NUMERIC_FIELDS.forEach(f => { if (r[f] && r[f].trim() !== "") { const n = Number(r[f]); if (!isNaN(n)) patch[f] = n; } });
+BULK_TEXT_FIELDS.forEach(f => { if (r[f] && r[f].trim() !== "") patch[f] = r[f].trim(); });
+if (r.disponibilidad && ["stock", "pedido", "agotado"].includes(r.disponibilidad.trim())) {
+patch.disponibilidad = r.disponibilidad.trim();
+patch.diasHabiles = patch.disponibilidad === "pedido" ? (r.diasHabiles || existing.diasHabiles || "3") : null;
+}
+if (r.etiquetas && r.etiquetas.trim() !== "") {
+patch.etiquetas = r.etiquetas.split("|").map(t => normalizeTagInput(t)).filter(Boolean);
+}
+let imageUrl = (r.imageUrl || "").trim();
+if (!imageUrl && r.imagen && r.imagen.trim()) {
+const file = bulkFilesRef.current[r.imagen.trim().toLowerCase()];
+if (file) imageUrl = await uploadFileToImgur(file);
+}
+if (imageUrl) patch.imageUrl = imageUrl;
+if (Object.keys(patch).length === 0) throw new Error("La fila no tiene ningun campo para actualizar (todo vacio salvo el id)");
+await updateDoc(doc(db, "productos", r.id.trim()), patch);
+results.push({ nombre: label, ok: true, action: "Actualizado" });
+} else {
 if (!r.nombre || !r.nombre.trim()) throw new Error("Falta el nombre");
 if (!r.precio || isNaN(Number(r.precio))) throw new Error("Falta el precio o no es un numero");
 let imageUrl = (r.imageUrl || "").trim();
@@ -606,7 +689,8 @@ precioDecant5: r.precioDecant5 ? Number(r.precioDecant5) : null,
 precioDecant10: r.precioDecant10 ? Number(r.precioDecant10) : null,
 };
 await addDoc(collection(db, "productos"), { ...productData, createdAt: serverTimestamp() });
-results.push({ nombre: label, ok: true });
+results.push({ nombre: label, ok: true, action: "Publicado" });
+}
 } catch (e) {
 results.push({ nombre: label, ok: false, error: e.message });
 }
@@ -1355,14 +1439,24 @@ return (
 </div>
 {showBulkUpload && (
 <div style={{ marginTop: "18px" }}>
-<p style={{ color: "#bdbdbd", fontSize: "14px", lineHeight: "1.6" }}>Cargá muchos perfumes de una sola vez con una planilla CSV (se puede armar y editar en Excel o Google Sheets). Cada fila es un producto nuevo.</p>
+<div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "16px" }}>
+<div style={{ flex: 1, minWidth: "260px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "10px", padding: "14px" }}>
+<p style={{ margin: "0 0 8px", color: "#d4af37", fontWeight: "700", fontSize: "14px" }}>➕ Para cargar perfumes nuevos</p>
+<p style={{ margin: 0, color: "#bdbdbd", fontSize: "13px", lineHeight: "1.6" }}>Descargá la plantilla vacía, completá una fila por perfume nuevo (dejando la columna "id" vacía) y subila.</p>
+<button onClick={downloadBulkTemplate} style={{ ...S.btnOutline, marginTop: "10px", width: "100%" }}>⬇ Descargar plantilla vacía</button>
+</div>
+<div style={{ flex: 1, minWidth: "260px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "10px", padding: "14px" }}>
+<p style={{ margin: "0 0 8px", color: "#d4af37", fontWeight: "700", fontSize: "14px" }}>🔄 Para reponer stock / editar en masa</p>
+<p style={{ margin: 0, color: "#bdbdbd", fontSize: "13px", lineHeight: "1.6" }}>Exportá tu catálogo actual (ya trae el "id" de cada perfume), cambiá lo que necesites (precio, disponibilidad, etc.) y volvé a subir el mismo archivo: actualiza cada producto en vez de duplicarlo.</p>
+<button onClick={exportCatalogToCSV} style={{ ...S.btnOutline, marginTop: "10px", width: "100%" }}>⬇ Exportar mi catálogo actual</button>
+</div>
+</div>
 <ol style={{ color: "#bdbdbd", fontSize: "14px", lineHeight: "1.9", paddingLeft: "20px" }}>
-<li>Descargá la plantilla, completala en Excel/Sheets (una fila por perfume) y guardala como CSV.</li>
-<li>En la columna <strong>imageUrl</strong> pegá el link de la foto (si ya la tenés subida a algún lado). Si preferís subir las fotos del celular/compu directo, dejá esa columna vacía y en <strong>imagen</strong> escribí el nombre exacto del archivo (ej: perfume1.jpg), y más abajo seleccioná esas fotos.</li>
+<li>Abrí el CSV en Excel o Google Sheets y editalo (para reponer stock, por ejemplo, cambiá la columna <strong>disponibilidad</strong> a "stock" y/o el <strong>precio</strong> en las filas que corresponda; dejá vacías las columnas que no querés tocar).</li>
+<li>En la columna <strong>imageUrl</strong> pegá el link de la foto (si ya la tenés subida a algún lado). Para fotos nuevas del celular/compu, dejá esa columna vacía y en <strong>imagen</strong> escribí el nombre exacto del archivo (ej: perfume1.jpg), y más abajo seleccioná esas fotos.</li>
 <li>En <strong>etiquetas</strong> podés escribir varias separadas por "|", por ejemplo: mas_vendidos|top_verano|tendencia_gourmand_oscuro</li>
-<li>Subí el CSV, revisá la vista previa y tocá "Publicar todos".</li>
+<li>Guardá como CSV, subilo abajo, revisá la vista previa (te va a decir qué fila es nueva y cuál actualiza un producto existente) y tocá "Publicar todos".</li>
 </ol>
-<button onClick={downloadBulkTemplate} style={{ ...S.btnOutline, marginBottom: "16px" }}>⬇ Descargar plantilla CSV</button>
 <label style={S.label}>1. Subir planilla CSV completa</label>
 <input ref={bulkCsvInputRef} type="file" accept=".csv,text/csv" onChange={e => handleBulkCsvSelect(e.target.files[0])} style={{ ...S.input, padding: "8px", marginBottom: "16px" }} />
 <label style={S.label}>2. (Opcional) Seleccionar las fotos, si usaste la columna "imagen" en vez de "imageUrl"</label>
@@ -1370,7 +1464,7 @@ return (
 {bulkImagesCount > 0 && <p style={{ color: "#9ddb9d", fontSize: "13px" }}>{bulkImagesCount} foto(s) seleccionada(s)</p>}
 {bulkRows.length > 0 && (
 <div style={{ marginTop: "16px" }}>
-<p style={{ color: "#d4af37", fontWeight: "700" }}>{bulkRows.length} productos listos para revisar</p>
+<p style={{ color: "#d4af37", fontWeight: "700" }}>{bulkRows.length} filas listas para revisar ({bulkRows.filter(r => !bulkRowIsUpdate(r)).length} nuevas, {bulkRows.filter(bulkRowIsUpdate).length} actualizaciones)</p>
 <div style={{ overflowX: "auto", marginBottom: "16px" }}>
 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
 <thead>
@@ -1378,18 +1472,27 @@ return (
 <th style={{ padding: "6px" }}>Nombre</th>
 <th style={{ padding: "6px" }}>Precio</th>
 <th style={{ padding: "6px" }}>Marca</th>
+<th style={{ padding: "6px" }}>Accion</th>
 <th style={{ padding: "6px" }}>Imagen</th>
 </tr>
 </thead>
 <tbody>
-{bulkRows.map((r, i) => (
+{bulkRows.map((r, i) => {
+const action = bulkRowAction(r);
+return (
 <tr key={i} style={{ borderTop: "1px solid #2b2b2b" }}>
-<td style={{ padding: "6px" }}>{r.nombre || <span style={{ color: "#cc6666" }}>Sin nombre</span>}</td>
-<td style={{ padding: "6px" }}>{r.precio ? formatPrice(Number(r.precio)) : <span style={{ color: "#cc6666" }}>Sin precio</span>}</td>
+<td style={{ padding: "6px" }}>{r.nombre || (action.type === "update" ? action.existing.nombre : <span style={{ color: "#cc6666" }}>Sin nombre</span>)}</td>
+<td style={{ padding: "6px" }}>{r.precio ? formatPrice(Number(r.precio)) : (action.type === "update" ? "(sin cambios)" : <span style={{ color: "#cc6666" }}>Sin precio</span>)}</td>
 <td style={{ padding: "6px" }}>{r.marca || "-"}</td>
+<td style={{ padding: "6px" }}>
+{action.type === "new" && <span style={{ color: "#9ddb9d" }}>➕ Nuevo</span>}
+{action.type === "update" && <span style={{ color: "#e0b84a" }}>🔄 Actualiza</span>}
+{action.type === "error" && <span style={{ color: "#cc6666" }}>✗ {action.msg}</span>}
+</td>
 <td style={{ padding: "6px" }}>{bulkRowHasImage(r) ? <span style={{ color: "#9ddb9d" }}>✓ OK</span> : <span style={{ color: "#cc6666" }}>✗ Falta</span>}</td>
 </tr>
-))}
+);
+})}
 </tbody>
 </table>
 </div>
@@ -1398,7 +1501,7 @@ return (
 )}
 {bulkResults.length > 0 && (
 <div style={{ marginTop: "16px" }}>
-<p style={{ fontWeight: "700", color: bulkResults.every(r => r.ok) ? "#9ddb9d" : "#e0b84a" }}>{bulkResults.filter(r => r.ok).length} de {bulkResults.length} publicados correctamente</p>
+<p style={{ fontWeight: "700", color: bulkResults.every(r => r.ok) ? "#9ddb9d" : "#e0b84a" }}>{bulkResults.filter(r => r.ok).length} de {bulkResults.length} procesados correctamente</p>
 {bulkResults.filter(r => !r.ok).map((r, i) => (
 <p key={i} style={{ color: "#cc6666", fontSize: "13px", margin: "4px 0" }}>✗ {r.nombre}: {r.error}</p>
 ))}
@@ -1917,25 +2020,53 @@ return (
 </div>
 
 {selectedProduct && (
-<div style={S.modal} onClick={() => setSelectedProduct(null)}>
-<div style={S.modalBox} onClick={e => e.stopPropagation()}>
-<button onClick={() => setSelectedProduct(null)} style={{ position: "fixed", top: "16px", right: "16px", background: "rgba(0,0,0,0.65)", border: "none", color: "#fff", fontSize: "20px", cursor: "pointer", width: "40px", height: "40px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60 }}>x</button>
-<button onClick={() => toggleFavorite(selectedProduct.id)} style={S.favBtn(favorites.includes(selectedProduct.id))} aria-label="Favorito">{favorites.includes(selectedProduct.id) ? "♥" : "♡"}</button>
-<button onClick={() => handleShareProduct(selectedProduct)} style={{ ...S.favBtn(false), right: "54px" }} aria-label="Compartir">📤</button>
-<img src={optimizeImg(modalActiveImg || getProductImage(selectedProduct))} alt={getProductName(selectedProduct)} style={S.modalImg} />
+<div className="gs-pdp-overlay" onClick={() => setSelectedProduct(null)}>
+<style>{`
+.gs-pdp-overlay { position: fixed; inset: 0; z-index: 200; background: #0b0b0b; overflow-y: auto; -webkit-overflow-scrolling: touch; animation: gsPdpFadeIn .22s ease; }
+@keyframes gsPdpFadeIn { from { opacity: 0; } to { opacity: 1; } }
+.gs-pdp-grid { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; min-height: 100%; }
+.gs-pdp-media { background: #050505; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 70px 20px 24px; }
+.gs-pdp-info { padding: 24px 18px 130px; }
+.gs-pdp-topbtn { position: fixed; top: 18px; width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(212,175,55,0.35); background: rgba(15,15,15,0.75); backdrop-filter: blur(6px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; z-index: 220; transition: transform .15s ease, background .15s ease; }
+.gs-pdp-topbtn:hover { transform: scale(1.08); background: rgba(212,175,55,0.18); }
+.gs-pdp-mainimg-wrap { width: 100%; max-width: 460px; background: #fdfaf3; border-radius: 20px; padding: 30px; box-shadow: 0 24px 70px rgba(0,0,0,0.5); }
+.gs-pdp-mainimg { width: 100%; max-height: 46vh; object-fit: contain; display: block; }
+.gs-pdp-thumbs { display: flex; gap: 10px; margin-top: 18px; overflow-x: auto; max-width: 460px; width: 100%; justify-content: center; }
+.gs-pdp-name { margin: 0 0 10px; font-family: 'Playfair Display', serif; font-size: clamp(24px, 4vw, 34px); line-height: 1.15; }
+.gs-pdp-price { font-size: clamp(26px, 3.4vw, 34px); font-weight: 900; color: #d4af37; margin-bottom: 14px; }
+.gs-pdp-sticky-cta { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(12,12,12,0.97); backdrop-filter: blur(8px); border-top: 1px solid #2b2b2b; padding: 12px 16px; display: flex; gap: 12px; align-items: center; z-index: 210; }
+.gs-pdp-sticky-cta .gs-pdp-sticky-price { color: #d4af37; font-weight: 800; font-size: 16px; white-space: nowrap; }
+@media (min-width: 900px) {
+.gs-pdp-grid { flex-direction: row; align-items: flex-start; }
+.gs-pdp-media { position: sticky; top: 0; width: 50%; height: 100vh; padding: 48px; }
+.gs-pdp-mainimg { max-height: 60vh; }
+.gs-pdp-info { width: 50%; padding: 90px 64px 64px 40px; }
+.gs-pdp-sticky-cta { display: none; }
+}
+`}</style>
+<div className="gs-pdp-grid" onClick={e => e.stopPropagation()}>
+<button onClick={() => setSelectedProduct(null)} className="gs-pdp-topbtn" style={{ right: "20px" }} aria-label="Cerrar">✕</button>
+<button onClick={() => handleShareProduct(selectedProduct)} className="gs-pdp-topbtn" style={{ right: "72px" }} aria-label="Compartir">📤</button>
+<button onClick={() => toggleFavorite(selectedProduct.id)} className="gs-pdp-topbtn" style={{ right: "124px", color: favorites.includes(selectedProduct.id) ? "#d4af37" : "#fff" }} aria-label="Favorito">{favorites.includes(selectedProduct.id) ? "♥" : "♡"}</button>
+<div className="gs-pdp-media">
+<div className="gs-pdp-mainimg-wrap">
+<img className="gs-pdp-mainimg" src={optimizeImg(modalActiveImg || getProductImage(selectedProduct))} alt={getProductName(selectedProduct)} />
+</div>
 {[selectedProduct.imageUrl, selectedProduct.foto2, selectedProduct.foto3, selectedProduct.fotoMano, selectedProduct.fotoCaja].filter(Boolean).length > 1 && (
-<div style={{ display: "flex", gap: "8px", marginBottom: "16px", overflowX: "auto" }}>
+<div className="gs-pdp-thumbs">
 {[selectedProduct.imageUrl, selectedProduct.foto2, selectedProduct.foto3, selectedProduct.fotoMano, selectedProduct.fotoCaja].filter(Boolean).map((src, i) => (
 <img key={i} src={optimizeImg(src)} loading="lazy" decoding="async" onClick={() => setModalActiveImg(src)} style={{ width: "56px", height: "56px", objectFit: "cover", borderRadius: "6px", cursor: "pointer", border: (modalActiveImg || getProductImage(selectedProduct)) === src ? "2px solid #d4af37" : "2px solid transparent", flexShrink: 0, background: "#fff" }} />
 ))}
 </div>
 )}
 {selectedProduct.videoUrl && (
-<video src={selectedProduct.videoUrl} controls style={{ width: "100%", borderRadius: "10px", marginBottom: "16px", background: "#000" }} />
+<video src={selectedProduct.videoUrl} controls style={{ width: "100%", maxWidth: "460px", borderRadius: "10px", marginTop: "16px", background: "#000" }} />
 )}
-<h2 style={{ marginTop: 0, marginBottom: "8px", fontFamily: "'Playfair Display', serif" }}>{getProductName(selectedProduct)}</h2>
+</div>
+<div className="gs-pdp-info">
+<h2 className="gs-pdp-name">{getProductName(selectedProduct)}</h2>
 {avgRating && <div style={{ ...S.ratingBadge, marginBottom: "10px" }}>★ {avgRating} de 5 · {reviewCount} {reviewCount === 1 ? "opinion" : "opiniones"}</div>}
-<div style={{ fontSize: "28px", fontWeight: "900", color: "#d4af37", marginBottom: "12px" }}>
+<div className="gs-pdp-price">
 {getDiscountPercent(selectedProduct) && <span style={{ ...S.originalPrice, fontSize: "18px" }}>{formatPrice(getProductOriginalPrice(selectedProduct))}</span>}
 {formatPrice(getProductPrice(selectedProduct))}
 {getDiscountPercent(selectedProduct) && <span style={S.discountBadge}>-{getDiscountPercent(selectedProduct)}%</span>}
@@ -2011,7 +2142,7 @@ return (
 ) : (
 <>
 <p style={{ color: "#e8ddc0", margin: "0 0 10px", fontSize: "14px" }}>🔔 Este perfume esta agotado por el momento. Dejanos tu WhatsApp y te avisamos apenas vuelva.</p>
-<input style={{ ...S.input, marginBottom: "10px" }} type="tel" placeholder="Tu WhatsApp (ej: 291 4261941)" value={notifyPhone} onChange={e => setNotifyPhone(e.target.value)} />
+<input id="gs-pdp-notify-input" style={{ ...S.input, marginBottom: "10px" }} type="tel" placeholder="Tu WhatsApp (ej: 291 4261941)" value={notifyPhone} onChange={e => setNotifyPhone(e.target.value)} />
 <button style={{ ...S.btn, width: "100%", padding: "12px" }} disabled={notifySubmitting} onClick={() => handleNotifyStock(selectedProduct)}>{notifySubmitting ? "Guardando..." : "Avisarme cuando vuelva"}</button>
 </>
 )}
@@ -2034,6 +2165,15 @@ return (
 </div>
 )}
 <a href={`https://wa.me/2914261941?text=${encodeURIComponent("Hola! Quiero consultar sobre: " + getProductName(selectedProduct))}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "13px", marginTop: "10px", fontSize: "15px", fontWeight: "700", borderRadius: "10px", background: "#25D366", color: "#fff", textDecoration: "none" }}>💬 Consultar por WhatsApp</a>
+</div>
+<div className="gs-pdp-sticky-cta">
+<span className="gs-pdp-sticky-price">{formatPrice(getProductPrice(selectedProduct))}</span>
+{getProductDisp(selectedProduct) === "agotado" ? (
+<button style={{ ...S.btn, flex: 1, padding: "12px" }} disabled={notifySubmitting || notifyDone} onClick={() => notifyPhone.trim() ? handleNotifyStock(selectedProduct) : document.getElementById("gs-pdp-notify-input")?.focus()}>{notifyDone ? "✓ Listo" : "🔔 Avisarme"}</button>
+) : (
+<button style={{ ...S.btn, flex: 1, padding: "12px" }} onClick={() => { addToCart(selectedProduct); setSelectedProduct(null); }}>Agregar al Carrito</button>
+)}
+</div>
 </div>
 </div>
 )}
