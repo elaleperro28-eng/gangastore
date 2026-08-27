@@ -180,6 +180,9 @@ const fotoCajaRef = useRef(null);
 const videoRef = useRef(null);
 const [selectedProduct, setSelectedProduct] = useState(null);
 const [modalActiveImg, setModalActiveImg] = useState(null);
+const [showAllPhotos, setShowAllPhotos] = useState(false);
+const [showFullInfo, setShowFullInfo] = useState(false);
+const [showSimilarInfo, setShowSimilarInfo] = useState(false);
 const [toast, setToast] = useState("");
 const toastTimerRef = useRef(null);
 const showToast = (msg) => {
@@ -341,6 +344,9 @@ return () => window.removeEventListener("popstate", handlePop);
 
 useEffect(() => {
 setModalActiveImg(null);
+setShowAllPhotos(false);
+setShowFullInfo(false);
+setShowSimilarInfo(false);
 setNotifyPhone("");
 setNotifySubmitting(false);
 setNotifyDone(false);
@@ -2036,6 +2042,11 @@ return (
 .gs-pdp-price { font-size: clamp(26px, 3.4vw, 34px); font-weight: 900; color: #d4af37; margin-bottom: 14px; }
 .gs-pdp-sticky-cta { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(12,12,12,0.97); backdrop-filter: blur(8px); border-top: 1px solid #2b2b2b; padding: 12px 16px; display: flex; gap: 12px; align-items: center; z-index: 210; }
 .gs-pdp-sticky-cta .gs-pdp-sticky-price { color: #d4af37; font-weight: 800; font-size: 16px; white-space: nowrap; }
+.gs-pdp-photos-toggle, .gs-pdp-info-toggle { display: none; }
+@media (max-width: 899px) {
+.gs-mobile-collapsed { display: none !important; }
+.gs-pdp-photos-toggle, .gs-pdp-info-toggle { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 16px; padding: 13px 16px; background: transparent; border: 1px solid #d4af37; color: #d4af37; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; text-align: center; }
+}
 @media (min-width: 900px) {
 .gs-pdp-grid { flex-direction: row; align-items: flex-start; }
 .gs-pdp-media { position: sticky; top: 0; width: 50%; height: 100vh; padding: 48px; }
@@ -2052,13 +2063,21 @@ return (
 <div className="gs-pdp-mainimg-wrap">
 <img className="gs-pdp-mainimg" src={optimizeImg(modalActiveImg || getProductImage(selectedProduct))} alt={getProductName(selectedProduct)} />
 </div>
-{[selectedProduct.imageUrl, selectedProduct.foto2, selectedProduct.foto3, selectedProduct.fotoMano, selectedProduct.fotoCaja].filter(Boolean).length > 1 && (
-<div className="gs-pdp-thumbs">
-{[selectedProduct.imageUrl, selectedProduct.foto2, selectedProduct.foto3, selectedProduct.fotoMano, selectedProduct.fotoCaja].filter(Boolean).map((src, i) => (
+{(() => {
+const pdpPhotos = [selectedProduct.imageUrl, selectedProduct.foto2, selectedProduct.foto3, selectedProduct.fotoMano, selectedProduct.fotoCaja].filter(Boolean);
+return pdpPhotos.length > 1 && (
+<>
+{!showAllPhotos && (
+<button type="button" className="gs-pdp-photos-toggle" onClick={() => setShowAllPhotos(true)}>📷 Ver más fotos ({pdpPhotos.length})</button>
+)}
+<div className={"gs-pdp-thumbs" + (showAllPhotos ? "" : " gs-mobile-collapsed")}>
+{pdpPhotos.map((src, i) => (
 <img key={i} src={optimizeImg(src)} loading="lazy" decoding="async" onClick={() => setModalActiveImg(src)} style={{ width: "56px", height: "56px", objectFit: "cover", borderRadius: "6px", cursor: "pointer", border: (modalActiveImg || getProductImage(selectedProduct)) === src ? "2px solid #d4af37" : "2px solid transparent", flexShrink: 0, background: "#fff" }} />
 ))}
 </div>
-)}
+</>
+);
+})()}
 {selectedProduct.videoUrl && (
 <video src={selectedProduct.videoUrl} controls style={{ width: "100%", maxWidth: "460px", borderRadius: "10px", marginTop: "16px", background: "#000" }} />
 )}
@@ -2078,6 +2097,10 @@ return (
 : <span style={S.badgePedido}>Por Pedido · {getProductDias(selectedProduct)} dias habiles</span>
 }
 {getUrgencyMsg(selectedProduct) && <div style={{ ...S.urgencyBadge, display: "inline-block", marginTop: "8px" }}>{getUrgencyMsg(selectedProduct)}</div>}
+{(selectedProduct.marca || selectedProduct.genero || selectedProduct.tipoPerfume || selectedProduct.temporada || selectedProduct.duracion || selectedProduct.notas || selectedProduct.notasSalida || selectedProduct.notasCorazon || selectedProduct.notasFondo || selectedProduct.descripcion) && !showFullInfo && (
+<button type="button" className="gs-pdp-info-toggle" onClick={() => setShowFullInfo(true)}>Descubrí {getProductName(selectedProduct)} acá ❤️</button>
+)}
+<div className={"gs-pdp-fullinfo" + (showFullInfo ? "" : " gs-mobile-collapsed")}>
 {(selectedProduct.marca || selectedProduct.genero || selectedProduct.tipoPerfume || selectedProduct.temporada || selectedProduct.duracion || selectedProduct.notas) && (
 <div style={S.specsGrid}>
 {selectedProduct.marca && (
@@ -2124,7 +2147,12 @@ return (
 </div>
 )}
 {selectedProduct.descripcion && <p style={{ color: "#bdbdbd", marginTop: "14px", lineHeight: "1.6" }}>{selectedProduct.descripcion}</p>}
+</div>
+{selectedProduct.inspiradoEn && !showSimilarInfo && (
+<button type="button" className="gs-pdp-info-toggle" onClick={() => setShowSimilarInfo(true)}>Descubrí a qué se parece ❤️</button>
+)}
 {selectedProduct.inspiradoEn && (
+<div className={showSimilarInfo ? "" : "gs-mobile-collapsed"}>
 <div style={S.compareBox}>
 <div style={{ fontWeight: "bold", marginBottom: "6px" }}>{getProductName(selectedProduct)}</div>
 <div style={{ color: "#d4af37", fontSize: "20px", lineHeight: "1" }}>&#8595;</div>
@@ -2133,6 +2161,7 @@ return (
 {selectedProduct.similitud && (
 <div style={{ color: "#d4af37", fontWeight: "900", fontSize: "22px", marginTop: "6px" }}>{selectedProduct.similitud}%</div>
 )}
+</div>
 </div>
 )}
 {getProductDisp(selectedProduct) === "agotado" ? (
