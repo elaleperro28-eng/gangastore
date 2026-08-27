@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy, getDoc, setDoc, where, getDocs } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentSingleTabManager, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy, getDoc, setDoc, where, getDocs } from "firebase/firestore";
 
 const firebaseConfig = {
 apiKey: "AIzaSyAQlmsNO4bF9SVfwrcK6_-HJ_KFrcjTINg",
@@ -12,7 +12,13 @@ appId: "1:167884959340:web:0cd7f22b3506eff1c3b249"
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+// Cache local (IndexedDB): en visitas repetidas el catalogo se pinta al instante
+// desde el cache mientras Firestore sincroniza los cambios en segundo plano.
+// Los listeners en tiempo real (onSnapshot) siguen funcionando igual que antes,
+// asi que el stock/precio se sigue actualizando en vivo.
+const db = initializeFirestore(app, {
+localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() })
+});
 // firebase/auth (~53kb gzip) se carga bajo demanda para achicar el bundle inicial:
 // la primera pantalla (grilla de productos) no depende de auth, solo el login/cuenta/admin.
 let authModPromise = null;
@@ -1122,10 +1128,13 @@ if (!orig || orig <= price) return null;
 return Math.round((1 - price / orig) * 100);
 };
 const getProductImage = (p) => p.imageUrl || p.foto || p.image || p.img || "";
-const optimizeImg = (url) => {
+// size: sufijo de tamano de Imgur ("t" ~160px, "m" ~320px, "l" ~640px, "h" ~1024px).
+// Usar el tamano mas chico que alcance segun donde se muestra la imagen ahorra
+// datos moviles: no tiene sentido bajar una imagen de 640px para un thumbnail de 60px.
+const optimizeImg = (url, size = "l") => {
   if (!url) return url;
   const m = url.match(/^(https?:\/\/i\.imgur\.com\/[a-zA-Z0-9]+)(\.(?:jpe?g|png|gif))$/i);
-  return m ? `${m[1]}l${m[2]}` : url;
+  return m ? `${m[1]}${size}${m[2]}` : url;
 };
 const getProductDisp = (p) => p.disponibilidad || "stock";
 const getProductDias = (p) => p.diasHabiles || "3-5";
@@ -1780,7 +1789,7 @@ return (
 {[...tickerProducts, ...tickerProducts].map((p, i) => (
 <div key={i} className="product-card" style={{ ...S.tickerItem, position: "relative" }} onClick={() => setSelectedProduct(p)}>
 <button className={"fav-btn" + (favorites.includes(p.id) ? " active" : "")} onClick={e => { e.stopPropagation(); toggleFavorite(p.id); }} style={S.favBtn(favorites.includes(p.id))} aria-label="Favorito">{favorites.includes(p.id) ? "♥" : "♡"}</button>
-<img className="card-img" src={optimizeImg(getProductImage(p))} alt={getProductName(p)} style={S.cardImg} loading="lazy" decoding="async" onError={(e) => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+<img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.cardImg} loading="lazy" decoding="async" onError={(e) => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.cardBody}>
 <div style={S.cardName}>{getProductName(p)}</div>
 <div style={S.cardPrice}>
@@ -1812,7 +1821,7 @@ return (
 <div style={S.recentlyViewedRow}>
 {trendProducts.map(p => (
 <div key={p.id} className="product-card" style={S.recentlyViewedCard} onClick={() => setSelectedProduct(p)}>
-<img className="card-img" src={optimizeImg(getProductImage(p))} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+<img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.recentlyViewedName}>{getProductName(p)}</div>
 <div style={S.recentlyViewedPrice}>{formatPrice(getProductPrice(p))}</div>
 </div>
@@ -1829,7 +1838,7 @@ return (
 <div style={S.recentlyViewedRow}>
 {recentlyViewedProducts.map(p => (
 <div key={p.id} className="product-card" style={S.recentlyViewedCard} onClick={() => setSelectedProduct(p)}>
-<img className="card-img" src={optimizeImg(getProductImage(p))} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+<img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.recentlyViewedName}>{getProductName(p)}</div>
 <div style={S.recentlyViewedPrice}>{formatPrice(getProductPrice(p))}</div>
 </div>
@@ -1944,7 +1953,7 @@ return (
 {!productsLoading && filteredProducts.slice(0, visibleCount).map(product => (
 <div key={product.id} className="product-card" style={{ ...S.card, position: "relative" }} onClick={() => setSelectedProduct(product)}>
 <button className={"fav-btn" + (favorites.includes(product.id) ? " active" : "")} onClick={e => { e.stopPropagation(); toggleFavorite(product.id); }} style={S.favBtn(favorites.includes(product.id))} aria-label="Favorito">{favorites.includes(product.id) ? "♥" : "♡"}</button>
-<img className="card-img" src={optimizeImg(getProductImage(product))} alt={getProductName(product)} style={S.cardImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+<img className="card-img" src={optimizeImg(getProductImage(product), "m")} alt={getProductName(product)} style={S.cardImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.cardBody}>
 <div style={S.cardName}>{getProductName(product)}</div>
 {filter !== "decants" && (
@@ -2008,7 +2017,7 @@ return (
 <div key={r.id} style={S.resenaCard}>
 <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
 {r.foto ? (
-<img src={optimizeImg(r.foto)} alt={r.nombre} loading="lazy" decoding="async" style={S.resenaFoto} />
+<img src={optimizeImg(r.foto, "t")} alt={r.nombre} loading="lazy" decoding="async" style={S.resenaFoto} />
 ) : (
 <div style={S.resenaAvatar}>{(r.nombre || "?").trim().charAt(0).toUpperCase()}</div>
 )}
@@ -2072,7 +2081,7 @@ return pdpPhotos.length > 1 && (
 )}
 <div className={"gs-pdp-thumbs" + (showAllPhotos ? "" : " gs-mobile-collapsed")}>
 {pdpPhotos.map((src, i) => (
-<img key={i} src={optimizeImg(src)} loading="lazy" decoding="async" onClick={() => setModalActiveImg(src)} style={{ width: "56px", height: "56px", objectFit: "cover", borderRadius: "6px", cursor: "pointer", border: (modalActiveImg || getProductImage(selectedProduct)) === src ? "2px solid #d4af37" : "2px solid transparent", flexShrink: 0, background: "#fff" }} />
+<img key={i} src={optimizeImg(src, "t")} loading="lazy" decoding="async" onClick={() => setModalActiveImg(src)} style={{ width: "56px", height: "56px", objectFit: "cover", borderRadius: "6px", cursor: "pointer", border: (modalActiveImg || getProductImage(selectedProduct)) === src ? "2px solid #d4af37" : "2px solid transparent", flexShrink: 0, background: "#fff" }} />
 ))}
 </div>
 </>
@@ -2264,7 +2273,7 @@ return pdpPhotos.length > 1 && (
 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
 {getQuizRecommendations().map(p => (
 <div key={p.id} style={{ background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px", cursor: "pointer" }} onClick={() => { setShowQuiz(false); setSelectedProduct(p); }}>
-<img src={optimizeImg(getProductImage(p))} alt={getProductName(p)} loading="lazy" decoding="async" style={{ width: "100%", height: "90px", objectFit: "contain", background: "#fff", borderRadius: "6px", marginBottom: "8px" }} />
+<img src={optimizeImg(getProductImage(p), "t")} alt={getProductName(p)} loading="lazy" decoding="async" style={{ width: "100%", height: "90px", objectFit: "contain", background: "#fff", borderRadius: "6px", marginBottom: "8px" }} />
 <div style={{ fontSize: "12px", marginBottom: "4px", lineHeight: "1.3" }}>{getProductName(p)}</div>
 <div style={{ color: "#d4af37", fontWeight: "700", fontSize: "13px" }}>{formatPrice(getProductPrice(p))}</div>
 </div>
@@ -2312,7 +2321,7 @@ return pdpPhotos.length > 1 && (
 )}
 {cart.map(item => (
 <div key={item.id} style={{ display: "flex", gap: "12px", marginBottom: "16px", alignItems: "center" }}>
-<img src={optimizeImg(getProductImage(item))} alt={getProductName(item)} loading="lazy" decoding="async" style={{ width: "60px", height: "60px", objectFit: "contain", background: "#fff", borderRadius: "6px" }} />
+<img src={optimizeImg(getProductImage(item), "t")} alt={getProductName(item)} loading="lazy" decoding="async" style={{ width: "60px", height: "60px", objectFit: "contain", background: "#fff", borderRadius: "6px" }} />
 <div style={{ flex: 1 }}>
 <div style={{ fontWeight: "bold", fontSize: "14px" }}>{getProductName(item)}</div>
 <div style={{ color: "#d4af37" }}>{formatPrice(getProductPrice(item))}</div>
@@ -2331,7 +2340,7 @@ return pdpPhotos.length > 1 && (
 <div style={{ display: "flex", gap: "10px", overflowX: "auto", paddingBottom: "4px" }}>
 {cartSuggestions.map(p => (
 <div key={p.id} style={{ flexShrink: 0, width: "108px", background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px", textAlign: "center" }}>
-<img src={optimizeImg(getProductImage(p))} alt={getProductName(p)} loading="lazy" decoding="async" style={{ width: "100%", height: "70px", objectFit: "contain", background: "#fff", borderRadius: "6px", marginBottom: "6px" }} />
+<img src={optimizeImg(getProductImage(p), "t")} alt={getProductName(p)} loading="lazy" decoding="async" style={{ width: "100%", height: "70px", objectFit: "contain", background: "#fff", borderRadius: "6px", marginBottom: "6px" }} />
 <div style={{ fontSize: "11px", color: "#fff", marginBottom: "4px", minHeight: "28px", lineHeight: "1.3" }}>{getProductName(p)}</div>
 <div style={{ fontSize: "12px", color: "#d4af37", fontWeight: "700", marginBottom: "6px" }}>{formatPrice(getProductPrice(p))}</div>
 <button onClick={() => addToCart(p)} style={{ width: "100%", background: "transparent", border: "1px solid #d4af37", color: "#d4af37", borderRadius: "6px", padding: "5px", fontSize: "11px", cursor: "pointer" }}>+ Agregar</button>
