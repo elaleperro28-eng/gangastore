@@ -69,7 +69,8 @@ amaderado: ["amaderado", "madera", "oud", "cuero", "especia", "especiado", "amba
 fresco: ["fresco", "citrico", "citricos", "marino", "acuatico", "verde", "menta", "bergamota"],
 floral: ["floral", "flores", "rosa", "jazmin", "azahar", "peonia", "lavanda"],
 };
-const IMGUR_CLIENT_ID = "546c25a59c58ad7"; const TAG_OPTIONS = [{ key: "mas_vendidos", label: "Mas vendidos" }, { key: "novedades", label: "Novedades" }, { key: "larga_duracion", label: "Larga duracion" }, { key: "para_regalar", label: "Para regalar" }, { key: "top_invierno", label: "Top invierno" }, { key: "top_verano", label: "Top verano" }, { key: "top_oficina", label: "Top oficina" }, { key: "top_citas", label: "Top citas" }];
+const IMGUR_CLIENT_ID = "546c25a59c58ad7"; const TAG_OPTIONS = [{ key: "mas_vendidos", label: "Mas vendidos" }, { key: "novedades", label: "Novedades" }, { key: "larga_duracion", label: "Larga duracion" }, { key: "para_regalar", label: "Para regalar" }, { key: "top_invierno", label: "Top invierno" }, { key: "top_verano", label: "Top verano" }, { key: "top_oficina", label: "Top oficina" }, { key: "top_citas", label: "Top citas" }, { key: "tendencia_floral_frutal", label: "Tendencia: Floral frutal" }, { key: "tendencia_gourmand_tostado", label: "Tendencia: Gourmand tostado" }, { key: "tendencia_verde_te", label: "Tendencia: Verde / Te" }, { key: "tendencia_almizclado_piel", label: "Tendencia: Almizclado piel" }, { key: "tendencia_gourmand_oscuro", label: "Tendencia: Gourmand oscuro" }];
+const TREND_TAGS_2026 = ["tendencia_floral_frutal", "tendencia_gourmand_tostado", "tendencia_verde_te", "tendencia_almizclado_piel", "tendencia_gourmand_oscuro"];
 const shuffleArray = (arr) => {
 const a = [...arr];
 for (let i = a.length - 1; i > 0; i--) {
@@ -187,9 +188,68 @@ try { localStorage.setItem("favoritosEsencia", JSON.stringify(next)); } catch {}
 return next;
 });
 };
+// Sincronizacion de carrito/favoritos con la cuenta: cartRef/favoritesRef siempre
+// reflejan el estado mas reciente (evita usar valores viejos dentro del closure
+// del listener de login, que se crea una sola vez al montar el componente).
+const cartRef = useRef(cart);
+useEffect(() => { cartRef.current = cart; }, [cart]);
+const favoritesRef = useRef(favorites);
+useEffect(() => { favoritesRef.current = favorites; }, [favorites]);
+const mergeCartArrays = (local, remote) => {
+const merged = [...(local || [])];
+(remote || []).forEach(ri => {
+const idx = merged.findIndex(li => li.id === ri.id);
+if (idx >= 0) merged[idx] = { ...merged[idx], qty: (merged[idx].qty || 0) + (ri.qty || 0) };
+else merged.push(ri);
+});
+return merged;
+};
+const syncCartFavoritesOnLogin = async (uid) => {
+try {
+const ref = doc(db, "carritosClientes", uid);
+const snap = await getDoc(ref);
+if (snap.exists()) {
+const data = snap.data();
+const mergedFavorites = Array.from(new Set([...(favoritesRef.current || []), ...(data.favoritos || [])]));
+const mergedCart = mergeCartArrays(cartRef.current || [], data.carrito || []);
+setFavorites(mergedFavorites);
+try { localStorage.setItem("favoritosEsencia", JSON.stringify(mergedFavorites)); } catch {}
+setCart(mergedCart);
+await setDoc(ref, { carrito: mergedCart, favoritos: mergedFavorites, updatedAt: serverTimestamp() }, { merge: true });
+} else {
+await setDoc(ref, { carrito: cartRef.current || [], favoritos: favoritesRef.current || [], updatedAt: serverTimestamp() }, { merge: true });
+}
+} catch (e) {
+console.error("CART_SYNC_ERROR", e);
+}
+};
 const [recentlyViewed, setRecentlyViewed] = useState(() => {
 try { return JSON.parse(localStorage.getItem("vistosEsencia") || "[]"); } catch { return []; }
 });
+const [notifyPhone, setNotifyPhone] = useState("");
+const [notifySubmitting, setNotifySubmitting] = useState(false);
+const [notifyDone, setNotifyDone] = useState(false);
+const [avisosStock, setAvisosStock] = useState([]);
+const handleNotifyStock = async (product) => {
+if (!notifyPhone.trim()) { alert("Ingresa tu WhatsApp para avisarte"); return; }
+setNotifySubmitting(true);
+try {
+await addDoc(collection(db, "avisosStock"), {
+productId: product.id,
+productName: getProductName(product),
+telefono: notifyPhone.trim(),
+uid: user ? user.uid : null,
+email: user ? user.email : null,
+estado: "pendiente",
+createdAt: serverTimestamp(),
+});
+setNotifyDone(true);
+} catch (e) {
+console.error("STOCK_ALERT_ERROR", e);
+alert("No pudimos guardar tu aviso. Intenta de nuevo en unos minutos.");
+}
+setNotifySubmitting(false);
+};
 
 useEffect(() => {
   try { localStorage.setItem("carritoEsencia", JSON.stringify(cart)); } catch {}
@@ -228,6 +288,17 @@ setResenas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
 return () => unsub2();
 }, []);
 
+// Los avisos de stock incluyen el WhatsApp del cliente, asi que solo se cargan
+// cuando el admin esta logueado (evita exponer telefonos ajenos al resto de las visitas).
+useEffect(() => {
+if (!isAdmin) { setAvisosStock([]); return; }
+const q3 = query(collection(db, "avisosStock"), orderBy("createdAt", "desc"));
+const unsub3 = onSnapshot(q3, (snap) => {
+setAvisosStock(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+}, (e) => console.error("AVISOS_STOCK_LOAD_ERROR", e));
+return () => unsub3();
+}, [isAdmin]);
+
 useEffect(() => {
 if (products.length > 0) {
 const seenKeys = new Set();
@@ -261,6 +332,9 @@ return () => window.removeEventListener("popstate", handlePop);
 
 useEffect(() => {
 setModalActiveImg(null);
+setNotifyPhone("");
+setNotifySubmitting(false);
+setNotifyDone(false);
 if (selectedProduct && selectedProduct.id) {
 setRecentlyViewed(rv => {
 const next = [selectedProduct.id, ...rv.filter(id => id !== selectedProduct.id)].slice(0, 10);
@@ -269,6 +343,32 @@ return next;
 });
 }
 }, [selectedProduct]);
+
+// Actualiza el link de la pagina (?p=<id>) para que el boton "Compartir" y los
+// links directos a un producto funcionen (deep-linking), sin recargar la pagina.
+useEffect(() => {
+try {
+const url = new URL(window.location.href);
+if (selectedProduct && selectedProduct.id) url.searchParams.set("p", selectedProduct.id);
+else url.searchParams.delete("p");
+window.history.replaceState({}, "", url.pathname + url.search);
+} catch {}
+}, [selectedProduct]);
+
+// Si alguien entra directo con un link tipo "?p=<id>" (compartido por WhatsApp,
+// redes, etc.), abrimos automaticamente el producto correspondiente.
+const deepLinkTriedRef = useRef(false);
+useEffect(() => {
+if (deepLinkTriedRef.current || products.length === 0) return;
+deepLinkTriedRef.current = true;
+try {
+const pid = new URLSearchParams(window.location.search).get("p");
+if (pid) {
+const found = products.find(pr => pr.id === pid);
+if (found) setSelectedProduct(found);
+}
+} catch {}
+}, [products]);
 
 useEffect(() => {
 let unsub = () => {};
@@ -281,6 +381,7 @@ setUser(u);
 if (u) {
 loadMyPoints(u.uid);
 loadMyReferral(u.uid);
+syncCartFavoritesOnLogin(u.uid);
 } else {
 setCustomerPoints(null);
 setRedeemPoints(false);
@@ -289,6 +390,16 @@ setRedeemPoints(false);
 });
 return () => { cancelled = true; unsub(); };
 }, []);
+
+const cartSyncTimerRef = useRef(null);
+useEffect(() => {
+if (!user) return;
+if (cartSyncTimerRef.current) clearTimeout(cartSyncTimerRef.current);
+cartSyncTimerRef.current = setTimeout(() => {
+setDoc(doc(db, "carritosClientes", user.uid), { carrito: cart, favoritos: favorites, updatedAt: serverTimestamp() }, { merge: true }).catch(e => console.error("CART_SYNC_WRITE_ERROR", e));
+}, 1500);
+return () => { if (cartSyncTimerRef.current) clearTimeout(cartSyncTimerRef.current); };
+}, [cart, favorites, user]);
 
 const [adminLoginBusy, setAdminLoginBusy] = useState(false);
 const handleAdminLogin = async () => {
@@ -448,6 +559,35 @@ setResenaSaving(false);
 const handleDeleteResena = async (id) => {
 if (!confirm("Eliminar esta resena?")) return;
 await deleteDoc(doc(db, "resenas", id));
+};
+
+const handleShareProduct = async (product) => {
+let shareUrl = window.location.origin + window.location.pathname;
+try {
+const url = new URL(window.location.href);
+url.searchParams.set("p", product.id);
+shareUrl = url.toString();
+} catch {}
+const shareText = `Mira este perfume en Esencia Perfumeria: ${getProductName(product)} - ${formatPrice(getProductPrice(product))}`;
+if (navigator.share) {
+try {
+await navigator.share({ title: getProductName(product), text: shareText, url: shareUrl });
+} catch (e) { /* el cliente cancelo el dialogo nativo de compartir */ }
+return;
+}
+try {
+await navigator.clipboard.writeText(shareUrl);
+showToast("Enlace copiado, listo para compartir");
+} catch {
+window.open(`https://wa.me/?text=${encodeURIComponent(shareText + " " + shareUrl)}`, "_blank");
+}
+};
+
+const handleMarkAvisoContacted = async (id) => {
+try { await updateDoc(doc(db, "avisosStock", id), { estado: "contactado" }); } catch (e) { console.error("AVISO_UPDATE_ERROR", e); }
+};
+const handleDeleteAviso = async (id) => {
+try { await deleteDoc(doc(db, "avisosStock", id)); } catch (e) { console.error("AVISO_DELETE_ERROR", e); }
 };
 
 const handleResenaImageUpload = async (file) => {
@@ -848,6 +988,7 @@ return true;
 });
 
 const recentlyViewedProducts = recentlyViewed.map(id => dedupedProducts.find(p => p.id === id)).filter(Boolean).slice(0, 8);
+const trendProducts = dedupedProducts.filter(p => TREND_TAGS_2026.some(t => (p.etiquetas || []).includes(t))).slice(0, 8);
 
 const getQuizRecommendations = () => {
 const { genero, ocasion, aroma, tipo } = quizAnswers;
@@ -879,7 +1020,7 @@ if (smartProductScore(p, q) <= 0) return false;
 if (filter === "stock") return getProductDisp(p) === "stock";
 if (filter === "pedido") return getProductDisp(p) === "pedido";
 if (filter === "perfumes") return isPerfume(p);
-if (filter === "decants") return hasDecant(p); if (filter === "menos100k") return getProductPrice(p) < 100000; if (filter === "arabes") return (p.tipoPerfume || "") === "arabe"; if (filter === "disenador") return (p.tipoPerfume || "") === "disenador"; if (filter === "favoritos") return favorites.includes(p.id); if (["mas_vendidos","novedades","larga_duracion","para_regalar","top_invierno","top_verano","top_oficina","top_citas"].includes(filter)) return (p.etiquetas || []).includes(filter);
+if (filter === "decants") return hasDecant(p); if (filter === "menos100k") return getProductPrice(p) < 100000; if (filter === "arabes") return (p.tipoPerfume || "") === "arabe"; if (filter === "disenador") return (p.tipoPerfume || "") === "disenador"; if (filter === "favoritos") return favorites.includes(p.id); if (filter === "tendencias2026") return TREND_TAGS_2026.some(t => (p.etiquetas || []).includes(t)); if (TAG_OPTIONS.map(t => t.key).includes(filter)) return (p.etiquetas || []).includes(filter);
 if (filterMarca && (p.marca || "") !== filterMarca) return false;
 if (filterDuracion && getDuracionCategoria(p) !== filterDuracion) return false;
 if (filterNotas.trim() && !(p.notas || "").toLowerCase().includes(filterNotas.trim().toLowerCase())) return false;
@@ -965,6 +1106,7 @@ resenaCard: { background: "#ffffff", borderRadius: "12px", padding: "18px", boxS
 resenaFoto: { width: "48px", height: "48px", borderRadius: "50%", objectFit: "cover", border: "2px solid #d4af37" },
 resenaAvatar: { width: "48px", height: "48px", borderRadius: "50%", background: "#d4af37", color: "#000000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", fontSize: "18px" },
 badgePedido: { display: "inline-flex", alignItems: "center", gap: "5px", color: "#bdbdbd", fontSize: "12px", fontWeight: "600" },
+badgeAgotado: { display: "inline-flex", alignItems: "center", gap: "5px", color: "#e08a8a", fontSize: "12px", fontWeight: "600" },
 loadMoreBtn: { display: "block", margin: "36px auto 0", background: "transparent", color: "#d4af37", border: "2px solid #d4af37", padding: "13px 36px", borderRadius: "10px", cursor: "pointer", fontWeight: "700", fontSize: "14px", letterSpacing: "0.3px" },
 modal: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 100 },
 modalBox: { background: "#1a1a1a", borderRadius: "16px", maxWidth: "500px", width: "100%", padding: "24px", position: "relative", maxHeight: "90vh", overflowY: "auto", border: "1px solid #2b2b2b" },
@@ -1089,6 +1231,7 @@ return (
 <select style={{ ...S.select, marginBottom: "16px" }} value={form.disponibilidad} onChange={e => setForm(f => ({ ...f, disponibilidad: e.target.value }))}>
 <option value="stock">En Stock (disponible ahora)</option>
 <option value="pedido">Por Pedido</option>
+<option value="agotado">Agotado (sin stock)</option>
 </select>
 {form.disponibilidad === "pedido" && (
 <>
@@ -1212,6 +1355,25 @@ return (
 </div>
 ))}
 </div>
+<div style={{ marginTop: "40px" }}>
+<h2 style={{ color: "#d4af37", marginBottom: "16px", fontFamily: "'Playfair Display', serif" }}>🔔 Avisos de "Volvió el Stock"</h2>
+{avisosStock.length === 0 ? (
+<p style={{ color: "#9a9a9a" }}>Todavia no hay clientes esperando un aviso de stock.</p>
+) : (
+avisosStock.map(a => (
+<div key={a.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center", opacity: a.estado === "contactado" ? 0.55 : 1 }}>
+<div style={{ flex: 1 }}>
+<strong>{a.productName || "Producto"}</strong>
+<div style={{ color: "#bdbdbd", fontSize: "13px" }}>WhatsApp: {a.telefono}{a.email ? ` · ${a.email}` : ""}</div>
+<div style={{ color: a.estado === "contactado" ? "#9ddb9d" : "#e0b84a", fontSize: "12px", fontWeight: "700" }}>{a.estado === "contactado" ? "Ya avisado" : "Pendiente de avisar"}</div>
+</div>
+<a href={`https://wa.me/${(a.telefono || "").replace(/\D/g, "")}?text=${encodeURIComponent("Hola! Te escribo de Esencia Perfumeria porque volvio el stock de " + (a.productName || "tu perfume") + " que estabas esperando.")}`} target="_blank" rel="noreferrer" style={{ background: "#25D366", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", textDecoration: "none", fontSize: "13px", fontWeight: "700" }}>WhatsApp</a>
+{a.estado !== "contactado" && <button onClick={() => handleMarkAvisoContacted(a.id)} style={{ ...S.btnOutline, padding: "8px 14px", fontSize: "13px" }}>Marcar avisado</button>}
+<button onClick={() => handleDeleteAviso(a.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer" }}>Eliminar</button>
+</div>
+))
+)}
+</div>
 </div>
 );
 }
@@ -1290,16 +1452,38 @@ return (
 <div style={S.badgeRow}>
 {getProductDisp(p) === "stock"
 ? <span style={S.badgeStock}><span style={S.badgeStockDot}></span>En Stock</span>
+: getProductDisp(p) === "agotado"
+? <span style={S.badgeAgotado}>● Agotado</span>
 : <span style={S.badgePedido}>Por Pedido · {getProductDias(p)} dias hab.</span>
 }
 {getUrgencyMsg(p) && <span style={S.urgencyBadge}>{getUrgencyMsg(p)}</span>}
 </div>
-<button className="add-cart-btn" style={{ ...S.btn, width: "100%", marginTop: "auto" }} onClick={e => { e.stopPropagation(); addToCart(p); }}>Agregar al Carrito</button>
+{getProductDisp(p) === "agotado"
+? <button className="add-cart-btn" style={{ ...S.btnOutline, width: "100%", marginTop: "auto", padding: "10px" }} onClick={e => { e.stopPropagation(); setSelectedProduct(p); }}>🔔 Avisarme</button>
+: <button className="add-cart-btn" style={{ ...S.btn, width: "100%", marginTop: "auto" }} onClick={e => { e.stopPropagation(); addToCart(p); }}>Agregar al Carrito</button>}
 </div>
 </div>
 ))}
 </div>
 </div>
+{trendProducts.length > 0 && (
+<div style={S.section}>
+<div style={S.sectionTitle}>🔥 Colección Tendencias 2026</div>
+<p style={{ textAlign: "center", color: "#bdbdbd", maxWidth: 560, margin: "-6px auto 18px", fontSize: "14px" }}>Los perfiles olfativos que van a marcar el año: floral frutal, gourmand tostado, verde/te, almizclado piel y gourmand oscuro.</p>
+<div style={S.recentlyViewedRow}>
+{trendProducts.map(p => (
+<div key={p.id} className="product-card" style={S.recentlyViewedCard} onClick={() => setSelectedProduct(p)}>
+<img className="card-img" src={optimizeImg(getProductImage(p))} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+<div style={S.recentlyViewedName}>{getProductName(p)}</div>
+<div style={S.recentlyViewedPrice}>{formatPrice(getProductPrice(p))}</div>
+</div>
+))}
+</div>
+<div style={{ textAlign: "center", marginTop: "16px" }}>
+<button style={S.btnOutline} onClick={() => { setFilter("tendencias2026"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Ver toda la colección</button>
+</div>
+</div>
+)}
 {recentlyViewedProducts.length > 0 && (
 <div style={S.section}>
 <div style={S.sectionTitle}>Vistos Recientemente</div>
@@ -1337,7 +1521,7 @@ return (
 <button style={S.advFilterToggle} onClick={() => setTagFiltersOpen(!tagFiltersOpen)}>{tagFiltersOpen ? "Ocultar mas filtros ▲" : "Mas filtros (categorias, temporada, ocasion...) ▾"}</button>
 </div>
 {tagFiltersOpen && (
-<div style={S.filterBar}><button style={S.filterBtn(filter === "mas_vendidos")} onClick={() => setFilter("mas_vendidos")}>Mas Vendidos</button><button style={S.filterBtn(filter === "novedades")} onClick={() => setFilter("novedades")}>Novedades</button><button style={S.filterBtn(filter === "larga_duracion")} onClick={() => setFilter("larga_duracion")}>Larga Duracion</button><button style={S.filterBtn(filter === "menos100k")} onClick={() => setFilter("menos100k")}>Menos de $100.000</button><button style={S.filterBtn(filter === "arabes")} onClick={() => setFilter("arabes")}>Perfumes Arabes</button><button style={S.filterBtn(filter === "disenador")} onClick={() => setFilter("disenador")}>Perfumes de Disenador</button><button style={S.filterBtn(filter === "para_regalar")} onClick={() => setFilter("para_regalar")}>Para Regalar</button><button style={S.filterBtn(filter === "top_invierno")} onClick={() => setFilter("top_invierno")}>Top Invierno</button><button style={S.filterBtn(filter === "top_verano")} onClick={() => setFilter("top_verano")}>Top Verano</button><button style={S.filterBtn(filter === "top_oficina")} onClick={() => setFilter("top_oficina")}>Top Oficina</button><button style={S.filterBtn(filter === "top_citas")} onClick={() => setFilter("top_citas")}>Top Citas</button>
+<div style={S.filterBar}><button style={S.filterBtn(filter === "mas_vendidos")} onClick={() => setFilter("mas_vendidos")}>Mas Vendidos</button><button style={S.filterBtn(filter === "novedades")} onClick={() => setFilter("novedades")}>Novedades</button><button style={S.filterBtn(filter === "larga_duracion")} onClick={() => setFilter("larga_duracion")}>Larga Duracion</button><button style={S.filterBtn(filter === "menos100k")} onClick={() => setFilter("menos100k")}>Menos de $100.000</button><button style={S.filterBtn(filter === "arabes")} onClick={() => setFilter("arabes")}>Perfumes Arabes</button><button style={S.filterBtn(filter === "disenador")} onClick={() => setFilter("disenador")}>Perfumes de Disenador</button><button style={S.filterBtn(filter === "para_regalar")} onClick={() => setFilter("para_regalar")}>Para Regalar</button><button style={S.filterBtn(filter === "top_invierno")} onClick={() => setFilter("top_invierno")}>Top Invierno</button><button style={S.filterBtn(filter === "top_verano")} onClick={() => setFilter("top_verano")}>Top Verano</button><button style={S.filterBtn(filter === "top_oficina")} onClick={() => setFilter("top_oficina")}>Top Oficina</button><button style={S.filterBtn(filter === "top_citas")} onClick={() => setFilter("top_citas")}>Top Citas</button><button style={S.filterBtn(filter === "tendencias2026")} onClick={() => setFilter("tendencias2026")}>🔥 Tendencias 2026</button><button style={S.filterBtn(filter === "tendencia_floral_frutal")} onClick={() => setFilter("tendencia_floral_frutal")}>Floral Frutal</button><button style={S.filterBtn(filter === "tendencia_gourmand_tostado")} onClick={() => setFilter("tendencia_gourmand_tostado")}>Gourmand Tostado</button><button style={S.filterBtn(filter === "tendencia_verde_te")} onClick={() => setFilter("tendencia_verde_te")}>Verde / Te</button><button style={S.filterBtn(filter === "tendencia_almizclado_piel")} onClick={() => setFilter("tendencia_almizclado_piel")}>Almizclado Piel</button><button style={S.filterBtn(filter === "tendencia_gourmand_oscuro")} onClick={() => setFilter("tendencia_gourmand_oscuro")}>Gourmand Oscuro</button>
 </div>
 )}
 <div style={S.advFilterWrap} id="advFilterSection">
@@ -1434,12 +1618,16 @@ return (
 <div style={S.badgeRow}>
 {getProductDisp(product) === "stock"
 ? <span style={S.badgeStock}><span style={S.badgeStockDot}></span>En Stock</span>
+: getProductDisp(product) === "agotado"
+? <span style={S.badgeAgotado}>● Agotado</span>
 : <span style={S.badgePedido}>Por Pedido · {getProductDias(product)} dias hab.</span>
 }
 {getUrgencyMsg(product) && <span style={S.urgencyBadge}>{getUrgencyMsg(product)}</span>}
 {avgRating && <span style={S.ratingBadge}>★ {avgRating} ({reviewCount})</span>}
 </div>
-<button className="add-cart-btn" style={{ ...S.btn, width: "100%", marginTop: "auto" }} onClick={e => { e.stopPropagation(); addToCart(product); }}>Agregar al Carrito</button>
+{getProductDisp(product) === "agotado"
+? <button className="add-cart-btn" style={{ ...S.btnOutline, width: "100%", marginTop: "auto", padding: "10px" }} onClick={e => { e.stopPropagation(); setSelectedProduct(product); }}>🔔 Avisarme</button>
+: <button className="add-cart-btn" style={{ ...S.btn, width: "100%", marginTop: "auto" }} onClick={e => { e.stopPropagation(); addToCart(product); }}>Agregar al Carrito</button>}
 </>
 )}
 {hasDecant(product) && (
@@ -1503,6 +1691,7 @@ return (
 <div style={S.modalBox} onClick={e => e.stopPropagation()}>
 <button onClick={() => setSelectedProduct(null)} style={{ position: "fixed", top: "16px", right: "16px", background: "rgba(0,0,0,0.65)", border: "none", color: "#fff", fontSize: "20px", cursor: "pointer", width: "40px", height: "40px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60 }}>x</button>
 <button onClick={() => toggleFavorite(selectedProduct.id)} style={S.favBtn(favorites.includes(selectedProduct.id))} aria-label="Favorito">{favorites.includes(selectedProduct.id) ? "♥" : "♡"}</button>
+<button onClick={() => handleShareProduct(selectedProduct)} style={{ ...S.favBtn(false), right: "54px" }} aria-label="Compartir">📤</button>
 <img src={optimizeImg(modalActiveImg || getProductImage(selectedProduct))} alt={getProductName(selectedProduct)} style={S.modalImg} />
 {[selectedProduct.imageUrl, selectedProduct.foto2, selectedProduct.foto3, selectedProduct.fotoMano, selectedProduct.fotoCaja].filter(Boolean).length > 1 && (
 <div style={{ display: "flex", gap: "8px", marginBottom: "16px", overflowX: "auto" }}>
@@ -1523,6 +1712,8 @@ return (
 </div>
 {getProductDisp(selectedProduct) === "stock"
 ? <span style={S.badgeStock}><span style={S.badgeStockDot}></span>En Stock - Disponible ahora</span>
+: getProductDisp(selectedProduct) === "agotado"
+? <span style={S.badgeAgotado}>● Agotado por el momento</span>
 : <span style={S.badgePedido}>Por Pedido · {getProductDias(selectedProduct)} dias habiles</span>
 }
 {getUrgencyMsg(selectedProduct) && <div style={{ ...S.urgencyBadge, display: "inline-block", marginTop: "8px" }}>{getUrgencyMsg(selectedProduct)}</div>}
@@ -1583,8 +1774,24 @@ return (
 )}
 </div>
 )}
+{getProductDisp(selectedProduct) === "agotado" ? (
+<div style={{ marginTop: "20px", background: "#1a1a1a", border: "1px solid #3a2a2a", borderRadius: "10px", padding: "16px" }}>
+{notifyDone ? (
+<p style={{ color: "#9ddb9d", margin: 0, textAlign: "center", fontWeight: "600" }}>✓ Listo, te avisamos por WhatsApp apenas vuelva el stock.</p>
+) : (
+<>
+<p style={{ color: "#e8ddc0", margin: "0 0 10px", fontSize: "14px" }}>🔔 Este perfume esta agotado por el momento. Dejanos tu WhatsApp y te avisamos apenas vuelva.</p>
+<input style={{ ...S.input, marginBottom: "10px" }} type="tel" placeholder="Tu WhatsApp (ej: 291 4261941)" value={notifyPhone} onChange={e => setNotifyPhone(e.target.value)} />
+<button style={{ ...S.btn, width: "100%", padding: "12px" }} disabled={notifySubmitting} onClick={() => handleNotifyStock(selectedProduct)}>{notifySubmitting ? "Guardando..." : "Avisarme cuando vuelva"}</button>
+</>
+)}
+</div>
+) : (
+<>
 <button style={{ ...S.btn, width: "100%", padding: "13px", marginTop: "20px", fontSize: "16px" }} onClick={() => { addToCart(selectedProduct); setSelectedProduct(null); }}>Agregar al Carrito</button>
 <button style={S.quickBuyBtn} onClick={() => handleQuickBuy(selectedProduct)}>⚡ Comprar Ahora</button>
+</>
+)}
 {hasDecant(selectedProduct) && (
 <div style={{ marginTop: "16px", borderTop: "1px solid #2b2b2b", paddingTop: "14px" }}>
 <div style={{ color: "#d4af37", fontSize: "14px", fontWeight: "bold", marginBottom: "8px" }}>Tambien disponible en Decant (sin comprar el frasco completo)</div>
