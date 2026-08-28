@@ -1013,6 +1013,23 @@ return;
 }
 setCheckoutError("");
 const waWindow = window.open("", "_blank");
+// Mientras se calculan puntos/descuentos/referidos (varios pasos que hablan con la
+// base de datos, uno atras del otro) esta pestana quedaria en blanco unos segundos.
+// Le ponemos un mensaje de carga para que no parezca que el pedido no funciono.
+if (waWindow) {
+try {
+waWindow.document.write(
+'<!DOCTYPE html><html><head><meta charset="utf-8"><title>Preparando tu pedido...</title>' +
+'<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;' +
+'background:#0b0b0b;font-family:system-ui,-apple-system,sans-serif;color:#fff;text-align:center;}' +
+'.spinner{width:36px;height:36px;border:3px solid #2b2b2b;border-top-color:#d4af37;border-radius:50%;' +
+'margin:0 auto 18px;animation:spin .8s linear infinite;}@keyframes spin{to{transform:rotate(360deg);}}' +
+'p{color:#d4af37;font-size:15px;font-weight:600;margin:0;}</style></head><body>' +
+'<div><div class="spinner"></div><p>Preparando tu pedido...</p></div></body></html>'
+);
+waWindow.document.close();
+} catch (e) {}
+}
 const cartUsed = cartOverride || cart;
 const totalCartUsed = cartUsed.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
 try {
