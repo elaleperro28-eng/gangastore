@@ -76,7 +76,6 @@ fresco: ["fresco", "citrico", "citricos", "marino", "acuatico", "verde", "menta"
 floral: ["floral", "flores", "rosa", "jazmin", "azahar", "peonia", "lavanda"],
 };
 const IMGUR_CLIENT_ID = "546c25a59c58ad7"; const TAG_OPTIONS = [{ key: "mas_vendidos", label: "Mas vendidos" }, { key: "novedades", label: "Novedades" }, { key: "larga_duracion", label: "Larga duracion" }, { key: "para_regalar", label: "Para regalar" }, { key: "top_invierno", label: "Top invierno" }, { key: "top_verano", label: "Top verano" }, { key: "top_oficina", label: "Top oficina" }, { key: "top_citas", label: "Top citas" }, { key: "tendencia_floral_frutal", label: "Tendencia: Floral frutal" }, { key: "tendencia_gourmand_tostado", label: "Tendencia: Gourmand tostado" }, { key: "tendencia_verde_te", label: "Tendencia: Verde / Te" }, { key: "tendencia_almizclado_piel", label: "Tendencia: Almizclado piel" }, { key: "tendencia_gourmand_oscuro", label: "Tendencia: Gourmand oscuro" }];
-const TREND_TAGS_2026 = ["tendencia_floral_frutal", "tendencia_gourmand_tostado", "tendencia_verde_te", "tendencia_almizclado_piel", "tendencia_gourmand_oscuro"];
 const shuffleArray = (arr) => {
 const a = [...arr];
 for (let i = a.length - 1; i > 0; i--) {
@@ -1275,7 +1274,7 @@ return true;
 });
 
 const recentlyViewedProducts = recentlyViewed.map(id => dedupedProducts.find(p => p.id === id)).filter(Boolean).slice(0, 8);
-const trendProducts = dedupedProducts.filter(p => TREND_TAGS_2026.some(t => (p.etiquetas || []).includes(t))).slice(0, 8);
+const trendProducts = dedupedProducts.filter(p => (p.temporada || "") === "verano" && getProductDisp(p) !== "agotado");
 
 const getQuizRecommendations = () => {
 const { genero, ocasion, aroma, tipo } = quizAnswers;
@@ -1307,7 +1306,7 @@ if (smartProductScore(p, q) <= 0) return false;
 if (filter === "stock") return getProductDisp(p) === "stock";
 if (filter === "pedido") return getProductDisp(p) === "pedido";
 if (filter === "perfumes") return isPerfume(p);
-if (filter === "decants") return hasDecant(p); if (filter === "menos100k") return getProductPrice(p) < 100000; if (filter === "arabes") return (p.tipoPerfume || "") === "arabe"; if (filter === "disenador") return (p.tipoPerfume || "") === "disenador"; if (filter === "favoritos") return favorites.includes(p.id); if (filter === "tendencias2026") return TREND_TAGS_2026.some(t => (p.etiquetas || []).includes(t)); if (TAG_OPTIONS.map(t => t.key).includes(filter)) return (p.etiquetas || []).includes(filter);
+if (filter === "decants") return hasDecant(p); if (filter === "menos100k") return getProductPrice(p) < 100000; if (filter === "arabes") return (p.tipoPerfume || "") === "arabe"; if (filter === "disenador") return (p.tipoPerfume || "") === "disenador"; if (filter === "favoritos") return favorites.includes(p.id); if (filter === "tendenciasverano2027") return (p.temporada || "") === "verano" && getProductDisp(p) !== "agotado"; if (TAG_OPTIONS.map(t => t.key).includes(filter)) return (p.etiquetas || []).includes(filter);
 if (filterMarca && (p.marca || "") !== filterMarca) return false;
 if (filterDuracion && getDuracionCategoria(p) !== filterDuracion) return false;
 if (filterNotas.trim() && !(p.notas || "").toLowerCase().includes(filterNotas.trim().toLowerCase())) return false;
@@ -1833,8 +1832,8 @@ return (
 </div>
 {trendProducts.length > 0 && (
 <div style={S.section}>
-<div style={S.sectionTitle}>🔥 Colección Tendencias 2026</div>
-<p style={{ textAlign: "center", color: "#bdbdbd", maxWidth: 560, margin: "-6px auto 18px", fontSize: "14px" }}>Los perfiles olfativos que van a marcar el año: floral frutal, gourmand tostado, verde/te, almizclado piel y gourmand oscuro.</p>
+<div style={S.sectionTitle}>☀️ Tendencias para el Verano 2027</div>
+<p style={{ textAlign: "center", color: "#bdbdbd", maxWidth: 560, margin: "-6px auto 18px", fontSize: "14px" }}>Nuestra selección de perfumes ideales para el verano 2027, disponibles ahora.</p>
 <div style={S.recentlyViewedRow}>
 {trendProducts.map(p => (
 <div key={p.id} className="product-card" style={S.recentlyViewedCard} onClick={() => setSelectedProduct(p)}>
@@ -1845,7 +1844,7 @@ return (
 ))}
 </div>
 <div style={{ textAlign: "center", marginTop: "16px" }}>
-<button style={S.btnOutline} onClick={() => { setFilter("tendencias2026"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Ver toda la colección</button>
+<button style={S.btnOutline} onClick={() => { setFilter("tendenciasverano2027"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Ver toda la colección</button>
 </div>
 </div>
 )}
@@ -1886,7 +1885,7 @@ return (
 <button style={S.advFilterToggle} onClick={() => setTagFiltersOpen(!tagFiltersOpen)}>{tagFiltersOpen ? "Ocultar mas filtros ▲" : "Mas filtros (categorias, temporada, ocasion...) ▾"}</button>
 </div>
 {tagFiltersOpen && (
-<div style={S.filterBar}><button style={S.filterBtn(filter === "mas_vendidos")} onClick={() => setFilter("mas_vendidos")}>Mas Vendidos</button><button style={S.filterBtn(filter === "novedades")} onClick={() => setFilter("novedades")}>Novedades</button><button style={S.filterBtn(filter === "larga_duracion")} onClick={() => setFilter("larga_duracion")}>Larga Duracion</button><button style={S.filterBtn(filter === "menos100k")} onClick={() => setFilter("menos100k")}>Menos de $100.000</button><button style={S.filterBtn(filter === "arabes")} onClick={() => setFilter("arabes")}>Perfumes Arabes</button><button style={S.filterBtn(filter === "disenador")} onClick={() => setFilter("disenador")}>Perfumes de Disenador</button><button style={S.filterBtn(filter === "para_regalar")} onClick={() => setFilter("para_regalar")}>Para Regalar</button><button style={S.filterBtn(filter === "top_invierno")} onClick={() => setFilter("top_invierno")}>Top Invierno</button><button style={S.filterBtn(filter === "top_verano")} onClick={() => setFilter("top_verano")}>Top Verano</button><button style={S.filterBtn(filter === "top_oficina")} onClick={() => setFilter("top_oficina")}>Top Oficina</button><button style={S.filterBtn(filter === "top_citas")} onClick={() => setFilter("top_citas")}>Top Citas</button><button style={S.filterBtn(filter === "tendencias2026")} onClick={() => setFilter("tendencias2026")}>🔥 Tendencias 2026</button><button style={S.filterBtn(filter === "tendencia_floral_frutal")} onClick={() => setFilter("tendencia_floral_frutal")}>Floral Frutal</button><button style={S.filterBtn(filter === "tendencia_gourmand_tostado")} onClick={() => setFilter("tendencia_gourmand_tostado")}>Gourmand Tostado</button><button style={S.filterBtn(filter === "tendencia_verde_te")} onClick={() => setFilter("tendencia_verde_te")}>Verde / Te</button><button style={S.filterBtn(filter === "tendencia_almizclado_piel")} onClick={() => setFilter("tendencia_almizclado_piel")}>Almizclado Piel</button><button style={S.filterBtn(filter === "tendencia_gourmand_oscuro")} onClick={() => setFilter("tendencia_gourmand_oscuro")}>Gourmand Oscuro</button>
+<div style={S.filterBar}><button style={S.filterBtn(filter === "mas_vendidos")} onClick={() => setFilter("mas_vendidos")}>Mas Vendidos</button><button style={S.filterBtn(filter === "novedades")} onClick={() => setFilter("novedades")}>Novedades</button><button style={S.filterBtn(filter === "larga_duracion")} onClick={() => setFilter("larga_duracion")}>Larga Duracion</button><button style={S.filterBtn(filter === "menos100k")} onClick={() => setFilter("menos100k")}>Menos de $100.000</button><button style={S.filterBtn(filter === "arabes")} onClick={() => setFilter("arabes")}>Perfumes Arabes</button><button style={S.filterBtn(filter === "disenador")} onClick={() => setFilter("disenador")}>Perfumes de Disenador</button><button style={S.filterBtn(filter === "para_regalar")} onClick={() => setFilter("para_regalar")}>Para Regalar</button><button style={S.filterBtn(filter === "top_invierno")} onClick={() => setFilter("top_invierno")}>Top Invierno</button><button style={S.filterBtn(filter === "top_verano")} onClick={() => setFilter("top_verano")}>Top Verano</button><button style={S.filterBtn(filter === "top_oficina")} onClick={() => setFilter("top_oficina")}>Top Oficina</button><button style={S.filterBtn(filter === "top_citas")} onClick={() => setFilter("top_citas")}>Top Citas</button><button style={S.filterBtn(filter === "tendenciasverano2027")} onClick={() => setFilter("tendenciasverano2027")}>☀️ Tendencias Verano 2027</button><button style={S.filterBtn(filter === "tendencia_floral_frutal")} onClick={() => setFilter("tendencia_floral_frutal")}>Floral Frutal</button><button style={S.filterBtn(filter === "tendencia_gourmand_tostado")} onClick={() => setFilter("tendencia_gourmand_tostado")}>Gourmand Tostado</button><button style={S.filterBtn(filter === "tendencia_verde_te")} onClick={() => setFilter("tendencia_verde_te")}>Verde / Te</button><button style={S.filterBtn(filter === "tendencia_almizclado_piel")} onClick={() => setFilter("tendencia_almizclado_piel")}>Almizclado Piel</button><button style={S.filterBtn(filter === "tendencia_gourmand_oscuro")} onClick={() => setFilter("tendencia_gourmand_oscuro")}>Gourmand Oscuro</button>
 </div>
 )}
 <div style={S.advFilterWrap} id="advFilterSection">
