@@ -75,6 +75,11 @@ amaderado: ["amaderado", "madera", "oud", "cuero", "especia", "especiado", "amba
 fresco: ["fresco", "citrico", "citricos", "marino", "acuatico", "verde", "menta", "bergamota"],
 floral: ["floral", "flores", "rosa", "jazmin", "azahar", "peonia", "lavanda"],
 };
+const MAX_CART_QTY = 20;
+// Para cantidades cargadas (localStorage/Firestore) o sumadas: nunca menos de 1 ni mas del maximo.
+const clampQty = (q) => { const n = Number(q); if (!Number.isFinite(n) || n < 1) return 1; return Math.min(Math.floor(n), MAX_CART_QTY); };
+// Para +/- en el carrito: solo topea el maximo, deja pasar 0 o negativos para poder quitar el producto.
+const capQtyDelta = (q) => { const n = Number(q); if (!Number.isFinite(n)) return 0; return Math.min(Math.floor(n), MAX_CART_QTY); };
 const IMGUR_CLIENT_ID = "546c25a59c58ad7"; const TAG_OPTIONS = [{ key: "mas_vendidos", label: "Mas vendidos" }, { key: "novedades", label: "Novedades" }, { key: "larga_duracion", label: "Larga duracion" }, { key: "para_regalar", label: "Para regalar" }, { key: "top_invierno", label: "Top invierno" }, { key: "top_verano", label: "Top verano" }, { key: "top_oficina", label: "Top oficina" }, { key: "top_citas", label: "Top citas" }, { key: "tendencia_floral_frutal", label: "Tendencia: Floral frutal" }, { key: "tendencia_gourmand_tostado", label: "Tendencia: Gourmand tostado" }, { key: "tendencia_verde_te", label: "Tendencia: Verde / Te" }, { key: "tendencia_almizclado_piel", label: "Tendencia: Almizclado piel" }, { key: "tendencia_gourmand_oscuro", label: "Tendencia: Gourmand oscuro" }];
 const shuffleArray = (arr) => {
 const a = [...arr];
@@ -99,7 +104,10 @@ const [resenaSaving, setResenaSaving] = useState(false);
 const [resenaUploading, setResenaUploading] = useState(false);
 const [tickerProducts, setTickerProducts] = useState([]);
 const [cart, setCart] = useState(() => {
-  try { return JSON.parse(localStorage.getItem("carritoEsencia") || "[]"); } catch { return []; }
+  try {
+    const parsed = JSON.parse(localStorage.getItem("carritoEsencia") || "[]");
+    return Array.isArray(parsed) ? parsed.map(i => ({ ...i, qty: clampQty(i.qty) })) : [];
+  } catch { return []; }
 });
 const [showCart, setShowCart] = useState(false);
 const [adminPass, setAdminPass] = useState("");
@@ -123,7 +131,7 @@ const [filterTipo, setFilterTipo] = useState("");
 const [assistantOpen, setAssistantOpen] = useState(false);
 const [assistantChat, setAssistantChat] = useState([{ from: "bot", text: "Hola! Soy el asistente virtual de Esencia Perfumeria. Elegi una opcion para que te ayude:" }]);
 const [promoCode, setPromoCode] = useState(""); const [customerPhone, setCustomerPhone] = useState(""); const [customerName, setCustomerName] = useState(() => { try { return localStorage.getItem("nombreEsencia") || ""; } catch { return ""; } }); const [customerAddress, setCustomerAddress] = useState(() => { try { return localStorage.getItem("direccionEsencia") || ""; } catch { return ""; } }); const [checkoutError, setCheckoutError] = useState(""); const [customerPoints, setCustomerPoints] = useState(null); const [pointsLoading, setPointsLoading] = useState(false); const [redeemPoints, setRedeemPoints] = useState(false);
-const [isGift, setIsGift] = useState(false); const [giftMessage, setGiftMessage] = useState("");
+const [isGift, setIsGift] = useState(false); const [giftMessage, setGiftMessage] = useState(""); const [hideGiftPrice, setHideGiftPrice] = useState(false);
 const [paymentMethod, setPaymentMethod] = useState(""); // "transferencia" | "efectivo" - obligatorio elegir antes de pedir por WhatsApp
 const [showQuiz, setShowQuiz] = useState(false);
 const [quizStep, setQuizStep] = useState(0);
@@ -169,6 +177,16 @@ const [uploading, setUploading] = useState(false);
 const [uploadMsg, setUploadMsg] = useState("");
 const [uploadingField, setUploadingField] = useState(null);
 const [showBulkUpload, setShowBulkUpload] = useState(false);
+const [bannerForm, setBannerForm] = useState(null);
+const [bannerSaving, setBannerSaving] = useState(false);
+const [bannerDismissed, setBannerDismissed] = useState(() => {
+  try { return sessionStorage.getItem("esenciaBannerDismissed") === "1"; } catch { return false; }
+});
+const [nowTick, setNowTick] = useState(() => Date.now());
+useEffect(() => {
+  const t = setInterval(() => setNowTick(Date.now()), 60000);
+  return () => clearInterval(t);
+}, []);
 const [bulkRows, setBulkRows] = useState([]);
 const [bulkImagesCount, setBulkImagesCount] = useState(0);
 const [bulkPublishing, setBulkPublishing] = useState(false);
@@ -213,11 +231,13 @@ useEffect(() => { cartRef.current = cart; }, [cart]);
 const favoritesRef = useRef(favorites);
 useEffect(() => { favoritesRef.current = favorites; }, [favorites]);
 const mergeCartArrays = (local, remote) => {
-const merged = [...(local || [])];
+const merged = (local || []).map(li => ({ ...li, qty: clampQty(li.qty) }));
 (remote || []).forEach(ri => {
 const idx = merged.findIndex(li => li.id === ri.id);
-if (idx >= 0) merged[idx] = { ...merged[idx], qty: (merged[idx].qty || 0) + (ri.qty || 0) };
-else merged.push(ri);
+// Usamos el maximo (no la suma) para que combinar el mismo carrito varias veces
+// (por ejemplo, en cada inicio de sesion) no vaya duplicando la cantidad.
+if (idx >= 0) merged[idx] = { ...merged[idx], qty: clampQty(Math.max(merged[idx].qty || 0, ri.qty || 0)) };
+else merged.push({ ...ri, qty: clampQty(ri.qty) });
 });
 return merged;
 };
@@ -395,10 +415,85 @@ try {
 const pid = new URLSearchParams(window.location.search).get("p");
 if (pid) {
 const found = products.find(pr => pr.id === pid);
-if (found) setSelectedProduct(found);
+if (found && isPerfume(found)) setSelectedProduct(found);
 }
 } catch {}
 }, [products]);
+
+// Datos estructurados (JSON-LD) para que Google pueda mostrar precio y
+// disponibilidad de los perfumes en los resultados de busqueda. Se arma
+// dinamicamente a partir del catalogo cargado, sin tocar el index.html.
+useEffect(() => {
+try {
+const list = products.filter(p => isPerfume(p) && getProductPrice(p) > 0).slice(0, 60);
+const itemListLd = {
+"@context": "https://schema.org",
+"@type": "ItemList",
+"itemListElement": list.map((p, i) => ({
+"@type": "ListItem",
+"position": i + 1,
+"item": {
+"@type": "Product",
+"name": getProductName(p),
+"image": getProductImage(p) || undefined,
+"sku": p.id,
+"brand": p.marca ? { "@type": "Brand", "name": p.marca } : undefined,
+"offers": {
+"@type": "Offer",
+"priceCurrency": "ARS",
+"price": String(getProductPrice(p)),
+"availability": getProductDisp(p) === "agotado" ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
+"url": "https://www.esenciaperfumeria.com.ar/?p=" + p.id
+}
+}
+}))
+};
+let script = document.getElementById("ld-product-list");
+if (!script) {
+script = document.createElement("script");
+script.type = "application/ld+json";
+script.id = "ld-product-list";
+document.head.appendChild(script);
+}
+script.textContent = JSON.stringify(itemListLd);
+} catch {}
+}, [products]);
+
+// Cuando se abre la ficha de un producto, sumamos ademas su propio Product
+// JSON-LD (mas completo) para esa URL con "?p=<id>".
+useEffect(() => {
+try {
+let script = document.getElementById("ld-product-detail");
+if (!selectedProduct || !isPerfume(selectedProduct)) {
+if (script) script.remove();
+return;
+}
+const p = selectedProduct;
+const productLd = {
+"@context": "https://schema.org",
+"@type": "Product",
+"name": getProductName(p),
+"description": (p.descripcion || "").slice(0, 500) || undefined,
+"image": [p.imagen, p.imageUrl, p.foto2, p.foto3].filter(Boolean),
+"sku": p.id,
+"brand": p.marca ? { "@type": "Brand", "name": p.marca } : undefined,
+"offers": {
+"@type": "Offer",
+"priceCurrency": "ARS",
+"price": String(getProductPrice(p)),
+"availability": getProductDisp(p) === "agotado" ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
+"url": "https://www.esenciaperfumeria.com.ar/?p=" + p.id
+}
+};
+if (!script) {
+script = document.createElement("script");
+script.type = "application/ld+json";
+script.id = "ld-product-detail";
+document.head.appendChild(script);
+}
+script.textContent = JSON.stringify(productLd);
+} catch {}
+}, [selectedProduct]);
 
 useEffect(() => {
 let unsub = () => {};
@@ -718,6 +813,26 @@ if (bulkImagesInputRef.current) bulkImagesInputRef.current.value = "";
 }
 };
 
+const handleSaveBanner = async () => {
+if (!bannerForm) return;
+setBannerSaving(true);
+try {
+await setDoc(doc(db, "productos", "_site_banner"), {
+bannerEnabled: !!bannerForm.bannerEnabled,
+bannerTexto: (bannerForm.bannerTexto || "").trim(),
+bannerLink: (bannerForm.bannerLink || "").trim(),
+bannerCtaLabel: (bannerForm.bannerCtaLabel || "").trim(),
+bannerFechaObjetivo: bannerForm.bannerFechaObjetivo || "",
+updatedAt: serverTimestamp(),
+}, { merge: true });
+showToast("Banner guardado");
+} catch (e) {
+console.error("BANNER_SAVE_ERROR", e);
+showToast("No se pudo guardar el banner");
+}
+setBannerSaving(false);
+};
+
 const handleAddProduct = async () => {
 if (!form.nombre.trim()) return alert("Ingresa el nombre del producto");
 if (!form.precio) return alert("Ingresa el precio");
@@ -882,7 +997,7 @@ setResenaUploading(false);
 const addToCart = (product, opts) => {
 setCart(c => {
 const exists = c.find(i => i.id === product.id);
-if (exists) return c.map(i => i.id === product.id ? { ...i, qty: i.qty + 1 } : i);
+if (exists) return c.map(i => i.id === product.id ? { ...i, qty: clampQty(i.qty + 1) } : i);
 return [...c, { ...product, qty: 1 }];
 });
 if (!opts || !opts.silent) {
@@ -912,7 +1027,7 @@ decantSize: size,
 
 const removeFromCart = (id) => setCart(c => c.filter(i => i.id !== id));
 const updateCartQty = (id, delta) => {
-setCart(c => c.map(i => i.id === id ? { ...i, qty: i.qty + delta } : i).filter(i => i.qty > 0));
+setCart(c => c.map(i => i.id === id ? { ...i, qty: capQtyDelta(i.qty + delta) } : i).filter(i => i.qty > 0));
 };
 const totalCart = cart.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
 const reviewCount = resenas.length;
@@ -1040,7 +1155,7 @@ msg += " - Nombre: " + customerName.trim();
 msg += " - Direccion de envio: " + customerAddress.trim();
 if (promoCode) msg += " - Codigo promocional: " + promoCode;
 if (customerPhone) msg += " - Mi telefono: " + customerPhone;
-if (isGift) msg += " - Es un regalo" + (giftMessage.trim() ? (": \"" + giftMessage.trim() + "\"") : "");
+if (isGift) msg += " - Es un regalo" + (giftMessage.trim() ? (": \"" + giftMessage.trim() + "\"") : "") + (hideGiftPrice ? " (IMPORTANTE: no mostrar el precio en el paquete)" : "");
 if (paymentMethod === "transferencia") msg += " - Pago por transferencia bancaria (ya envio el comprobante por este chat)";
 else if (paymentMethod === "mercadopago") msg += " - Pago por Mercado Pago (ya envio el comprobante por este chat)";
 else if (paymentMethod === "efectivo") msg += " - Pago en efectivo al momento de la entrega";
@@ -1154,6 +1269,39 @@ const optimizeImg = (url, size = "l") => {
 };
 const getProductDisp = (p) => p.disponibilidad || "stock";
 const getProductDias = (p) => p.diasHabiles || "3-5";
+const Q4_OCCASIONS = [
+{ name: "el Dia de la Madre", date: "2026-10-18" },
+{ name: "el Black Friday", date: "2026-11-27" },
+{ name: "Navidad", date: "2026-12-25" },
+{ name: "el Dia de Reyes", date: "2027-01-06" },
+];
+const SHIPPING_TRANSIT_DAYS = 3;
+const formatShortDateEs = (d) => d.toLocaleDateString("es-AR", { day: "numeric", month: "long" });
+const getOrderCutoffMessage = (cart) => {
+if (!cart || cart.length === 0) return null;
+const now = new Date();
+const pedidoItems = cart.filter(i => getProductDisp(i) === "pedido");
+let prepDays = 1;
+if (pedidoItems.length > 0) {
+prepDays = Math.max(...pedidoItems.map(i => {
+const n = parseInt(i.diasHabiles, 10);
+return Number.isFinite(n) ? n : 3;
+}));
+}
+const leadDays = prepDays + SHIPPING_TRANSIT_DAYS;
+for (const occ of Q4_OCCASIONS) {
+const occDate = new Date(occ.date + "T00:00:00");
+if (occDate <= now) continue;
+const daysUntil = Math.ceil((occDate - now) / 86400000);
+if (daysUntil > 42) continue;
+const cutoff = new Date(occDate.getTime() - leadDays * 86400000);
+if (cutoff > now) {
+return "🎁 Pedi antes del " + formatShortDateEs(cutoff) + " para que llegue a tiempo para " + occ.name + ".";
+}
+return "⏰ Estamos cerca de " + occ.name + " — coordina tu pedido cuanto antes para llegar a tiempo.";
+}
+return null;
+};
 const getDecantPrice5 = (p) => (p.precioDecant5 !== undefined && p.precioDecant5 !== null && p.precioDecant5 !== "" ? Number(p.precioDecant5) : null);
 const getDecantPrice10 = (p) => (p.precioDecant10 !== undefined && p.precioDecant10 !== null && p.precioDecant10 !== "" ? Number(p.precioDecant10) : null);
 const hasDecant = (p) => !!(getDecantPrice5(p) || getDecantPrice10(p));
@@ -1275,6 +1423,11 @@ return true;
 
 const recentlyViewedProducts = recentlyViewed.map(id => dedupedProducts.find(p => p.id === id)).filter(Boolean).slice(0, 8);
 const trendProducts = dedupedProducts.filter(p => (p.temporada || "") === "verano" && getProductDisp(p) !== "agotado");
+// Documento especial guardado en la coleccion "productos" (mismas reglas de
+// Firestore que ya existen: lectura publica, escritura solo admin) que uso
+// para el banner editable del sitio, sin pedir permisos nuevos.
+const bannerConfig = products.find(p => p.id === "_site_banner") || null;
+const adminProductsList = products.filter(p => p.id !== "_site_banner");
 
 const getQuizRecommendations = () => {
 const { genero, ocasion, aroma, tipo } = quizAnswers;
@@ -1463,6 +1616,36 @@ return (
 </div>
 <div style={S.adminWrap}>
 <h2 style={{ color: "#d4af37", marginBottom: "24px", fontFamily: "'Playfair Display', serif" }}>Panel de Administracion</h2>
+{(() => {
+const bf = bannerForm || { bannerEnabled: (bannerConfig && bannerConfig.bannerEnabled) || false, bannerTexto: (bannerConfig && bannerConfig.bannerTexto) || "", bannerLink: (bannerConfig && bannerConfig.bannerLink) || "", bannerCtaLabel: (bannerConfig && bannerConfig.bannerCtaLabel) || "", bannerFechaObjetivo: (bannerConfig && bannerConfig.bannerFechaObjetivo) || "" };
+return (
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<h3 style={{ margin: "0 0 6px" }}>📣 Banner del sitio (Dia de la Madre, Black Friday, Navidad...)</h3>
+<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Se muestra arriba de todo el sitio. Se puede activar y desactivar cuando quieras, sin pedirme un cambio de codigo.</p>
+<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer", marginBottom: "12px" }}>
+<input type="checkbox" checked={!!bf.bannerEnabled} onChange={e => setBannerForm({ ...bf, bannerEnabled: e.target.checked })} />
+Mostrar el banner en el sitio
+</label>
+<label style={S.label}>Texto del banner</label>
+<input type="text" value={bf.bannerTexto} onChange={e => setBannerForm({ ...bf, bannerTexto: e.target.value })} style={{ ...S.input, marginBottom: "12px" }} placeholder="Ej: Regalos para el Dia de la Madre - envios asegurados antes del 18/10" />
+<div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+<div style={{ flex: "1 1 220px" }}>
+<label style={S.label}>Link del boton (opcional)</label>
+<input type="text" value={bf.bannerLink} onChange={e => setBannerForm({ ...bf, bannerLink: e.target.value })} style={{ ...S.input, marginBottom: "12px" }} placeholder="https://wa.me/... o una seccion del sitio" />
+</div>
+<div style={{ flex: "1 1 160px" }}>
+<label style={S.label}>Texto del boton (opcional)</label>
+<input type="text" value={bf.bannerCtaLabel} onChange={e => setBannerForm({ ...bf, bannerCtaLabel: e.target.value })} style={{ ...S.input, marginBottom: "12px" }} placeholder="Ver mas" />
+</div>
+</div>
+<label style={S.label}>Cuenta regresiva hasta (opcional, ej: Black Friday)</label>
+<input type="datetime-local" value={bf.bannerFechaObjetivo} onChange={e => setBannerForm({ ...bf, bannerFechaObjetivo: e.target.value })} style={{ ...S.input, marginBottom: "14px" }} />
+<div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+<button onClick={handleSaveBanner} disabled={bannerSaving} style={{ ...S.btn, padding: "10px 20px", opacity: bannerSaving ? 0.6 : 1 }}>{bannerSaving ? "Guardando..." : "Guardar banner"}</button>
+{bannerForm && <button onClick={() => setBannerForm(null)} style={{ ...S.btnOutline, padding: "10px 20px" }}>Descartar cambios</button>}
+</div>
+</div>
+); })()}
 <div style={{ ...S.adminCard, marginBottom: "24px" }}>
 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
 <h3 style={{ margin: 0 }}>📦 Carga Masiva de Productos</h3>
@@ -1661,8 +1844,8 @@ return (
 <button onClick={handleCancelEdit} style={{ ...S.btn, width: "100%", padding: "10px", marginTop: "8px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }}>Cancelar Edicion</button>
 )}
 </div>
-<h3 style={{ marginTop: "36px", marginBottom: "16px" }}>Productos Existentes ({products.length})</h3>
-{products.map(p => (
+<h3 style={{ marginTop: "36px", marginBottom: "16px" }}>Productos Existentes ({adminProductsList.length})</h3>
+{adminProductsList.map(p => (
 <div key={p.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center" }}>
 <img src={optimizeImg(getProductImage(p))} alt={getProductName(p)} loading="lazy" decoding="async" style={{ width: "80px", height: "80px", objectFit: "contain", background: "#fff", borderRadius: "8px", flexShrink: 0 }} />
 <div style={{ flex: 1 }}>
@@ -1744,6 +1927,24 @@ avisosStock.map(a => (
 
 return (
 <div style={S.body}>
+{bannerConfig && bannerConfig.bannerEnabled && bannerConfig.bannerTexto && !bannerDismissed && (
+<div style={{ position: "relative", background: "#d4af37", color: "#0b0b0b", padding: "10px 40px", display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", flexWrap: "wrap", fontSize: "13.5px", fontWeight: 700, textAlign: "center" }}>
+<span>{bannerConfig.bannerTexto}</span>
+{bannerConfig.bannerFechaObjetivo && (() => {
+const target = new Date(bannerConfig.bannerFechaObjetivo).getTime();
+const diff = target - nowTick;
+if (!Number.isFinite(target) || diff <= 0) return null;
+const days = Math.floor(diff / 86400000);
+const hours = Math.floor((diff % 86400000) / 3600000);
+const mins = Math.floor((diff % 3600000) / 60000);
+return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10px", borderRadius: "6px", fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>{days > 0 ? days + "d " : ""}{hours}h {mins}m</span>;
+})()}
+{bannerConfig.bannerLink && (
+<a href={bannerConfig.bannerLink} target="_blank" rel="noreferrer" style={{ color: "#0b0b0b", textDecoration: "underline", fontWeight: 800 }}>{bannerConfig.bannerCtaLabel || "Ver mas"}</a>
+)}
+<button onClick={() => { setBannerDismissed(true); try { sessionStorage.setItem("esenciaBannerDismissed", "1"); } catch {} }} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: "#0b0b0b", fontSize: "17px", cursor: "pointer", padding: "4px", lineHeight: 1 }} aria-label="Cerrar banner">✕</button>
+</div>
+)}
 <style>{`@media (max-width: 700px) { .gs-nav { position: sticky !important; top: 0 !important; z-index: 80 !important; flex-wrap: wrap !important; row-gap: 8px !important; padding: 10px 12px !important; } .gs-nav-promo { position: static !important; left: auto !important; top: auto !important; transform: none !important; order: 3 !important; width: 100% !important; max-width: 100% !important; text-align: center !important; font-size: 11px !important; } .gs-nav-cart-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-nav-account-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-nav-instagram-btn { position: static !important; top: auto !important; right: auto !important; width: 36px !important; height: 36px !important; } .gs-mobile-cart-bar { display: flex !important; } }`}</style>
 <div style={S.nav} className="gs-nav">
 <div style={S.navPromo} className="gs-nav-promo"><span style={{ color: "#d4af37" }}>PERFUMES ORIGINALES</span> / <span style={{ color: "#ffffff" }}>APROVECHA CODIGO PROMOCIONAL</span></div>
@@ -1830,6 +2031,25 @@ return (
 ))}
 </div>
 </div>
+{(() => { const showCreditNow = user && referralCredit > 0; return (
+<div style={{ margin: "0 auto 8px", maxWidth: 900, padding: "0 16px" }}>
+<div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "14px", background: "#1a1a1a", border: "1px solid #d4af37", borderRadius: "12px", padding: "18px 22px" }}>
+<div style={{ flex: "1 1 260px" }}>
+<div style={{ color: "#d4af37", fontWeight: 700, fontSize: "15px", fontFamily: "'Playfair Display', serif" }}>{showCreditNow ? "🎁 Tenes credito por referidos sin usar" : "🎁 Invita a un amigo y ganen $5.000 cada uno"}</div>
+<div style={{ color: "#bdbdbd", fontSize: "13px", marginTop: "4px" }}>
+{showCreditNow
+? "Tenes " + formatPrice(referralCredit) + " de credito disponible (se descuenta $5.000 por compra). Usálo en tu proximo pedido."
+: (user ? "Compartí tu código y cuando lo usen, ambos reciben $5.000 de descuento." : "Si ya nos compraste, iniciá sesión para conseguir tu código y empezar a ganar descuentos.")}
+</div>
+</div>
+{user ? (
+<a href={"https://wa.me/?text=" + encodeURIComponent("Te invito a comprar en Esencia Perfumeria! Usa mi codigo " + referralCode + " y ambos recibimos $5.000 de descuento en tu primera compra. https://www.esenciaperfumeria.com.ar")} target="_blank" rel="noreferrer" style={{ ...S.btnOutline, textDecoration: "none", textAlign: "center", whiteSpace: "nowrap" }}>Compartir mi código</a>
+) : (
+<button style={{ ...S.btnOutline, whiteSpace: "nowrap" }} onClick={() => { setAccountMode("login"); setAccountError(""); setShowAccountModal(true); }}>Conseguir mi código</button>
+)}
+</div>
+</div>
+); })()}
 {trendProducts.length > 0 && (
 <div style={S.section}>
 <div style={S.sectionTitle}>☀️ Tendencias para el Verano 2027</div>
@@ -2378,6 +2598,7 @@ return pdpPhotos.length > 1 && (
 <div style={{ background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px 12px", marginBottom: "12px" }}>
 <label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}><input type="checkbox" checked={isGift} onChange={e => setIsGift(e.target.checked)} />🎁 Es un regalo</label>
 {isGift && (<textarea value={giftMessage} onChange={e => setGiftMessage(e.target.value)} placeholder="Mensaje para incluir (opcional)" style={{ ...S.input, marginTop: "8px", minHeight: "50px", resize: "vertical", width: "100%", boxSizing: "border-box" }} />)}
+{isGift && (<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "13px", cursor: "pointer", marginTop: "8px" }}><input type="checkbox" checked={hideGiftPrice} onChange={e => setHideGiftPrice(e.target.checked)} />No mostrar el precio en el paquete</label>)}
 </div>
 <div style={{ background: "#1a1a1a", border: "1px solid " + (checkoutError && !paymentMethod ? "#8b1a2a" : "#2b2b2b"), borderRadius: "8px", padding: "10px 12px", marginBottom: "12px" }}>
 <div style={{ color: "#fff", fontSize: "14px", marginBottom: "8px" }}>Forma de pago *</div>
@@ -2420,6 +2641,7 @@ return pdpPhotos.length > 1 && (
 <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", fontSize: "12.5px", color: "#e8ddc0" }}><span>✔️</span><span>100% original, con garantia</span></div>
 <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", fontSize: "12.5px", color: "#e8ddc0" }}><span>🔄</span><span>Cambios sin problema si algo no es lo que esperabas</span></div>
 <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", fontSize: "12.5px", color: "#e8ddc0" }}><span>📦</span><span>{cart.some(i => getProductDisp(i) === "pedido") ? "Algunos productos de tu pedido son por encargue: revisa los dias habiles en cada ficha" : "Coordinamos el envio apenas confirmes tu pedido por WhatsApp"}</span></div>
+{getOrderCutoffMessage(cart) && (<div style={{ display: "flex", alignItems: "flex-start", gap: "8px", fontSize: "12.5px", color: "#d4af37", fontWeight: 600 }}><span>{getOrderCutoffMessage(cart)}</span></div>)}
 </div>
 <button onClick={() => handleCheckout()} style={{ ...S.btn, display: "block", width: "100%", border: "none", textAlign: "center", padding: "12px", cursor: "pointer" }}>
 Pedir por WhatsApp
