@@ -95,6 +95,7 @@ const [page, setPage] = useState(() => {
 const path = window.location.pathname;
 if (path === "/admin-login" || path === "/admin-login/") return "adminLogin";
 if (path === "/devoluciones" || path === "/devoluciones/") return "devoluciones";
+if (path === "/opinar" || path === "/opinar/") return "opinar";
 return "home";
 });
 const [isMobileHero, setIsMobileHero] = useState(() => typeof window !== "undefined" && window.innerWidth <= 700);
@@ -103,6 +104,21 @@ const [resenas, setResenas] = useState([]);
 const [resenaForm, setResenaForm] = useState({ nombre: "", ciudad: "", estrellas: "5", texto: "", foto: "" });
 const [resenaSaving, setResenaSaving] = useState(false);
 const [resenaUploading, setResenaUploading] = useState(false);
+// Reseñas que dejan los clientes ellos mismos desde el link publico "/opinar"
+// (a diferencia de resenaForm, que es el formulario que usa el ADMIN para
+// cargar una resena manualmente). Estas quedan en estado "pendiente" hasta
+// que el admin las aprueba desde el panel.
+const [opinionForm, setOpinionForm] = useState({ nombre: "", ciudad: "", estrellas: "5", texto: "", foto: "" });
+const [opinionUploading, setOpinionUploading] = useState(false);
+const [opinionSaving, setOpinionSaving] = useState(false);
+const [opinionSent, setOpinionSent] = useState(false);
+const [opinionError, setOpinionError] = useState("");
+// Panel admin: generar/enviar el link de "dejanos tu opinion" a un cliente puntual.
+const [reviewRequestName, setReviewRequestName] = useState("");
+const [reviewRequestPhone, setReviewRequestPhone] = useState("");
+// Panel admin: clientes con puntos/credito de fidelizacion sin canjear, para
+// mandarles un recordatorio por WhatsApp (se carga solo si isAdmin, ver mas abajo).
+const [customersWithPoints, setCustomersWithPoints] = useState([]);
 const [tickerProducts, setTickerProducts] = useState([]);
 const [cart, setCart] = useState(() => {
   try {
@@ -405,6 +421,30 @@ else url.searchParams.delete("p");
 window.history.replaceState({}, "", url.pathname + url.search);
 } catch {}
 }, [selectedProduct]);
+
+// Si el link de "dejanos tu opinion" que le mandamos al cliente incluye su
+// nombre (?nombre=...), se lo precargamos en el formulario para que sea mas
+// rapido de completar.
+useEffect(() => {
+if (page !== "opinar") return;
+try {
+const nombreQP = new URLSearchParams(window.location.search).get("nombre");
+if (nombreQP) setOpinionForm(f => (f.nombre ? f : { ...f, nombre: nombreQP }));
+} catch {}
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [page]);
+
+// Los puntos de fidelizacion de los clientes incluyen su nombre y WhatsApp (ver
+// handleCheckout), asi que igual que avisosStock solo se cargan con el admin
+// logueado, para no exponer datos de otros clientes al resto de las visitas.
+useEffect(() => {
+if (!isAdmin) { setCustomersWithPoints([]); return; }
+const q4 = query(collection(db, "puntosClientes"), where("puntos", ">=", 300));
+const unsub4 = onSnapshot(q4, (snap) => {
+setCustomersWithPoints(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.puntos || 0) - (a.puntos || 0)));
+}, (e) => console.error("PUNTOS_LIST_ERROR", e));
+return () => unsub4();
+}, [isAdmin]);
 
 // Si alguien entra directo con un link tipo "?p=<id>" (compartido por WhatsApp,
 // redes, etc.), abrimos automaticamente el producto correspondiente.
@@ -929,6 +969,7 @@ ciudad: resenaForm.ciudad.trim(),
 estrellas: Number(resenaForm.estrellas) || 5,
 texto: resenaForm.texto.trim(),
 foto: resenaForm.foto.trim(),
+estado: "publicada", // el admin la esta tipeando el mismo, ya esta vista/aprobada
 createdAt: serverTimestamp(),
 });
 setResenaForm({ nombre: "", ciudad: "", estrellas: "5", texto: "", foto: "" });
@@ -941,6 +982,69 @@ setResenaSaving(false);
 const handleDeleteResena = async (id) => {
 if (!confirm("Eliminar esta resena?")) return;
 await deleteDoc(doc(db, "resenas", id));
+};
+
+// Aprobar/rechazar una resena que dejo un cliente por si mismo desde "/opinar".
+const handlePublishResena = async (id) => {
+try { await updateDoc(doc(db, "resenas", id), { estado: "publicada" }); } catch (e) { console.error("RESENA_PUBLISH_ERROR", e); alert("No pudimos publicar la resena, intenta de nuevo."); }
+};
+const handleRejectResena = async (id) => {
+if (!confirm("Rechazar y eliminar esta resena? No se va a poder recuperar.")) return;
+try { await deleteDoc(doc(db, "resenas", id)); } catch (e) { console.error("RESENA_REJECT_ERROR", e); }
+};
+
+// Subida de la foto que el CLIENTE adjunta en el formulario publico "/opinar"
+// (misma logica que handleResenaImageUpload, pero apuntando a opinionForm).
+const handleOpinionPhotoUpload = async (file) => {
+if (!file) return;
+setOpinionUploading(true);
+const formData = new FormData();
+formData.append("image", file);
+try {
+const res = await fetch("https://api.imgur.com/3/image", {
+method: "POST",
+headers: { Authorization: `Client-ID ${IMGUR_CLIENT_ID}` },
+body: formData,
+});
+const data = await res.json();
+if (data.success) {
+setOpinionForm(f => ({ ...f, foto: data.data.link }));
+} else {
+setOpinionError("No pudimos subir la foto. Intenta con otra imagen.");
+}
+} catch {
+setOpinionError("Error de conexion al subir la foto.");
+}
+setOpinionUploading(false);
+};
+
+const handleSubmitOpinion = async () => {
+if (!opinionForm.nombre.trim() || !opinionForm.texto.trim()) {
+setOpinionError("Completa tu nombre y contanos tu experiencia.");
+return;
+}
+if (!opinionForm.foto) {
+setOpinionError("Subi una foto de tu perfume para completar tu opinion.");
+return;
+}
+setOpinionError("");
+setOpinionSaving(true);
+try {
+await addDoc(collection(db, "resenas"), {
+nombre: opinionForm.nombre.trim(),
+ciudad: opinionForm.ciudad.trim(),
+estrellas: Number(opinionForm.estrellas) || 5,
+texto: opinionForm.texto.trim(),
+foto: opinionForm.foto,
+estado: "pendiente",
+createdAt: serverTimestamp(),
+});
+setOpinionSent(true);
+} catch (err) {
+console.error("OPINION_SUBMIT_ERROR", err);
+setOpinionError("No pudimos enviar tu opinion. Intenta de nuevo en unos minutos.");
+}
+setOpinionSaving(false);
 };
 
 const handleShareProduct = async (product) => {
@@ -1209,7 +1313,10 @@ msg += " - Canjea " + usedRedeem + " puntos ($" + pointsToDiscount(usedRedeem).t
 const totalConDescuento = Math.max(totalCartUsed - usedDiscount, 0);
 const earned = Math.floor(totalConDescuento / 1000);
 updated += earned;
-await setDoc(ref, { email: user.email, puntos: updated }, { merge: true });
+// Guardamos nombre y WhatsApp junto a los puntos (ademas del email) para
+// poder mandar despues un recordatorio de "te queda credito sin usar" desde
+// el panel de administracion, sin pedirle nada extra al cliente.
+await setDoc(ref, { email: user.email, puntos: updated, nombre: customerName.trim(), telefono: customerPhone.trim() || null }, { merge: true });
 msg += " - Suma " + earned + " puntos nuevos (total: " + updated + " puntos)";
 setCustomerPoints(updated);
 } catch (e) {
@@ -1865,7 +1972,57 @@ return (
 </div>
 ))}
 
-<h3 style={{ marginTop: "48px", marginBottom: "16px" }}>Opiniones de Clientes ({resenas.length})</h3>
+{(() => {
+const resenasPendientes = resenas.filter(r => r.estado === "pendiente");
+return (
+<div style={{ marginTop: "48px" }}>
+<h3 style={{ marginBottom: "6px" }}>📝 Reseñas pendientes de aprobación ({resenasPendientes.length})</h3>
+<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Las dejaron los clientes desde el link "/opinar". No se muestran en la web hasta que las publiques.</p>
+{resenasPendientes.length === 0 ? (
+<p style={{ color: "#7a7a7a" }}>No hay reseñas esperando aprobación.</p>
+) : (
+resenasPendientes.map(r => (
+<div key={r.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "flex-start", flexWrap: "wrap" }}>
+{r.foto && (<img src={r.foto} alt={r.nombre} style={{ width: "80px", height: "80px", borderRadius: "10px", objectFit: "cover" }} />)}
+<div style={{ flex: 1, minWidth: "200px" }}>
+<strong>{r.nombre}</strong> {r.ciudad && <span style={{ color: "#9a9a9a" }}> - {r.ciudad}</span>}
+<div style={{ color: "#d4af37" }}>{"★".repeat(r.estrellas || 5)}{"☆".repeat(5 - (r.estrellas || 5))}</div>
+<div style={{ color: "#bdbdbd", fontSize: "13px", marginTop: "4px" }}>{r.texto}</div>
+</div>
+<div style={{ display: "flex", gap: "8px" }}>
+<button onClick={() => handlePublishResena(r.id)} style={{ background: "#1e7a3d", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer", fontWeight: "700" }}>✅ Publicar</button>
+<button onClick={() => handleRejectResena(r.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer" }}>❌ Rechazar</button>
+</div>
+</div>
+))
+)}
+</div>
+);
+})()}
+
+<div style={{ marginTop: "40px" }}>
+<h3 style={{ marginBottom: "6px" }}>📮 Pedir opinión a un cliente</h3>
+<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Genera un mensaje de WhatsApp con el link para que el cliente deje su opinión sobre la atención y la entrega (con foto de su perfume). La reseña no se publica sola: la revisas vos antes en "Reseñas pendientes de aprobación".</p>
+<div style={S.adminCard}>
+<label style={S.label}>Nombre del cliente (opcional, precarga el formulario)</label>
+<input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: Maria Gomez" value={reviewRequestName} onChange={e => setReviewRequestName(e.target.value)} />
+<label style={S.label}>WhatsApp del cliente (opcional)</label>
+<input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: 2914261941 (si lo dejas vacio, elegis el contacto en WhatsApp)" value={reviewRequestPhone} onChange={e => setReviewRequestPhone(e.target.value)} />
+<button
+onClick={() => {
+const link = window.location.origin + "/opinar" + (reviewRequestName.trim() ? ("?nombre=" + encodeURIComponent(reviewRequestName.trim())) : "");
+const msg = "Hola" + (reviewRequestName.trim() ? " " + reviewRequestName.trim() : "") + "! Gracias por tu compra en Esencia Perfumeria 💛 Nos encantaria conocer tu opinion sobre la atencion y la entrega de tu pedido. Nos ayudarias muchisimo si nos dejas tu reseña (con una foto de tu perfume) aca: " + link;
+const phone = reviewRequestPhone.replace(/\D/g, "");
+window.open("https://wa.me/" + phone + "?text=" + encodeURIComponent(msg), "_blank");
+}}
+style={{ ...S.btn, width: "100%", padding: "10px", background: "#25D366", color: "#fff", border: "none" }}
+>
+💬 Enviar pedido de opinión por WhatsApp
+</button>
+</div>
+</div>
+
+<h3 style={{ marginTop: "48px", marginBottom: "16px" }}>Todas las reseñas ({resenas.length})</h3>
 <div style={S.adminCard}>
 <label style={S.label}>Nombre del cliente *</label>
 <input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: Maria Gomez" value={resenaForm.nombre} onChange={e => setResenaForm(f => ({ ...f, nombre: e.target.value }))} />
@@ -1893,9 +2050,10 @@ return (
 <button onClick={handleAddResena} disabled={resenaSaving} style={{ ...S.btn, width: "100%", padding: "10px" }}>{resenaSaving ? "Guardando..." : "Agregar Resena"}</button>
 </div>
 {resenas.map(r => (
-<div key={r.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center" }}>
+<div key={r.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center", opacity: r.estado === "pendiente" ? 0.6 : 1 }}>
 <div style={{ flex: 1 }}>
 <strong>{r.nombre}</strong> {r.ciudad && <span style={{ color: "#9a9a9a" }}> - {r.ciudad}</span>}
+<span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: "700", color: r.estado === "pendiente" ? "#e0b84a" : "#9ddb9d" }}>{r.estado === "pendiente" ? "PENDIENTE" : "PUBLICADA"}</span>
 <div style={{ color: "#d4af37" }}>{"★".repeat(r.estrellas || 5)}{"☆".repeat(5 - (r.estrellas || 5))}</div>
 <div style={{ color: "#bdbdbd", fontSize: "13px" }}>{r.texto}</div>
 </div>
@@ -1918,6 +2076,39 @@ avisosStock.map(a => (
 <a href={`https://wa.me/${(a.telefono || "").replace(/\D/g, "")}?text=${encodeURIComponent("Hola! Te escribo de Esencia Perfumeria porque volvio el stock de " + (a.productName || "tu perfume") + " que estabas esperando.")}`} target="_blank" rel="noreferrer" style={{ background: "#25D366", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", textDecoration: "none", fontSize: "13px", fontWeight: "700" }}>WhatsApp</a>
 {a.estado !== "contactado" && <button onClick={() => handleMarkAvisoContacted(a.id)} style={{ ...S.btnOutline, padding: "8px 14px", fontSize: "13px" }}>Marcar avisado</button>}
 <button onClick={() => handleDeleteAviso(a.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer" }}>Eliminar</button>
+</div>
+))
+)}
+</div>
+<div style={{ marginTop: "40px" }}>
+<h2 style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>🎁 Clientes con crédito de puntos sin usar</h2>
+<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Clientes logueados con 300 puntos o más ($10.000+ de descuento) sin canjear. El nombre y WhatsApp se guardan solo si el cliente compró después de este cambio; los que compraron antes van a ir apareciendo con sus datos a medida que vuelvan a comprar.</p>
+{customersWithPoints.length === 0 ? (
+<p style={{ color: "#9a9a9a" }}>Por ahora no hay clientes con credito de puntos sin usar.</p>
+) : (
+customersWithPoints.map(c => (
+<div key={c.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
+<div style={{ flex: 1, minWidth: "180px" }}>
+<strong>{c.nombre || "Cliente sin nombre guardado"}</strong>
+<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{c.telefono ? `WhatsApp: ${c.telefono}` : "Sin WhatsApp guardado"}{c.email ? ` · ${c.email}` : ""}</div>
+<div style={{ color: "#d4af37", fontSize: "13px", fontWeight: "700" }}>{c.puntos} puntos = {formatPrice(pointsToDiscount(c.puntos))} de descuento</div>
+{c.recordatorioEnviado && <div style={{ color: "#9ddb9d", fontSize: "11px" }}>Ya se le mando un recordatorio</div>}
+</div>
+{c.telefono ? (
+<button
+onClick={() => {
+const monto = pointsToDiscount(c.puntos);
+const msg = "Hola" + (c.nombre ? " " + c.nombre : "") + "! 💛 Te escribimos de Esencia Perfumeria: tenes " + formatPrice(monto) + " de descuento acumulado por tus puntos, todavia sin usar. Lo podes canjear en tu proximo pedido junto con el resto del catalogo. Te esperamos!";
+window.open("https://wa.me/" + c.telefono.replace(/\D/g, "") + "?text=" + encodeURIComponent(msg), "_blank");
+updateDoc(doc(db, "puntosClientes", c.id), { recordatorioEnviado: serverTimestamp() }).catch(e => console.error("RECORDATORIO_MARK_ERROR", e));
+}}
+style={{ background: "#25D366", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "700" }}
+>
+💬 Recordar por WhatsApp
+</button>
+) : (
+<span style={{ color: "#7a7a7a", fontSize: "12px" }}>Todavia no tiene WhatsApp guardado</span>
+)}
 </div>
 ))
 )}
@@ -1954,6 +2145,71 @@ return (
 
 <h2 style={{ color: "#fff", fontSize: "19px", marginTop: "28px", marginBottom: "10px" }}>5. Contacto</h2>
 <p>Ante cualquier duda sobre un cambio, devolución o el estado de tu pedido, contactanos por WhatsApp al <a href="https://wa.me/2914261941" target="_blank" rel="noreferrer" style={{ color: "#d4af37" }}>+54 9 291 426-1941</a>.</p>
+</div>
+<footer style={S.footer}>
+<div style={{ ...S.footerInner, gridTemplateColumns: "1fr" }}>
+<div style={S.footerBottom}>
+<span>© {new Date().getFullYear()} Esencia Perfumeria. Todos los derechos reservados.</span>
+</div>
+</div>
+</footer>
+</div>
+);
+}
+
+if (page === "opinar") {
+const volverInicio = () => { setPage("home"); window.history.pushState({}, "", "/"); };
+return (
+<div style={{ ...S.body, minHeight: "100vh" }}>
+<div style={{ ...S.nav, justifyContent: "space-between" }}>
+<a href="/" onClick={(e) => { e.preventDefault(); volverInicio(); }} style={{ color: "#d4af37", fontFamily: "'Playfair Display', serif", fontSize: "22px", fontWeight: 800, textDecoration: "none" }}>Esencia Perfumeria</a>
+<button onClick={volverInicio} style={S.btnOutline}>Volver a la tienda</button>
+</div>
+<div style={{ maxWidth: "560px", margin: "0 auto", padding: "36px 20px 60px", color: "#e8ddc0" }}>
+{opinionSent ? (
+<div style={{ textAlign: "center", padding: "40px 10px" }}>
+<div style={{ fontSize: "44px", marginBottom: "12px" }}>💛</div>
+<h1 style={{ color: "#d4af37", fontFamily: "'Playfair Display', serif", fontSize: "clamp(22px, 4vw, 28px)", marginBottom: "10px" }}>¡Gracias por tu opinión!</h1>
+<p style={{ lineHeight: "1.6" }}>La recibimos y la vamos a revisar antes de publicarla en la página. ¡Gracias por tomarte el tiempo de contarnos cómo te fue!</p>
+<button onClick={volverInicio} style={{ ...S.btn, marginTop: "16px", padding: "12px 24px" }}>Volver a la tienda</button>
+</div>
+) : (
+<>
+<h1 style={{ color: "#d4af37", fontFamily: "'Playfair Display', serif", fontSize: "clamp(22px, 4vw, 28px)", marginBottom: "6px" }}>Contanos tu experiencia</h1>
+<p style={{ color: "#bdbdbd", fontSize: "14px", lineHeight: "1.6", marginBottom: "24px" }}>Tu opinión nos ayuda un montón, y le sirve a otros clientes para elegirnos con confianza. Contanos cómo fue <strong style={{ color: "#d4af37" }}>la atención y la entrega de tu pedido</strong> (no hace falta que sea sobre el perfume en sí). La revisamos y la publicamos nosotros — no se muestra sola en la web.</p>
+
+<label style={S.label}>Tu nombre *</label>
+<input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: Maria Gomez" value={opinionForm.nombre} onChange={e => setOpinionForm(f => ({ ...f, nombre: e.target.value }))} />
+
+<label style={S.label}>Tu ciudad (opcional)</label>
+<input style={{ ...S.input, marginBottom: "16px" }} placeholder="Ej: Bahia Blanca" value={opinionForm.ciudad} onChange={e => setOpinionForm(f => ({ ...f, ciudad: e.target.value }))} />
+
+<label style={S.label}>¿Cómo calificás la atención y la entrega de tu pedido? *</label>
+<select style={{ ...S.input, marginBottom: "16px" }} value={opinionForm.estrellas} onChange={e => setOpinionForm(f => ({ ...f, estrellas: e.target.value }))}>
+<option value="5">★★★★★ Excelente</option>
+<option value="4">★★★★☆ Muy buena</option>
+<option value="3">★★★☆☆ Buena</option>
+<option value="2">★★☆☆☆ Regular</option>
+<option value="1">★☆☆☆☆ Mala</option>
+</select>
+
+<label style={S.label}>Contanos tu experiencia *</label>
+<textarea style={{ ...S.input, marginBottom: "16px", minHeight: "90px", fontFamily: "inherit" }} placeholder="Ej: Excelente atencion, me llego en un dia y todo perfecto." value={opinionForm.texto} onChange={e => setOpinionForm(f => ({ ...f, texto: e.target.value }))} />
+
+<label style={S.label}>Una foto de tu perfume *</label>
+<input type="file" accept="image/*" onChange={e => handleOpinionPhotoUpload(e.target.files[0])} style={{ ...S.input, padding: "8px", marginBottom: "8px" }} />
+{opinionUploading && <p style={{ color: "#d4af37", fontSize: "13px" }}>Subiendo foto...</p>}
+{opinionForm.foto && (
+<div style={{ marginBottom: "16px" }}>
+<img src={opinionForm.foto} alt="preview" style={{ width: "90px", height: "90px", borderRadius: "10px", objectFit: "cover" }} />
+</div>
+)}
+
+{opinionError && <p style={{ color: "#ff6b6b", marginBottom: "16px" }}>{opinionError}</p>}
+
+<button onClick={handleSubmitOpinion} disabled={opinionSaving || opinionUploading} style={{ ...S.btn, width: "100%", padding: "13px", opacity: (opinionSaving || opinionUploading) ? 0.6 : 1 }}>{opinionSaving ? "Enviando..." : "Enviar mi opinión"}</button>
+</>
+)}
 </div>
 <footer style={S.footer}>
 <div style={{ ...S.footerInner, gridTemplateColumns: "1fr" }}>
@@ -2284,13 +2540,17 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <a href={`https://wa.me/2914261941?text=${encodeURIComponent("Hola! Quiero sumarme a la Lista VIP para enterarme de promos y novedades")}`} target="_blank" rel="noreferrer" onClick={() => { try { if (window.fbq) window.fbq("track", "Lead"); if (window.gtag) window.gtag("event", "generate_lead"); } catch (e) {} }} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "13px 24px", fontSize: "15px", fontWeight: "700", borderRadius: "10px", background: "#25D366", color: "#fff", textDecoration: "none" }}>💬 Sumarme a la Lista VIP</a>
 </div>
 </div>
+{(() => {
+const resenasPublicadas = resenas.filter(r => r.estado !== "pendiente");
+return (
 <div style={S.section}>
 <div style={S.sectionTitle}>Opiniones de Clientes</div>
-{resenas.length === 0 ? (
+<p style={{ color: "#7a7a7a", fontSize: "13px", textAlign: "center", marginTop: "-8px", marginBottom: "20px" }}>Sobre nuestra atención y la entrega de sus pedidos, verificadas antes de publicarse.</p>
+{resenasPublicadas.length === 0 ? (
 <p style={{ color: "#7a7a7a", textAlign: "center" }}>Todavia no hay opiniones cargadas.</p>
 ) : (
 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "18px" }}>
-{resenas.map(r => (
+{resenasPublicadas.map(r => (
 <div key={r.id} style={S.resenaCard}>
 <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
 {r.foto ? (
@@ -2309,7 +2569,12 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 ))}
 </div>
 )}
+<div style={{ textAlign: "center", marginTop: "22px" }}>
+<a href="/opinar" onClick={(e) => { e.preventDefault(); setPage("opinar"); window.history.pushState({}, "", "/opinar"); window.scrollTo(0, 0); }} style={{ color: "#8a6d1f", fontSize: "13px", textDecoration: "underline", cursor: "pointer" }}>¿Ya nos compraste? Contanos tu experiencia</a>
 </div>
+</div>
+);
+})()}
 
 {selectedProduct && (
 <div className="gs-pdp-overlay" onClick={() => setSelectedProduct(null)}>
@@ -2748,6 +3013,7 @@ Pedir por WhatsApp
 <a href="#" onClick={(e) => { e.preventDefault(); setAssistantOpen(true); }} style={S.footerLink}>Preguntas frecuentes</a>
 <a href="#advFilterSection" style={S.footerLink}>Encontra tu perfume ideal</a>
 <a href="/devoluciones" onClick={(e) => { e.preventDefault(); setPage("devoluciones"); window.history.pushState({}, "", "/devoluciones"); window.scrollTo(0, 0); }} style={S.footerLink}>Política de Cambios y Devoluciones</a>
+<a href="/opinar" onClick={(e) => { e.preventDefault(); setPage("opinar"); window.history.pushState({}, "", "/opinar"); window.scrollTo(0, 0); }} style={S.footerLink}>Dejar mi opinión</a>
 </div>
 <div>
 <div style={S.footerHeading}>Contacto</div>
