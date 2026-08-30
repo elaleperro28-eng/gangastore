@@ -94,6 +94,7 @@ export default function App() {
 const [page, setPage] = useState(() => {
 const path = window.location.pathname;
 if (path === "/admin-login" || path === "/admin-login/") return "adminLogin";
+if (path === "/devoluciones" || path === "/devoluciones/") return "devoluciones";
 return "home";
 });
 const [isMobileHero, setIsMobileHero] = useState(() => typeof window !== "undefined" && window.innerWidth <= 700);
@@ -131,7 +132,7 @@ const [filterTipo, setFilterTipo] = useState("");
 const [assistantOpen, setAssistantOpen] = useState(false);
 const [assistantChat, setAssistantChat] = useState([{ from: "bot", text: "Hola! Soy el asistente virtual de Esencia Perfumeria. Elegi una opcion para que te ayude:" }]);
 const [promoCode, setPromoCode] = useState(""); const [customerPhone, setCustomerPhone] = useState(""); const [customerName, setCustomerName] = useState(() => { try { return localStorage.getItem("nombreEsencia") || ""; } catch { return ""; } }); const [customerAddress, setCustomerAddress] = useState(() => { try { return localStorage.getItem("direccionEsencia") || ""; } catch { return ""; } }); const [checkoutError, setCheckoutError] = useState(""); const [customerPoints, setCustomerPoints] = useState(null); const [pointsLoading, setPointsLoading] = useState(false); const [redeemPoints, setRedeemPoints] = useState(false);
-const [isGift, setIsGift] = useState(false); const [giftMessage, setGiftMessage] = useState(""); const [hideGiftPrice, setHideGiftPrice] = useState(false);
+const [isGift, setIsGift] = useState(false); const [giftMessage, setGiftMessage] = useState(""); const [hideGiftPrice, setHideGiftPrice] = useState(false); const [giftWrap, setGiftWrap] = useState(false);
 const [paymentMethod, setPaymentMethod] = useState(""); // "transferencia" | "efectivo" - obligatorio elegir antes de pedir por WhatsApp
 const [showQuiz, setShowQuiz] = useState(false);
 const [quizStep, setQuizStep] = useState(0);
@@ -1155,7 +1156,7 @@ msg += " - Nombre: " + customerName.trim();
 msg += " - Direccion de envio: " + customerAddress.trim();
 if (promoCode) msg += " - Codigo promocional: " + promoCode;
 if (customerPhone) msg += " - Mi telefono: " + customerPhone;
-if (isGift) msg += " - Es un regalo" + (giftMessage.trim() ? (": \"" + giftMessage.trim() + "\"") : "") + (hideGiftPrice ? " (IMPORTANTE: no mostrar el precio en el paquete)" : "");
+if (isGift) msg += " - Es un regalo" + (giftMessage.trim() ? (": \"" + giftMessage.trim() + "\"") : "") + (hideGiftPrice ? " (IMPORTANTE: no mostrar el precio en el paquete)" : "") + (giftWrap ? " - Con envoltorio de regalo (sin costo)" : "");
 if (paymentMethod === "transferencia") msg += " - Pago por transferencia bancaria (ya envio el comprobante por este chat)";
 else if (paymentMethod === "mercadopago") msg += " - Pago por Mercado Pago (ya envio el comprobante por este chat)";
 else if (paymentMethod === "efectivo") msg += " - Pago en efectivo al momento de la entrega";
@@ -1925,6 +1926,46 @@ avisosStock.map(a => (
 );
 }
 
+if (page === "devoluciones") {
+const volverInicio = () => { setPage("home"); window.history.pushState({}, "", "/"); };
+return (
+<div style={{ ...S.body, minHeight: "100vh" }}>
+<div style={{ ...S.nav, justifyContent: "space-between" }}>
+<a href="/" onClick={(e) => { e.preventDefault(); volverInicio(); }} style={{ color: "#d4af37", fontFamily: "'Playfair Display', serif", fontSize: "22px", fontWeight: 800, textDecoration: "none" }}>Esencia Perfumeria</a>
+<button onClick={volverInicio} style={S.btnOutline}>Volver a la tienda</button>
+</div>
+<div style={{ maxWidth: "760px", margin: "0 auto", padding: "36px 20px 60px", color: "#e8ddc0", lineHeight: "1.7" }}>
+<h1 style={{ color: "#d4af37", fontFamily: "'Playfair Display', serif", fontSize: "clamp(24px, 4vw, 34px)", marginBottom: "6px" }}>Política de Cambios y Devoluciones</h1>
+<p style={{ color: "#9a9a9a", fontSize: "13px", marginBottom: "28px" }}>Última actualización: agosto 2026</p>
+
+<h2 style={{ color: "#fff", fontSize: "19px", marginTop: "28px", marginBottom: "10px" }}>1. Derecho de arrepentimiento (compras a distancia)</h2>
+<p>Como tu compra en Esencia Perfumeria se realiza a distancia (por WhatsApp, sin trato presencial previo), la Ley de Defensa del Consumidor (Ley 24.240) te reconoce el derecho de arrepentirte de tu compra dentro de los <strong style={{ color: "#d4af37" }}>10 días corridos</strong> desde que recibís el producto, sin necesidad de indicar ningún motivo.</p>
+<p>Si ejercés este derecho dentro de ese plazo, el costo de envío de la devolución corre <strong style={{ color: "#d4af37" }}>por cuenta de Esencia Perfumeria</strong>, no tuyo.</p>
+
+<h2 style={{ color: "#fff", fontSize: "19px", marginTop: "28px", marginBottom: "10px" }}>2. Cómo pedir un cambio o devolución</h2>
+<p>Escribinos por WhatsApp al <a href="https://wa.me/2914261941" target="_blank" rel="noreferrer" style={{ color: "#d4af37" }}>+54 9 291 426-1941</a> indicando tu nombre, el pedido y el motivo. Te confirmamos los pasos a seguir y coordinamos el retiro o el envío de devolución.</p>
+<p>Para procesar el cambio o la devolución, te pedimos que el producto esté en las mismas condiciones en que lo recibiste: sin abrir, sin usar y con su envase original.</p>
+
+<h2 style={{ color: "#fff", fontSize: "19px", marginTop: "28px", marginBottom: "10px" }}>3. Producto defectuoso, dañado o distinto al pedido</h2>
+<p>Si tu perfume llega roto, dañado durante el envío, o no es el que compraste, te lo cambiamos o te devolvemos el dinero sin cargo para vos, más allá de los 10 días del punto 1.</p>
+
+<h2 style={{ color: "#fff", fontSize: "19px", marginTop: "28px", marginBottom: "10px" }}>4. Reintegro</h2>
+<p>Una vez que recibimos y verificamos el producto devuelto, coordinamos por WhatsApp el cambio por otro producto o el reintegro del dinero por el mismo medio de pago (o transferencia bancaria), dentro de un plazo razonable.</p>
+
+<h2 style={{ color: "#fff", fontSize: "19px", marginTop: "28px", marginBottom: "10px" }}>5. Contacto</h2>
+<p>Ante cualquier duda sobre un cambio, devolución o el estado de tu pedido, contactanos por WhatsApp al <a href="https://wa.me/2914261941" target="_blank" rel="noreferrer" style={{ color: "#d4af37" }}>+54 9 291 426-1941</a>.</p>
+</div>
+<footer style={S.footer}>
+<div style={{ ...S.footerInner, gridTemplateColumns: "1fr" }}>
+<div style={S.footerBottom}>
+<span>© {new Date().getFullYear()} Esencia Perfumeria. Todos los derechos reservados.</span>
+</div>
+</div>
+</footer>
+</div>
+);
+}
+
 return (
 <div style={S.body}>
 {bannerConfig && bannerConfig.bannerEnabled && bannerConfig.bannerTexto && !bannerDismissed && (
@@ -2598,6 +2639,7 @@ return pdpPhotos.length > 1 && (
 <div style={{ background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px 12px", marginBottom: "12px" }}>
 <label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}><input type="checkbox" checked={isGift} onChange={e => setIsGift(e.target.checked)} />🎁 Es un regalo</label>
 {isGift && (<textarea value={giftMessage} onChange={e => setGiftMessage(e.target.value)} placeholder="Mensaje para incluir (opcional)" style={{ ...S.input, marginTop: "8px", minHeight: "50px", resize: "vertical", width: "100%", boxSizing: "border-box" }} />)}
+{isGift && (<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "13px", cursor: "pointer", marginTop: "8px" }}><input type="checkbox" checked={giftWrap} onChange={e => setGiftWrap(e.target.checked)} />🎀 Envolver para regalo (sin costo)</label>)}
 {isGift && (<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "13px", cursor: "pointer", marginTop: "8px" }}><input type="checkbox" checked={hideGiftPrice} onChange={e => setHideGiftPrice(e.target.checked)} />No mostrar el precio en el paquete</label>)}
 </div>
 <div style={{ background: "#1a1a1a", border: "1px solid " + (checkoutError && !paymentMethod ? "#8b1a2a" : "#2b2b2b"), borderRadius: "8px", padding: "10px 12px", marginBottom: "12px" }}>
@@ -2705,6 +2747,7 @@ Pedir por WhatsApp
 <a href="https://wa.me/2914261941?text=Hola!%20Tengo%20una%20consulta%20sobre%20un%20pedido" target="_blank" rel="noreferrer" style={S.footerLink}>Consultar sobre un pedido</a>
 <a href="#" onClick={(e) => { e.preventDefault(); setAssistantOpen(true); }} style={S.footerLink}>Preguntas frecuentes</a>
 <a href="#advFilterSection" style={S.footerLink}>Encontra tu perfume ideal</a>
+<a href="/devoluciones" onClick={(e) => { e.preventDefault(); setPage("devoluciones"); window.history.pushState({}, "", "/devoluciones"); window.scrollTo(0, 0); }} style={S.footerLink}>Política de Cambios y Devoluciones</a>
 </div>
 <div>
 <div style={S.footerHeading}>Contacto</div>
