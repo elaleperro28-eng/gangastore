@@ -2282,8 +2282,8 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <div style={S.heroContent}>
 <div style={S.heroDivider}></div>
 <div style={S.heroTag}>PERFUMES ORIGINALES</div>
-<h1 style={S.heroMainTitle}>Más de 300 fragancias</h1>
-<p style={S.heroSub}>Diseñador · Árabes · Nicho</p>
+<h1 style={S.heroMainTitle}>Perfumería en Bahía Blanca</h1>
+<p style={S.heroSub}>Más de 300 fragancias · Diseñador · Árabes · Nicho</p>
 <div style={S.heroTrustRow} className="gs-hero-trust-row">
 <span style={S.heroTrustBadge}>✔ 100% Originales</span>
 <span style={S.heroTrustBadge}>🚚 Envío gratis en Bahía Blanca</span>
