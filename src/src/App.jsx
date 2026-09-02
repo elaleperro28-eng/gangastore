@@ -642,6 +642,7 @@ if (byLabel) return byLabel.key;
 return null;
 };
 
+const PLACEHOLDER_IMAGE_URL = "https://placehold.co/300x300?text=Sin+Imagen";
 const BULK_CSV_HEADERS = ["id", "nombre", "precio", "precioOriginal", "descripcion", "marca", "genero", "tipoPerfume", "temporada", "duracion", "notas", "disponibilidad", "diasHabiles", "imagen", "imageUrl", "foto2", "foto3", "inspiradoEn", "similitud", "stockBajo", "precioDecant5", "precioDecant10", "etiquetas"];
 const BULK_NUMERIC_FIELDS = ["precio", "precioOriginal", "similitud", "stockBajo", "precioDecant5", "precioDecant10"];
 const BULK_TEXT_FIELDS = ["descripcion", "marca", "genero", "tipoPerfume", "temporada", "duracion", "notas", "foto2", "foto3", "inspiradoEn"];
@@ -754,6 +755,8 @@ setBulkImagesCount(Object.keys(map).length);
 const bulkRowIsUpdate = (r) => !!(r.id && r.id.trim());
 const bulkRowExistingProduct = (r) => bulkRowIsUpdate(r) ? products.find(p => p.id === r.id.trim()) : null;
 const bulkRowHasImage = (r) => bulkRowIsUpdate(r) || !!(r.imageUrl && r.imageUrl.trim()) || !!(r.imagen && bulkFilesRef.current[r.imagen.trim().toLowerCase()]);
+// La imagen ya no es obligatoria para publicar: las filas sin imagen se publican
+// con un placeholder y se pueden completar despues a mano.
 const bulkRowAction = (r) => {
 if (!bulkRowIsUpdate(r)) return { type: "new" };
 const existing = bulkRowExistingProduct(r);
@@ -799,12 +802,14 @@ results.push({ nombre: label, ok: true, action: "Actualizado" });
 if (!r.nombre || !r.nombre.trim()) throw new Error("Falta el nombre");
 if (!r.precio || isNaN(Number(r.precio))) throw new Error("Falta el precio o no es un numero");
 let imageUrl = (r.imageUrl || "").trim();
-if (!imageUrl && r.imagen) {
+if (!imageUrl && r.imagen && r.imagen.trim()) {
 const file = bulkFilesRef.current[r.imagen.trim().toLowerCase()];
-if (!file) throw new Error(`No se encontro el archivo de imagen "${r.imagen}" entre las fotos seleccionadas`);
-imageUrl = await uploadFileToImgur(file);
+if (file) imageUrl = await uploadFileToImgur(file);
 }
-if (!imageUrl) throw new Error('Falta imagen: completa la columna "imageUrl" o "imagen"');
+// La imagen es opcional: si no se encontro o no se cargo ninguna, el producto
+// se publica igual con una imagen placeholder que despues se puede reemplazar
+// a mano desde "Editar producto".
+if (!imageUrl) imageUrl = PLACEHOLDER_IMAGE_URL;
 const disp = ["stock", "pedido", "agotado"].includes((r.disponibilidad || "").trim()) ? r.disponibilidad.trim() : "stock";
 const etiquetas = (r.etiquetas || "").split("|").map(t => normalizeTagInput(t)).filter(Boolean);
 const productData = {
@@ -877,13 +882,12 @@ setBannerSaving(false);
 const handleAddProduct = async () => {
 if (!form.nombre.trim()) return alert("Ingresa el nombre del producto");
 if (!form.precio) return alert("Ingresa el precio");
-if (!form.imageUrl) return alert("Sube una imagen primero");
 const productData = {
 nombre: form.nombre,
 precio: Number(form.precio),
 precioOriginal: form.precioOriginal ? Number(form.precioOriginal) : null,
 descripcion: form.descripcion,
-imageUrl: form.imageUrl,
+imageUrl: form.imageUrl || PLACEHOLDER_IMAGE_URL,
 foto2: form.foto2 || null,
 foto3: form.foto3 || null,
 fotoMano: form.fotoMano || null,
@@ -1775,7 +1779,7 @@ Mostrar el banner en el sitio
 </div>
 <ol style={{ color: "#bdbdbd", fontSize: "14px", lineHeight: "1.9", paddingLeft: "20px" }}>
 <li>Abrí el CSV en Excel o Google Sheets y editalo (para reponer stock, por ejemplo, cambiá la columna <strong>disponibilidad</strong> a "stock" y/o el <strong>precio</strong> en las filas que corresponda; dejá vacías las columnas que no querés tocar).</li>
-<li>En la columna <strong>imageUrl</strong> pegá el link de la foto (si ya la tenés subida a algún lado). Para fotos nuevas del celular/compu, dejá esa columna vacía y en <strong>imagen</strong> escribí el nombre exacto del archivo (ej: perfume1.jpg), y más abajo seleccioná esas fotos.</li>
+<li>La imagen es <strong>opcional</strong>: si ya la tenés subida a algún lado, pegá el link en la columna <strong>imageUrl</strong>; para fotos nuevas del celular/compu, dejá esa columna vacía y en <strong>imagen</strong> escribí el nombre exacto del archivo (ej: perfume1.jpg) y más abajo seleccioná esas fotos. Si dejás ambas columnas vacías, el perfume se publica igual con una imagen de "Sin Imagen" y después la editás a mano desde el catálogo.</li>
 <li>En <strong>etiquetas</strong> podés escribir varias separadas por "|", por ejemplo: mas_vendidos|top_verano|tendencia_gourmand_oscuro</li>
 <li>Guardá como CSV, subilo abajo, revisá la vista previa (te va a decir qué fila es nueva y cuál actualiza un producto existente) y tocá "Publicar todos".</li>
 </ol>
@@ -1811,7 +1815,7 @@ return (
 {action.type === "update" && <span style={{ color: "#e0b84a" }}>🔄 Actualiza</span>}
 {action.type === "error" && <span style={{ color: "#cc6666" }}>✗ {action.msg}</span>}
 </td>
-<td style={{ padding: "6px" }}>{bulkRowHasImage(r) ? <span style={{ color: "#9ddb9d" }}>✓ OK</span> : <span style={{ color: "#cc6666" }}>✗ Falta</span>}</td>
+<td style={{ padding: "6px" }}>{bulkRowHasImage(r) ? <span style={{ color: "#9ddb9d" }}>✓ OK</span> : <span style={{ color: "#e0b84a" }}>Sin imagen (se publica igual)</span>}</td>
 </tr>
 );
 })}
