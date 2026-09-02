@@ -447,20 +447,23 @@ return () => unsub4();
 }, [isAdmin]);
 
 // Si alguien entra directo con un link tipo "?p=<id>" (compartido por WhatsApp,
-// redes, etc.), abrimos automaticamente el producto correspondiente.
+// redes, Google Shopping, etc.), abrimos automaticamente el producto
+// correspondiente. El "?p=" se lee UNA sola vez con el valor que tenia la URL
+// en el primerisimo render (antes de que el efecto de arriba, que sincroniza
+// selectedProduct -> "?p=", lo borre al ver selectedProduct en null al montar).
 const deepLinkTriedRef = useRef(false);
+const initialDeepLinkPidRef = useRef(new URLSearchParams(window.location.search).get("p"));
 useEffect(() => {
 if (deepLinkTriedRef.current || products.length === 0) return;
 deepLinkTriedRef.current = true;
 try {
-const pid = new URLSearchParams(window.location.search).get("p");
+const pid = initialDeepLinkPidRef.current;
 if (pid) {
 const found = products.find(pr => pr.id === pid);
 if (found && isPerfume(found)) setSelectedProduct(found);
 }
 } catch {}
 }, [products]);
-
 // Datos estructurados (JSON-LD) para que Google pueda mostrar precio y
 // disponibilidad de los perfumes en los resultados de busqueda. Se arma
 // dinamicamente a partir del catalogo cargado, sin tocar el index.html.
