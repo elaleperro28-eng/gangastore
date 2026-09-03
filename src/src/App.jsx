@@ -464,6 +464,42 @@ if (found && isPerfume(found)) setSelectedProduct(found);
 }
 } catch {}
 }, [products]);
+// Cuando el cliente vuelve de pagar con Mercado Pago (Checkout Pro) retomamos
+// el pedido que habiamos guardado en localStorage antes de mandarlo a pagar y
+// recien ahi mandamos el mensaje de WhatsApp con el pedido ya pago, para que
+// nunca se le avise al negocio de un pedido que en realidad no se termino de
+// pagar. Si el pago fallo o quedo pendiente, no se manda nada por WhatsApp.
+useEffect(() => {
+const mpReturn = new URLSearchParams(window.location.search).get("mp_return");
+if (!mpReturn) return;
+try {
+const url = new URL(window.location.href);
+url.searchParams.delete("mp_return");
+window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+} catch {}
+if (mpReturn === "success") {
+try {
+const pending = JSON.parse(localStorage.getItem("mpPedidoPendiente") || "null");
+if (pending) {
+let msg = "Hola! Quiero confirmar mi pedido (ya pague con Mercado Pago ✅): " + pending.cartUsed.map(i => getProductName(i) + " x" + i.qty).join(", ");
+msg += " - Nombre: " + pending.customerName;
+msg += " - Direccion de envio: " + pending.customerAddress;
+if (pending.promoCode) msg += " - Codigo promocional: " + pending.promoCode;
+if (pending.customerPhone) msg += " - Mi telefono: " + pending.customerPhone;
+if (pending.isGift) msg += " - Es un regalo" + (pending.giftMessage ? (": \"" + pending.giftMessage + "\"") : "") + (pending.hideGiftPrice ? " (IMPORTANTE: no mostrar el precio en el paquete)" : "") + (pending.giftWrap ? " - Con envoltorio de regalo (sin costo)" : "");
+msg += " - Pago realizado con Mercado Pago - Total: " + formatPrice(pending.totalAEnviar);
+const waUrl = "https://wa.me/2914261941?text=" + encodeURIComponent(msg);
+window.open(waUrl, "_blank");
+localStorage.removeItem("mpPedidoPendiente");
+showToast("Pago acreditado! Te abrimos WhatsApp para coordinar el envio 💛");
+}
+} catch (e) { console.error("MP_RETURN_ERROR", e); }
+} else if (mpReturn === "pending") {
+showToast("Tu pago con Mercado Pago quedo pendiente de acreditacion. Te contactamos por WhatsApp apenas se confirme.");
+} else if (mpReturn === "failure") {
+showToast("El pago no se pudo procesar. Proba de nuevo o elegi otro medio de pago.");
+}
+}, []);
 // Datos estructurados (JSON-LD) para que Google pueda mostrar precio y
 // disponibilidad de los perfumes en los resultados de busqueda. Se arma
 // dinamicamente a partir del catalogo cargado, sin tocar el index.html.
@@ -1231,6 +1267,42 @@ return;
 handleCheckout(newCart);
 };
 
+// Arma el pedido y lo manda a pagar de verdad a Mercado Pago (Checkout Pro):
+// tarjeta, debito, dinero en cuenta y cuotas, todo eso lo resuelve Mercado
+// Pago solo en su propio checkout. Por ahora el descuento por puntos y por
+// codigo de referido no se aplican en este medio de pago (si el cliente
+// quiere usarlos, elige transferencia o efectivo).
+const handleMercadoPagoCheckout = async (cartUsed, totalCartUsed) => {
+let usedDiscount = 0;
+const decantLinesUsed = cartUsed.filter(i => i.isDecant);
+const decantComboCountUsed = new Set(decantLinesUsed.map(i => i.id.split("_decant")[0])).size;
+if (decantComboCountUsed >= DECANT_COMBO_MIN) {
+const decantComboSubtotalUsed = decantLinesUsed.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
+const decantComboDiscountUsed = Math.round(decantComboSubtotalUsed * DECANT_COMBO_DISCOUNT_PCT);
+if (decantComboDiscountUsed > 0) usedDiscount += decantComboDiscountUsed;
+}
+const totalAEnviar = Math.max(totalCartUsed - usedDiscount, 0);
+const orderId = "EP" + Date.now().toString(36).toUpperCase();
+try {
+localStorage.setItem("mpPedidoPendiente", JSON.stringify({
+orderId, cartUsed, customerName: customerName.trim(), customerAddress: customerAddress.trim(),
+promoCode, customerPhone, isGift, giftMessage, hideGiftPrice, giftWrap, totalAEnviar,
+}));
+} catch (e) {}
+const resp = await fetch("/api/create-preference", {
+method: "POST",
+headers: { "Content-Type": "application/json" },
+body: JSON.stringify({
+total: totalAEnviar,
+title: "Pedido Esencia Perfumeria (" + cartUsed.reduce((a, i) => a + i.qty, 0) + " productos)",
+orderId,
+}),
+});
+const data = await resp.json().catch(() => ({}));
+if (!resp.ok || !data.init_point) throw new Error((data && data.error) || "No pudimos iniciar el pago con Mercado Pago.");
+return data.init_point;
+};
+
 const handleCheckout = async (cartOverride) => {
 if (!customerName.trim() || !customerAddress.trim() || !paymentMethod) {
 setCheckoutError("Completa tu nombre, direccion y forma de pago (transferencia, Mercado Pago o efectivo) para poder enviar el pedido.");
@@ -1262,6 +1334,18 @@ try {
 if (window.fbq) window.fbq("track", "InitiateCheckout", { value: totalCartUsed, currency: "ARS", num_items: cartUsed.reduce((a, i) => a + i.qty, 0), content_type: "product", contents: cartUsed.map(i => ({ id: i.id, quantity: i.qty })) });
 if (window.gtag) window.gtag("event", "begin_checkout", { currency: "ARS", value: totalCartUsed, items: cartUsed.map(i => ({ item_id: i.id, item_name: getProductName(i), quantity: i.qty, price: Number(i.precio) || 0 })) });
 } catch (e) {}
+if (paymentMethod === "mercadopago") {
+try {
+const initPoint = await handleMercadoPagoCheckout(cartUsed, totalCartUsed);
+if (waWindow) { waWindow.location.href = initPoint; } else { window.location.href = initPoint; }
+} catch (e) {
+console.error("MP_CHECKOUT_ERROR", e);
+if (waWindow) { try { waWindow.close(); } catch (er) {} }
+setCheckoutError("No pudimos iniciar el pago con Mercado Pago. Proba de nuevo en un momento o elegi otro medio de pago.");
+setShowCart(true);
+}
+return;
+}
 let msg = "Hola! Quiero pedir: " + cartUsed.map(i => getProductName(i) + " x" + i.qty).join(", ");
 msg += " - Nombre: " + customerName.trim();
 msg += " - Direccion de envio: " + customerAddress.trim();
@@ -1269,7 +1353,6 @@ if (promoCode) msg += " - Codigo promocional: " + promoCode;
 if (customerPhone) msg += " - Mi telefono: " + customerPhone;
 if (isGift) msg += " - Es un regalo" + (giftMessage.trim() ? (": \"" + giftMessage.trim() + "\"") : "") + (hideGiftPrice ? " (IMPORTANTE: no mostrar el precio en el paquete)" : "") + (giftWrap ? " - Con envoltorio de regalo (sin costo)" : "");
 if (paymentMethod === "transferencia") msg += " - Pago por transferencia bancaria (ya envio el comprobante por este chat)";
-else if (paymentMethod === "mercadopago") msg += " - Pago por Mercado Pago (ya envio el comprobante por este chat)";
 else if (paymentMethod === "efectivo") msg += " - Pago en efectivo al momento de la entrega";
 if (totalCartUsed >= FREE_SHIPPING_THRESHOLD) msg += " - Envio gratis a todo el pais (el pedido supera $" + FREE_SHIPPING_THRESHOLD.toLocaleString("es-CL") + ")";
 let usedDiscount = 0;
@@ -2932,9 +3015,8 @@ return pdpPhotos.length > 1 && (
 </div>
 {paymentMethod === "mercadopago" && (
 <div style={{ marginTop: "10px", fontSize: "13px", color: "#e8ddc0", lineHeight: "1.7" }}>
-<div><strong style={{ color: "#d4af37" }}>Titular:</strong> {BANK_TRANSFER_INFO.titular}</div>
-<div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}><strong style={{ color: "#d4af37" }}>Alias:</strong><span>{BANK_TRANSFER_INFO.alias}</span><button type="button" onClick={() => { navigator.clipboard.writeText(BANK_TRANSFER_INFO.alias); showToast("Alias copiado"); }} style={{ background: "transparent", border: "1px solid #d4af37", color: "#d4af37", borderRadius: "5px", padding: "2px 8px", fontSize: "11px", cursor: "pointer" }}>Copiar</button></div>
-<p style={{ marginTop: "8px", marginBottom: 0, color: "#bdbdbd" }}>Transferi por Mercado Pago a ese alias y mandanos el comprobante por este mismo WhatsApp para confirmar tu pedido y coordinar el envio.</p>
+<p style={{ margin: 0 }}>💳 Te llevamos al checkout seguro de Mercado Pago para pagar con tarjeta, debito, dinero en cuenta o en cuotas. Apenas se acredite el pago te abrimos WhatsApp para coordinar el envio.</p>
+<p style={{ marginTop: "8px", marginBottom: 0, color: "#bdbdbd" }}>Por ahora los puntos y los codigos de referido no se descuentan pagando con Mercado Pago — para usarlos, elegi transferencia o efectivo.</p>
 </div>
 )}
 {paymentMethod === "transferencia" && (
@@ -2958,7 +3040,7 @@ return pdpPhotos.length > 1 && (
 {getOrderCutoffMessage(cart) && (<div style={{ display: "flex", alignItems: "flex-start", gap: "8px", fontSize: "12.5px", color: "#d4af37", fontWeight: 600 }}><span>{getOrderCutoffMessage(cart)}</span></div>)}
 </div>
 <button onClick={() => handleCheckout()} style={{ ...S.btn, display: "block", width: "100%", border: "none", textAlign: "center", padding: "12px", cursor: "pointer" }}>
-Pedir por WhatsApp
+{paymentMethod === "mercadopago" ? "Pagar con Mercado Pago" : "Pedir por WhatsApp"}
 </button>
 <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #2b2b2b" }}>
 <div style={{ flex: 1, textAlign: "center", fontSize: "10px", color: "#bdbdbd" }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d4af37" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block", margin: "0 auto 4px" }}><path d="M20 6L9 17l-5-5"></path></svg>100% Original</div>
