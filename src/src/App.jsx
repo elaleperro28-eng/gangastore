@@ -2564,7 +2564,7 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 )}
 </div>
 {filter === "decants" && (
-<div style={{ textAlign: "center", background: "rgba(212,175,55,0.18)", border: "1px solid #d4af37", borderRadius: "8px", padding: "10px 16px", marginBottom: "16px", fontSize: "13px", color: "#fff3d6", fontWeight: "700" }}>
+<div style={{ textAlign: "center", background: "linear-gradient(135deg, #ffe28a, #d4af37)", border: "2px solid #a8842c", borderRadius: "10px", padding: "14px 18px", marginBottom: "16px", fontSize: "16px", color: "#1a1200", fontWeight: "900", textTransform: "uppercase", letterSpacing: "0.4px", lineHeight: "1.4", boxShadow: "0 4px 18px rgba(212,175,55,0.5)" }}>
 🎁 Armá tu set: llevate {DECANT_COMBO_MIN} decants distintos y obtené {Math.round(DECANT_COMBO_DISCOUNT_PCT * 100)}% OFF automático en el carrito
 </div>
 )}
