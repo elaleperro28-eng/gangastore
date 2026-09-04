@@ -2564,7 +2564,7 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 )}
 </div>
 {filter === "decants" && (
-<div style={{ textAlign: "center", background: "rgba(212,175,55,0.12)", border: "1px solid #d4af37", borderRadius: "8px", padding: "10px 16px", marginBottom: "16px", fontSize: "13px", color: "#e8ddc0" }}>
+<div style={{ textAlign: "center", background: "rgba(212,175,55,0.18)", border: "1px solid #d4af37", borderRadius: "8px", padding: "10px 16px", marginBottom: "16px", fontSize: "13px", color: "#fff3d6", fontWeight: "700" }}>
 🎁 Armá tu set: llevate {DECANT_COMBO_MIN} decants distintos y obtené {Math.round(DECANT_COMBO_DISCOUNT_PCT * 100)}% OFF automático en el carrito
 </div>
 )}
@@ -2942,12 +2942,12 @@ return pdpPhotos.length > 1 && (
 <div style={{ fontSize: "11px", color: "#8a8a8a", marginTop: "6px" }}>En Bahia Blanca el envio ya es gratis siempre.</div>
 </div>
 {decantComboCount > 0 && decantComboCount < DECANT_COMBO_MIN && (
-<div style={{ background: "rgba(212,175,55,0.12)", border: "1px solid #d4af37", borderRadius: "8px", padding: "10px 14px", marginBottom: "16px", fontSize: "13px", color: "#e8ddc0" }}>
+<div style={{ background: "rgba(212,175,55,0.18)", border: "1px solid #d4af37", borderRadius: "8px", padding: "10px 14px", marginBottom: "16px", fontSize: "13px", color: "#fff3d6", fontWeight: "700" }}>
 🎁 Sumá {DECANT_COMBO_MIN - decantComboCount} decant{DECANT_COMBO_MIN - decantComboCount > 1 ? "s" : ""} distinto{DECANT_COMBO_MIN - decantComboCount > 1 ? "s" : ""} más y llevate {Math.round(DECANT_COMBO_DISCOUNT_PCT * 100)}% OFF en todos tus decants
 </div>
 )}
 {decantComboActive && (
-<div style={{ background: "rgba(126,168,122,0.14)", border: "1px solid #7ea87a", borderRadius: "8px", padding: "10px 14px", marginBottom: "16px", fontSize: "13px", color: "#cfe8cd" }}>
+<div style={{ background: "rgba(126,168,122,0.22)", border: "1px solid #7ea87a", borderRadius: "8px", padding: "10px 14px", marginBottom: "16px", fontSize: "13px", color: "#eafce6", fontWeight: "700" }}>
 🎉 Set de {decantComboCount} decants distintos: {Math.round(DECANT_COMBO_DISCOUNT_PCT * 100)}% OFF aplicado (-{formatPrice(decantComboDiscount)})
 </div>
 )}
