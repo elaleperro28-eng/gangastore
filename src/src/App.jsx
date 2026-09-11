@@ -1704,7 +1704,7 @@ featured.sort((a, b) => idIndex.get(a.id) - idIndex.get(b.id));
 return [...featured, ...rest];
 }
 if (config.modo === "aleatorio") {
-// Orden aleatorio pero estable: se recalcula una ve� por dia (no en cada
+// Orden aleatorio pero estable: se recalcula una vez por dia (no en cada
 // render) para que la grilla no salte mientras el cliente navega.
 const daySeed = new Date().toISOString().slice(0, 10);
 const rankFor = (id) => {
