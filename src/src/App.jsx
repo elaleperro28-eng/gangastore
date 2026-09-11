@@ -2707,7 +2707,7 @@ return (
 }
 @media (min-width: 900px) {
 .gs-pdp-top { flex-direction: row; align-items: flex-start; }
-.gs-pdp-media { position: sticky; top: 0; width: 50%; height: 100vh; padding: 48px; }
+.gs-pdp-media { position: sticky; top: 0; width: 50%; height: 100vh; padding: 48px; overflow-y: auto; }
 .gs-pdp-mainimg { max-height: 60vh; }
 .gs-pdp-info { width: 50%; padding: 90px 64px 64px 40px; }
 .gs-pdp-sticky-cta { display: none; }
