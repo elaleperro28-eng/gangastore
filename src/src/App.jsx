@@ -1180,6 +1180,7 @@ setCart(c => c.map(i => i.id === id ? { ...i, qty: capQtyDelta(i.qty + delta) } 
 const totalCart = cart.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
 const reviewCount = resenas.length;
 const avgRating = reviewCount > 0 ? (resenas.reduce((acc, r) => acc + (Number(r.estrellas) || 5), 0) / reviewCount).toFixed(1) : null;
+const resenasPublicadas = resenas.filter(r => r.estado !== "pendiente");
 const pointsToDiscount = (pts) => Math.floor((pts || 0) / 300) * 10000;
 const loadMyPoints = async (uid) => {
 setPointsLoading(true);
@@ -1517,6 +1518,21 @@ const name = getProductName(p).toLowerCase();
 return name.includes("perfum") || name.includes("edp") || name.includes("elixir") || name.includes("victoria secret") || name.includes("lattafa") || name.includes("bharara") || name.includes("phantom") || name.includes("givenchy") || name.includes("paco rabane") || name.includes("yara") || name.includes("club de nuit");
 };
 const cartSuggestions = products.filter(p => isPerfume(p) && !cart.some(c => c.id === p.id) && (recentlyViewed.includes(p.id) || (p.etiquetas || []).includes("mas_vendidos"))).sort((a, b) => (recentlyViewed.includes(b.id) ? 1 : 0) - (recentlyViewed.includes(a.id) ? 1 : 0)).slice(0, 3);
+// Productos parecidos para mostrar debajo de la ficha de un producto: primero
+// misma marca, despues mismo tipo/genero, despues misma categoria, sin repetir
+// y sin mostrar el mismo producto ni productos agotados.
+const getSimilarProducts = (product) => {
+if (!product) return [];
+const pool = products.filter(p => p.id !== product.id && getProductDisp(p) !== "agotado");
+const sameMarca = product.marca ? pool.filter(p => p.marca && p.marca === product.marca) : [];
+const sameTipoGenero = pool.filter(p => (product.tipoPerfume && p.tipoPerfume === product.tipoPerfume) || (product.genero && p.genero === product.genero));
+const sameCategoria = pool.filter(p => getProductCategoria(p) === getProductCategoria(product));
+const seen = new Set();
+const combined = [];
+[...sameMarca, ...sameTipoGenero, ...sameCategoria].forEach(p => { if (!seen.has(p.id)) { seen.add(p.id); combined.push(p); } });
+return combined.slice(0, 10);
+};
+const pdpSimilarProducts = selectedProduct ? getSimilarProducts(selectedProduct) : [];
 const DURACION_CATEGORIAS = ["Corta (hasta 6 horas)", "Media (6 a 8 horas)", "Larga (8 a 12 horas)", "Muy larga (12 horas o mas)"];
 const parseDuracionHoras = (str) => {
 if (!str) return null;
@@ -2672,6 +2688,7 @@ return (
 .gs-pdp-overlay { position: fixed; inset: 0; z-index: 200; background: #0b0b0b; overflow-y: auto; -webkit-overflow-scrolling: touch; animation: gsPdpFadeIn .22s ease; }
 @keyframes gsPdpFadeIn { from { opacity: 0; } to { opacity: 1; } }
 .gs-pdp-grid { max-width: 1320px; margin: 0 auto; display: flex; flex-direction: column; min-height: 100%; }
+.gs-pdp-top { display: flex; flex-direction: column; width: 100%; }
 .gs-pdp-media { background: #050505; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 70px 20px 24px; }
 .gs-pdp-info { padding: 24px 18px 130px; }
 .gs-pdp-topbtn { position: fixed; top: 18px; width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(212,175,55,0.35); background: rgba(15,15,15,0.75); backdrop-filter: blur(6px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; z-index: 220; transition: transform .15s ease, background .15s ease; }
@@ -2689,17 +2706,25 @@ return (
 .gs-pdp-photos-toggle, .gs-pdp-info-toggle { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 16px; padding: 13px 16px; background: transparent; border: 1px solid #d4af37; color: #d4af37; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; text-align: center; }
 }
 @media (min-width: 900px) {
-.gs-pdp-grid { flex-direction: row; align-items: flex-start; }
+.gs-pdp-top { flex-direction: row; align-items: flex-start; }
 .gs-pdp-media { position: sticky; top: 0; width: 50%; height: 100vh; padding: 48px; }
 .gs-pdp-mainimg { max-height: 60vh; }
 .gs-pdp-info { width: 50%; padding: 90px 64px 64px 40px; }
 .gs-pdp-sticky-cta { display: none; }
 }
+.gs-pdp-below { width: 100%; padding: 10px 20px 60px; box-sizing: border-box; }
+.gs-pdp-section-title { font-size: 22px; font-weight: 700; margin-bottom: 18px; padding-bottom: 8px; border-bottom: 2px solid #d4af37; font-family: 'Playfair Display', serif; color: #fff; }
+.gs-pdp-reviews-block { margin-bottom: 44px; }
+.gs-pdp-reviews-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.gs-pdp-similar-scroll { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; -webkit-overflow-scrolling: touch; }
+.gs-pdp-similar-card { flex-shrink: 0; width: 160px; background: #1a1a1a; border: 1px solid #2b2b2b; border-radius: 10px; padding: 10px; cursor: pointer; transition: border-color .15s ease; }
+.gs-pdp-similar-card:hover { border-color: #d4af37; }
 `}</style>
 <div className="gs-pdp-grid" onClick={e => e.stopPropagation()}>
 <button onClick={() => setSelectedProduct(null)} className="gs-pdp-topbtn" style={{ right: "20px" }} aria-label="Cerrar">✕</button>
 <button onClick={() => handleShareProduct(selectedProduct)} className="gs-pdp-topbtn" style={{ right: "72px" }} aria-label="Compartir">📤</button>
 <button onClick={() => toggleFavorite(selectedProduct.id)} className="gs-pdp-topbtn" style={{ right: "124px", color: favorites.includes(selectedProduct.id) ? "#d4af37" : "#fff" }} aria-label="Favorito">{favorites.includes(selectedProduct.id) ? "♥" : "♡"}</button>
+<div className="gs-pdp-top">
 <div className="gs-pdp-media">
 <div className="gs-pdp-mainimg-wrap">
 <img className="gs-pdp-mainimg" src={optimizeImg(modalActiveImg || getProductImage(selectedProduct))} alt={getProductName(selectedProduct)} />
@@ -2835,6 +2860,54 @@ return pdpPhotos.length > 1 && (
 </div>
 )}
 <a href={`https://wa.me/2914261941?text=${encodeURIComponent("Hola! Quiero consultar sobre: " + getProductName(selectedProduct))}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "13px", marginTop: "10px", fontSize: "15px", fontWeight: "700", borderRadius: "10px", background: "#25D366", color: "#fff", textDecoration: "none" }}>💬 Consultar por WhatsApp</a>
+</div>
+</div>
+<div className="gs-pdp-below">
+<div className="gs-pdp-reviews-block">
+<div className="gs-pdp-section-title">Opiniones de Clientes</div>
+{avgRating && <div style={{ ...S.ratingBadge, marginBottom: "14px" }}>★ {avgRating} de 5 · {reviewCount} {reviewCount === 1 ? "opinion" : "opiniones"}</div>}
+{resenasPublicadas.length === 0 ? (
+<p style={{ color: "#8a8a8a" }}>Todavia no hay opiniones cargadas.</p>
+) : (
+<div className="gs-pdp-reviews-grid">
+{resenasPublicadas.slice(0, 6).map(r => (
+<div key={r.id} style={S.resenaCard}>
+<div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
+{r.foto ? (
+<img src={optimizeImg(r.foto, "t")} alt={r.nombre} loading="lazy" decoding="async" style={S.resenaFoto} />
+) : (
+<div style={S.resenaAvatar}>{(r.nombre || "?").trim().charAt(0).toUpperCase()}</div>
+)}
+<div>
+<div style={{ fontWeight: "700", color: "#1a1a1a" }}>{r.nombre}</div>
+{r.ciudad && <div style={{ fontSize: "12px", color: "#7a7a7a" }}>{r.ciudad}</div>}
+</div>
+</div>
+<div style={{ color: "#d4af37", marginBottom: "8px" }}>{"★".repeat(r.estrellas || 5)}{"☆".repeat(5 - (r.estrellas || 5))}</div>
+<p style={{ color: "#3a3a3a", fontSize: "14px", fontStyle: "italic", margin: 0 }}>"{r.texto}"</p>
+</div>
+))}
+</div>
+)}
+<div style={{ textAlign: "center", marginTop: "18px" }}>
+<a href="/opinar" onClick={(e) => { e.preventDefault(); setSelectedProduct(null); setPage("opinar"); window.history.pushState({}, "", "/opinar"); window.scrollTo(0, 0); }} style={{ color: "#d4af37", fontSize: "13px", textDecoration: "underline", cursor: "pointer" }}>¿Ya nos compraste? Contanos tu experiencia</a>
+</div>
+</div>
+{pdpSimilarProducts.length > 0 && (
+<div className="gs-pdp-similar-block">
+<div className="gs-pdp-section-title">Productos Similares</div>
+<div className="gs-pdp-similar-scroll">
+{pdpSimilarProducts.map(p => (
+<div key={p.id} className="gs-pdp-similar-card" onClick={() => { setSelectedProduct(p); const ov = document.querySelector(".gs-pdp-overlay"); if (ov) ov.scrollTop = 0; }}>
+<img src={optimizeImg(getProductImage(p), "t")} alt={getProductName(p)} loading="lazy" decoding="async" style={{ width: "100%", height: "120px", objectFit: "contain", background: "#fff", borderRadius: "6px", marginBottom: "8px" }} />
+<div style={{ fontSize: "12px", color: "#fff", marginBottom: "6px", minHeight: "32px", lineHeight: "1.3" }}>{getProductName(p)}</div>
+<div style={{ fontSize: "13px", color: "#d4af37", fontWeight: "700" }}>{formatPrice(getProductPrice(p))}</div>
+{getDiscountPercent(p) && <div style={{ fontSize: "11px", color: "#8a8a8a", textDecoration: "line-through" }}>{formatPrice(getProductOriginalPrice(p))}</div>}
+</div>
+))}
+</div>
+</div>
+)}
 </div>
 <div className="gs-pdp-sticky-cta">
 <span className="gs-pdp-sticky-price">{formatPrice(getProductPrice(selectedProduct))}</span>
