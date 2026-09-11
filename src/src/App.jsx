@@ -89,6 +89,20 @@ const j = Math.floor(Math.random() * (i + 1));
 }
 return a;
 };
+// Categorias que el admin puede elegir para mostrar primero en el catalogo
+// (panel "Orden del catalogo"). El value combina el campo del producto y el
+// valor a priorizar, separados por ":".
+const CATALOG_ORDER_CATEGORIES = [
+{ value: "temporada:verano", label: "Verano" },
+{ value: "temporada:invierno", label: "Invierno" },
+{ value: "temporada:todo_anio", label: "Todo el ano" },
+{ value: "genero:masculino", label: "Hombre" },
+{ value: "genero:femenino", label: "Mujer" },
+{ value: "genero:unisex", label: "Unisex" },
+{ value: "tipoPerfume:arabe", label: "Arabes" },
+{ value: "tipoPerfume:disenador", label: "Disenador" },
+{ value: "etiqueta:mas_vendidos", label: "Mas vendidos" },
+];
 
 export default function App() {
 const [page, setPage] = useState(() => {
@@ -196,6 +210,9 @@ const [uploadingField, setUploadingField] = useState(null);
 const [showBulkUpload, setShowBulkUpload] = useState(false);
 const [bannerForm, setBannerForm] = useState(null);
 const [bannerSaving, setBannerSaving] = useState(false);
+const [catalogOrderForm, setCatalogOrderForm] = useState(null);
+const [catalogOrderSaving, setCatalogOrderSaving] = useState(false);
+const [catalogManualSearch, setCatalogManualSearch] = useState("");
 const [bannerDismissed, setBannerDismissed] = useState(() => {
   try { return sessionStorage.getItem("esenciaBannerDismissed") === "1"; } catch { return false; }
 });
@@ -916,6 +933,24 @@ console.error("BANNER_SAVE_ERROR", e);
 showToast("No se pudo guardar el banner");
 }
 setBannerSaving(false);
+};
+
+const handleSaveCatalogOrder = async () => {
+if (!catalogOrderForm) return;
+setCatalogOrderSaving(true);
+try {
+await setDoc(doc(db, "productos", "_site_catalog_order"), {
+modo: catalogOrderForm.modo || "novedades",
+categoriaClave: catalogOrderForm.categoriaClave || "",
+manualIds: catalogOrderForm.manualIds || [],
+updatedAt: serverTimestamp(),
+}, { merge: true });
+showToast("Orden del catalogo guardado");
+} catch (e) {
+console.error("CATALOG_ORDER_SAVE_ERROR", e);
+showToast("No se pudo guardar el orden del catalogo");
+}
+setCatalogOrderSaving(false);
 };
 
 const handleAddProduct = async () => {
@@ -1641,7 +1676,47 @@ const trendProducts = dedupedProducts.filter(p => (p.temporada || "") === "veran
 // Firestore que ya existen: lectura publica, escritura solo admin) que uso
 // para el banner editable del sitio, sin pedir permisos nuevos.
 const bannerConfig = products.find(p => p.id === "_site_banner") || null;
-const adminProductsList = products.filter(p => p.id !== "_site_banner");
+// Mismo truco que el banner: un documento especial en "productos" con el
+// orden del catalogo que elige el admin (categoria, manual o aleatorio).
+const catalogOrderConfig = products.find(p => p.id === "_site_catalog_order") || null;
+const adminProductsList = products.filter(p => p.id !== "_site_banner" && p.id !== "_site_catalog_order");
+// Aplica el orden elegido por el admin (panel "Orden del catalogo") a una
+// lista ya filtrada de productos. Se usa solo cuando el cliente tiene el
+// sort en "Novedades" (relevancia); si el cliente elige otro orden, ese manda.
+const applyCatalogOrder = (list, config) => {
+if (!config || !config.modo || config.modo === "novedades") return list;
+if (config.modo === "categoria" && config.categoriaClave) {
+const [campo, valor] = config.categoriaClave.split(":");
+const matches = [];
+const rest = [];
+list.forEach(p => {
+const esMatch = campo === "etiqueta" ? (p.etiquetas || []).includes(valor) : (p[campo] || "") === valor;
+(esMatch ? matches : rest).push(p);
+});
+return [...matches, ...rest];
+}
+if (config.modo === "manual" && Array.isArray(config.manualIds) && config.manualIds.length) {
+const idIndex = new Map(config.manualIds.map((id, i) => [id, i]));
+const featured = [];
+const rest = [];
+list.forEach(p => { (idIndex.has(p.id) ? featured : rest).push(p); });
+featured.sort((a, b) => idIndex.get(a.id) - idIndex.get(b.id));
+return [...featured, ...rest];
+}
+if (config.modo === "aleatorio") {
+// Orden aleatorio pero estable: se recalcula una ve� por dia (no en cada
+// render) para que la grilla no salte mientras el cliente navega.
+const daySeed = new Date().toISOString().slice(0, 10);
+const rankFor = (id) => {
+let h = 2166136261;
+const s = daySeed + "|" + id;
+for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+return (h >>> 0) / 4294967295;
+};
+return [...list].sort((a, b) => rankFor(a.id) - rankFor(b.id));
+}
+return list;
+};
 
 const getQuizRecommendations = () => {
 const { genero, ocasion, aroma, tipo } = quizAnswers;
@@ -1693,6 +1768,8 @@ filteredProducts = [...filteredProducts].sort((a, b) => getProductPrice(a) - get
 filteredProducts = [...filteredProducts].sort((a, b) => getProductPrice(b) - getProductPrice(a));
 } else if (sortBy === "vendidos") {
 filteredProducts = [...filteredProducts].sort((a, b) => ((b.etiquetas || []).includes("mas_vendidos") ? 1 : 0) - ((a.etiquetas || []).includes("mas_vendidos") ? 1 : 0));
+} else if (sortBy === "relevancia") {
+filteredProducts = applyCatalogOrder(filteredProducts, catalogOrderConfig);
 }
 
 const S = {
@@ -1857,6 +1934,82 @@ Mostrar el banner en el sitio
 <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
 <button onClick={handleSaveBanner} disabled={bannerSaving} style={{ ...S.btn, padding: "10px 20px", opacity: bannerSaving ? 0.6 : 1 }}>{bannerSaving ? "Guardando..." : "Guardar banner"}</button>
 {bannerForm && <button onClick={() => setBannerForm(null)} style={{ ...S.btnOutline, padding: "10px 20px" }}>Descartar cambios</button>}
+</div>
+</div>
+); })()}
+{(() => {
+const co = catalogOrderForm || { modo: (catalogOrderConfig && catalogOrderConfig.modo) || "novedades", categoriaClave: (catalogOrderConfig && catalogOrderConfig.categoriaClave) || "", manualIds: (catalogOrderConfig && catalogOrderConfig.manualIds) || [] };
+const manualProducts = co.manualIds.map(id => dedupedProducts.find(p => p.id === id)).filter(Boolean);
+const manualSearchResults = catalogManualSearch.trim() ? dedupedProducts.filter(p => !co.manualIds.includes(p.id) && normalizeTxt(getProductName(p)).includes(normalizeTxt(catalogManualSearch))).slice(0, 8) : [];
+const moveManual = (idx, dir) => {
+const ids = [...co.manualIds];
+const newIdx = idx + dir;
+if (newIdx < 0 || newIdx >= ids.length) return;
+[ids[idx], ids[newIdx]] = [ids[newIdx], ids[idx]];
+setCatalogOrderForm({ ...co, manualIds: ids });
+};
+const removeManual = (id) => setCatalogOrderForm({ ...co, manualIds: co.manualIds.filter(x => x !== id) });
+const addManual = (id) => { setCatalogOrderForm({ ...co, manualIds: [...co.manualIds, id] }); setCatalogManualSearch(""); };
+return (
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<h3 style={{ margin: "0 0 6px" }}>🔀 Orden del catálogo</h3>
+<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Elegi en que orden ven los clientes los productos al entrar a la tienda, en vez de mostrar siempre los cargados mas recientemente primero. Esto aplica cuando el cliente tiene el orden en "Novedades"; si elige "Mas vendidos" o un orden por precio, ese manda.</p>
+<div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
+<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}>
+<input type="radio" name="catalogOrderModo" checked={co.modo === "novedades"} onChange={() => setCatalogOrderForm({ ...co, modo: "novedades" })} />
+Mas nuevo primero (orden actual por defecto)
+</label>
+<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}>
+<input type="radio" name="catalogOrderModo" checked={co.modo === "categoria"} onChange={() => setCatalogOrderForm({ ...co, modo: "categoria" })} />
+Por categoria (mostrar primero una categoria elegida)
+</label>
+{co.modo === "categoria" && (
+<div style={{ marginLeft: "26px" }}>
+<select style={S.select} value={co.categoriaClave} onChange={e => setCatalogOrderForm({ ...co, categoriaClave: e.target.value })}>
+<option value="">Elegi una categoria...</option>
+{CATALOG_ORDER_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+</select>
+</div>
+)}
+<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}>
+<input type="radio" name="catalogOrderModo" checked={co.modo === "manual"} onChange={() => setCatalogOrderForm({ ...co, modo: "manual" })} />
+Manual (elijo yo cuales aparecen primero)
+</label>
+{co.modo === "manual" && (
+<div style={{ marginLeft: "26px" }}>
+<input type="text" placeholder="Buscar perfume para agregar..." value={catalogManualSearch} onChange={e => setCatalogManualSearch(e.target.value)} style={{ ...S.input, marginBottom: "8px" }} />
+{manualSearchResults.length > 0 && (
+<div style={{ background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", marginBottom: "10px", overflow: "hidden" }}>
+{manualSearchResults.map(p => (
+<div key={p.id} onClick={() => addManual(p.id)} style={{ padding: "8px 12px", cursor: "pointer", fontSize: "13px", borderBottom: "1px solid #2b2b2b" }}>+ {getProductName(p)}</div>
+))}
+</div>
+)}
+{manualProducts.length === 0 ? (
+<p style={{ color: "#8a8a8a", fontSize: "13px" }}>Todavia no elegiste productos. Los que agregues van a aparecer primero, en el orden de esta lista.</p>
+) : (
+<div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+{manualProducts.map((p, idx) => (
+<div key={p.id} style={{ display: "flex", alignItems: "center", gap: "8px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "6px 10px" }}>
+<span style={{ color: "#d4af37", fontWeight: "700", fontSize: "13px", minWidth: "20px" }}>{idx + 1}</span>
+<span style={{ flex: 1, fontSize: "13px" }}>{getProductName(p)}</span>
+<button onClick={() => moveManual(idx, -1)} disabled={idx === 0} style={{ ...S.btnGray, padding: "4px 8px", opacity: idx === 0 ? 0.4 : 1 }}>↑</button>
+<button onClick={() => moveManual(idx, 1)} disabled={idx === manualProducts.length - 1} style={{ ...S.btnGray, padding: "4px 8px", opacity: idx === manualProducts.length - 1 ? 0.4 : 1 }}>↓</button>
+<button onClick={() => removeManual(p.id)} style={{ ...S.btnGray, padding: "4px 8px" }}>✕</button>
+</div>
+))}
+</div>
+)}
+</div>
+)}
+<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}>
+<input type="radio" name="catalogOrderModo" checked={co.modo === "aleatorio"} onChange={() => setCatalogOrderForm({ ...co, modo: "aleatorio" })} />
+Aleatorio (mezclado entre todos, cambia solo)
+</label>
+</div>
+<div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+<button onClick={handleSaveCatalogOrder} disabled={catalogOrderSaving} style={{ ...S.btn, padding: "10px 20px", opacity: catalogOrderSaving ? 0.6 : 1 }}>{catalogOrderSaving ? "Guardando..." : "Guardar orden"}</button>
+{catalogOrderForm && <button onClick={() => setCatalogOrderForm(null)} style={{ ...S.btnOutline, padding: "10px 20px" }}>Descartar cambios</button>}
 </div>
 </div>
 ); })()}
