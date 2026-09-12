@@ -213,6 +213,15 @@ const [bannerSaving, setBannerSaving] = useState(false);
 const [catalogOrderForm, setCatalogOrderForm] = useState(null);
 const [catalogOrderSaving, setCatalogOrderSaving] = useState(false);
 const [catalogManualSearch, setCatalogManualSearch] = useState("");
+// El banner y el orden del catalogo son documentos especiales guardados en la
+// coleccion "productos" (mismas reglas de Firestore que ya existen: lectura
+// publica, escritura solo admin), pero se leen con su propio listener en vez
+// de buscarlos dentro de "products": esa lista viene de una consulta con
+// orderBy("createdAt"), y Firestore excluye de un orderBy cualquier documento
+// que no tenga ese campo (estos documentos de configuracion no lo tienen), asi
+// que nunca aparecian ahi aunque se hubieran guardado bien.
+const [bannerConfig, setBannerConfig] = useState(null);
+const [catalogOrderConfig, setCatalogOrderConfig] = useState(null);
 const [bannerDismissed, setBannerDismissed] = useState(() => {
   try { return sessionStorage.getItem("esenciaBannerDismissed") === "1"; } catch { return false; }
 });
@@ -369,6 +378,19 @@ setAvisosStock(snap.docs.map(d => ({ id: d.id, ...d.data() })));
 }, (e) => console.error("AVISOS_STOCK_LOAD_ERROR", e));
 return () => unsub3();
 }, [isAdmin]);
+
+// Banner del sitio y orden del catalogo: documentos sueltos (no una lista
+// ordenada), asi que se escuchan directo por su id en vez de salir de
+// "products" (ver comentario junto a bannerConfig/catalogOrderConfig).
+useEffect(() => {
+const unsubBanner = onSnapshot(doc(db, "productos", "_site_banner"), (snap) => {
+setBannerConfig(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+}, (e) => console.error("BANNER_LOAD_ERROR", e));
+const unsubCatalogOrder = onSnapshot(doc(db, "productos", "_site_catalog_order"), (snap) => {
+setCatalogOrderConfig(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+}, (e) => console.error("CATALOG_ORDER_LOAD_ERROR", e));
+return () => { unsubBanner(); unsubCatalogOrder(); };
+}, []);
 
 useEffect(() => {
 if (products.length > 0) {
@@ -1672,13 +1694,6 @@ return true;
 
 const recentlyViewedProducts = recentlyViewed.map(id => dedupedProducts.find(p => p.id === id)).filter(Boolean).slice(0, 8);
 const trendProducts = dedupedProducts.filter(p => (p.temporada || "") === "verano" && getProductDisp(p) !== "agotado");
-// Documento especial guardado en la coleccion "productos" (mismas reglas de
-// Firestore que ya existen: lectura publica, escritura solo admin) que uso
-// para el banner editable del sitio, sin pedir permisos nuevos.
-const bannerConfig = products.find(p => p.id === "_site_banner") || null;
-// Mismo truco que el banner: un documento especial en "productos" con el
-// orden del catalogo que elige el admin (categoria, manual o aleatorio).
-const catalogOrderConfig = products.find(p => p.id === "_site_catalog_order") || null;
 const adminProductsList = products.filter(p => p.id !== "_site_banner" && p.id !== "_site_catalog_order");
 // Aplica el orden elegido por el admin (panel "Orden del catalogo") a una
 // lista ya filtrada de productos. Se usa solo cuando el cliente tiene el
