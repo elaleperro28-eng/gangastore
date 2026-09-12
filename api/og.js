@@ -117,18 +117,28 @@ const description = descRaw
 ? descRaw.slice(0, 160)
 : "Compra " + nombre + " en Esencia Perfumeria. Envio gratis en Bahia Blanca y envios a todo el pais.";
 const image = p.imageUrl || p.imagen || p.foto || p.image || p.img || "";
-// El canonical/og:url apunta al formato "?p=" (el mismo que ya usan el
-// sitemap, el JSON-LD y el canonical dinamico del cliente), no a esta
-// ruta /producto/:id que es solo la "puerta de entrada" tecnica.
-const pageUrl = SITE_URL + "/?p=" + encodeURIComponent(String(id));
+// El <link rel="canonical"> apunta al formato "?p=" (el mismo que ya usan
+// el sitemap, el JSON-LD y el canonical dinamico del cliente): es la URL
+// que Google debe indexar para este producto.
+//
+// El og:url es otra cosa: Facebook (y otros bots) lo usan como "URL
+// definitiva" y vuelven a pedir ESA url para confirmar/deduplicar el
+// preview. Si le pasamos la de "?p=", el bot termina pidiendo esa url,
+// que no pasa por esta funcion (nadie la reescribe a /producto/:id) y le
+// devuelve el index.html generico -> el preview del producto se pisaba
+// con el de la home. Por eso og:url usa /producto/:id: es la unica url
+// que, la pida quien la pida, siempre resuelve a las etiquetas de este
+// producto.
+const canonicalUrl = SITE_URL + "/?p=" + encodeURIComponent(String(id));
+const ogUrl = SITE_URL + "/producto/" + encodeURIComponent(String(id));
 
 let html = baseHtml;
 html = html.replace(/(<title>)[^<]*(<\/title>)/, "$1" + esc(title) + "$2");
 html = replaceAttr(html, /(<meta\s+name="description"\s+content=")[^"]*(")/, description);
-html = replaceAttr(html, /(<link\s+rel="canonical"\s+href=")[^"]*(")/, pageUrl);
+html = replaceAttr(html, /(<link\s+rel="canonical"\s+href=")[^"]*(")/, canonicalUrl);
 html = replaceAttr(html, /(<meta\s+property="og:title"\s+content=")[^"]*(")/, title);
 html = replaceAttr(html, /(<meta\s+property="og:description"\s+content=")[^"]*(")/, description);
-html = replaceAttr(html, /(<meta\s+property="og:url"\s+content=")[^"]*(")/, pageUrl);
+html = replaceAttr(html, /(<meta\s+property="og:url"\s+content=")[^"]*(")/, ogUrl);
 html = replaceAttr(html, /(<meta\s+name="twitter:title"\s+content=")[^"]*(")/, title);
 html = replaceAttr(html, /(<meta\s+name="twitter:description"\s+content=")[^"]*(")/, description);
 if (image) {
