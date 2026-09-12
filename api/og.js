@@ -1,15 +1,26 @@
 // Sirve una version de la home con el <title>, meta description, Open Graph
-// y Twitter Card especificos de un perfume a los bots que arman la vista
-// previa de los links (WhatsApp, Facebook, Twitter, etc). Esos bots no
-// ejecutan JavaScript, asi que nunca ven los cambios que el sitio hace en
-// el navegador (title dinamico, canonical dinamico, JSON-LD por producto).
-// Sin esto, compartir cualquier perfume por WhatsApp siempre mostraba la
-// vista previa generica de la home (mismo titulo, misma foto), sin importar
-// que producto se compartia.
+// y Twitter Card especificos de un perfume para la vista previa de los
+// links (WhatsApp, Facebook, Twitter, etc). Sin esto, el <title> y el
+// canonical dinamicos que ya actualiza el cliente (ver App.jsx) nunca se
+// ven en esas vistas previas, porque esos bots no ejecutan JavaScript: solo
+// leen el HTML tal cual llega del servidor. Resultado: compartir cualquier
+// perfume por WhatsApp siempre mostraba la vista previa generica de la
+// home (mismo titulo, misma foto), sin importar que producto se compartia.
 //
-// vercel.json solo redirige aca los pedidos a "/" que traen "?p=<id>" Y un
-// User-Agent conocido de bot de vista previa. Las personas reales siguen
-// entrando siempre al index.html normal, la app de React no se toca.
+// vercel.json redirige aca /producto/:id -> /api/og?id=:id. Se eligio una
+// ruta nueva (en vez de intentar interceptar "/" segun el User-Agent) por
+// una limitacion real de Vercel: los archivos estaticos (como index.html
+// en la raiz) siempre tienen prioridad sobre los "rewrites", asi que un
+// rewrite condicional sobre "/" nunca llega a ejecutarse. /producto/:id no
+// tiene ningun archivo estatico con ese nombre, asi que el rewrite si
+// funciona.
+//
+// Todo el mundo entra por /producto/:id (bots Y personas reales), no solo
+// los bots: la funcion arma el HTML con las etiquetas correctas para
+// cualquiera, y ademas inyecta un pequeno script que hace
+// history.replaceState a "/?p=<id>" antes de que cargue el bundle de
+// React, asi la app abre el producto exactamente igual que con los links
+// "?p=" de toda la vida (deep-link ya soportado, sin tocar nada de eso).
 //
 // Lee el mismo catalogo publico de Firestore que ya usa el sitio (misma
 // coleccion "productos", lectura publica ya permitida) asi que no necesita
@@ -45,6 +56,13 @@ return String(s == null ? "" : s)
 .replace(/'/g, "&apos;");
 }
 
+// Version segura para meter un valor arbitrario (el id de la URL) dentro de
+// un <script> inline: evita que un id con comillas o "</script>" rompa el
+// HTML o inyecte codigo.
+function jsStringLiteral(s) {
+return JSON.stringify(String(s)).replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
+}
+
 async function fetchProduct(id) {
 const url = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents/productos/" + encodeURIComponent(id);
 const r = await fetch(url);
@@ -77,14 +95,14 @@ res.status(502).send("No se pudo obtener index.html");
 return;
 }
 
-try {
-const id = req.query.p;
+const id = req.query.id;
 if (!id) {
 res.setHeader("Content-Type", "text/html; charset=utf-8");
 res.status(200).send(baseHtml);
 return;
 }
 
+try {
 const p = await fetchProduct(String(id));
 if (!p || !p.nombre) {
 res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -99,6 +117,9 @@ const description = descRaw
 ? descRaw.slice(0, 160)
 : "Compra " + nombre + " en Esencia Perfumeria. Envio gratis en Bahia Blanca y envios a todo el pais.";
 const image = p.imageUrl || p.imagen || p.foto || p.image || p.img || "";
+// El canonical/og:url apunta al formato "?p=" (el mismo que ya usan el
+// sitemap, el JSON-LD y el canonical dinamico del cliente), no a esta
+// ruta /producto/:id que es solo la "puerta de entrada" tecnica.
 const pageUrl = SITE_URL + "/?p=" + encodeURIComponent(String(id));
 
 let html = baseHtml;
@@ -119,6 +140,13 @@ html = replaceAttr(html, /(<meta\s+property="og:image:alt"\s+content=")[^"]*(")/
 html = removeTag(html, /\s*<meta\s+property="og:image:width"\s+content="[^"]*"\s*\/>\n?/);
 html = removeTag(html, /\s*<meta\s+property="og:image:height"\s+content="[^"]*"\s*\/>\n?/);
 }
+
+// Para que una persona real que abre este link vea la app normal con el
+// producto ya abierto: antes de que cargue el bundle de React, cambiamos
+// la URL (sin recargar) a "/?p=<id>", que es el formato que la app ya
+// sabe leer al iniciar.
+const bootstrapScript = "<script>history.replaceState(null,\"\",\"/?p=\"+" + jsStringLiteral(id) + ");</script>\n";
+html = html.replace(/<head>/, "<head>\n" + bootstrapScript);
 
 res.setHeader("Content-Type", "text/html; charset=utf-8");
 res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600, stale-while-revalidate=86400");
