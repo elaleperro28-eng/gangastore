@@ -216,6 +216,9 @@ const [catalogManualSearch, setCatalogManualSearch] = useState("");
 const [cupones, setCupones] = useState([]);
 const [cuponForm, setCuponForm] = useState({ codigo: "", tipo: "porcentaje", valor: "", minCompra: "", fechaExpiracion: "" });
 const [cuponSaving, setCuponSaving] = useState(false);
+const [newsletterEmail, setNewsletterEmail] = useState("");
+const [newsletterSaving, setNewsletterSaving] = useState(false);
+const [newsletterSubs, setNewsletterSubs] = useState([]);
 // El banner y el orden del catalogo son documentos especiales guardados en la
 // coleccion "productos" (mismas reglas de Firestore que ya existen: lectura
 // publica, escritura solo admin), pero se leen con su propio listener en vez
@@ -390,6 +393,17 @@ const unsub3 = onSnapshot(q3, (snap) => {
 setAvisosStock(snap.docs.map(d => ({ id: d.id, ...d.data() })));
 }, (e) => console.error("AVISOS_STOCK_LOAD_ERROR", e));
 return () => unsub3();
+}, [isAdmin]);
+
+// Los emails de newsletter tambien se cargan solo para el admin (misma logica
+// de privacidad que los avisos de stock).
+useEffect(() => {
+if (!isAdmin) { setNewsletterSubs([]); return; }
+const qNews = query(collection(db, "newsletterSuscriptores"), orderBy("createdAt", "desc"));
+const unsubNews = onSnapshot(qNews, (snap) => {
+setNewsletterSubs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+}, (e) => console.error("NEWSLETTER_LOAD_ERROR", e));
+return () => unsubNews();
 }, [isAdmin]);
 
 // Banner del sitio y orden del catalogo: documentos sueltos (no una lista
@@ -1018,6 +1032,38 @@ try { await updateDoc(doc(db, "cupones", c.id), { activo: !c.activo }); } catch 
 const handleDeleteCupon = async (id) => {
 if (!confirm("Eliminar el cupon " + id + "?")) return;
 try { await deleteDoc(doc(db, "cupones", id)); } catch (e) { console.error("CUPON_DELETE_ERROR", e); }
+};
+
+// Captura de email para newsletter (ademas de la Lista VIP de WhatsApp). El id
+// del documento es el email en minuscula para no duplicar si alguien se
+// vuelve a suscribir.
+const handleSubscribeNewsletter = async () => {
+const email = (newsletterEmail || "").trim().toLowerCase();
+if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast("Ingresa un email valido"); return; }
+setNewsletterSaving(true);
+try {
+await setDoc(doc(db, "newsletterSuscriptores", email), {
+email,
+createdAt: serverTimestamp(),
+}, { merge: true });
+setNewsletterEmail("");
+showToast("Listo! Te vamos a avisar de las novedades por email");
+} catch (e) {
+console.error("NEWSLETTER_SUBSCRIBE_ERROR", e);
+showToast("No pudimos guardar tu email, intenta de nuevo");
+}
+setNewsletterSaving(false);
+};
+
+const exportNewsletterToCSV = () => {
+if (!newsletterSubs.length) { alert("Todavia no hay suscriptores para exportar."); return; }
+const rows = [["email", "fecha"], ...newsletterSubs.map(s => [s.email || s.id, s.createdAt && s.createdAt.toDate ? s.createdAt.toDate().toLocaleDateString("es-AR") : ""])];
+downloadCSVFile(rows, "suscriptores_newsletter_esencia.csv");
+};
+
+const handleDeleteNewsletterSub = async (id) => {
+if (!confirm("Eliminar este suscriptor?")) return;
+try { await deleteDoc(doc(db, "newsletterSuscriptores", id)); } catch (e) { console.error("NEWSLETTER_DELETE_ERROR", e); }
 };
 
 const handleAddProduct = async () => {
@@ -2142,6 +2188,23 @@ Aleatorio (mezclado entre todos, cambia solo)
 <button onClick={() => handleToggleCupon(c)} style={{ ...S.btnOutline, padding: "6px 12px", fontSize: "12px" }}>{c.activo ? "Pausar" : "Activar"}</button>
 <button onClick={() => handleDeleteCupon(c.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px" }}>Eliminar</button>
 </div>
+</div>
+))}
+</div>
+)}
+</div>
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<h3 style={{ margin: "0 0 6px" }}>📧 Suscriptores al newsletter ({newsletterSubs.length})</h3>
+<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Emails que dejaron en el pie del sitio, ademas de la Lista VIP de WhatsApp. Exportalos para mandarles novedades por email.</p>
+<button onClick={exportNewsletterToCSV} style={{ ...S.btnOutline, marginBottom: "16px" }}>⬇ Exportar CSV</button>
+{newsletterSubs.length === 0 ? (
+<p style={{ color: "#9a9a9a", fontSize: "13px" }}>Todavia no hay suscriptores.</p>
+) : (
+<div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "260px", overflowY: "auto" }}>
+{newsletterSubs.map(s => (
+<div key={s.id} style={{ display: "flex", alignItems: "center", gap: "10px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px 12px" }}>
+<span style={{ flex: 1, fontSize: "13px" }}>{s.email || s.id}</span>
+<button onClick={() => handleDeleteNewsletterSub(s.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px" }}>Eliminar</button>
 </div>
 ))}
 </div>
@@ -3463,6 +3526,14 @@ return pdpPhotos.length > 1 && (
 <span style={S.footerTrustBadge}>✔ 100% Original</span>
 <span style={S.footerTrustBadge}>🚚 Envios a todo el pais</span>
 <span style={S.footerTrustBadge}>🔄 Cambios sin problema</span>
+</div>
+</div>
+<div>
+<div style={S.footerHeading}>Novedades por email</div>
+<p style={S.footerText}>Sumate para enterarte de lanzamientos y promos exclusivas antes que nadie.</p>
+<div style={{ display: "flex", gap: "6px", marginTop: "10px" }}>
+<input type="email" value={newsletterEmail} onChange={e => setNewsletterEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSubscribeNewsletter()} placeholder="Tu email" style={{ ...S.input, padding: "8px 10px", fontSize: "13px" }} />
+<button onClick={handleSubscribeNewsletter} disabled={newsletterSaving} style={{ ...S.btn, padding: "8px 14px", fontSize: "13px", opacity: newsletterSaving ? 0.6 : 1, whiteSpace: "nowrap" }}>{newsletterSaving ? "..." : "Sumarme"}</button>
 </div>
 </div>
 <div>
