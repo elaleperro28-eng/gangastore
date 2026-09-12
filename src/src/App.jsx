@@ -674,7 +674,12 @@ script.textContent = JSON.stringify(productLd);
 // producto, para que cada perfume tenga su propio titulo al indexarse en
 // Google o al compartir el link (antes quedaba siempre el titulo generico
 // de la home, tanto en busquedas como al pegar el link en WhatsApp).
+// El <link rel="canonical"> tambien se actualiza: antes quedaba fijo en la
+// home en todas las fichas de producto, lo que le decia a Google que NO
+// indexe esas 100+ URLs del sitemap como paginas propias (le pisaba el
+// trabajo al title/description/JSON-LD de cada producto).
 useEffect(() => {
+let canonical = document.querySelector('link[rel="canonical"]');
 if (selectedProduct && isPerfume(selectedProduct)) {
 const nombre = getProductName(selectedProduct);
 document.title = nombre + " | Esencia Perfumeria";
@@ -683,10 +688,12 @@ if (metaDesc) {
 const desc = (selectedProduct.descripcion || "").trim();
 metaDesc.setAttribute("content", desc ? desc.slice(0, 160) : ("Compra " + nombre + " en Esencia Perfumeria. Envio gratis en Bahia Blanca y envios a todo el pais."));
 }
+if (canonical) canonical.setAttribute("href", "https://www.esenciaperfumeria.com.ar/?p=" + selectedProduct.id);
 } else {
 document.title = "Perfumes en Bahía Blanca | Esencia Perfumeria - Envío Gratis";
 const metaDesc = document.querySelector('meta[name="description"]');
 if (metaDesc) metaDesc.setAttribute("content", "Perfumes arabes y de disenador 100% originales en Bahia Blanca, con envio gratis en la ciudad y envios a todo el pais. Mas de 300 fragancias.");
+if (canonical) canonical.setAttribute("href", "https://www.esenciaperfumeria.com.ar/");
 }
 }, [selectedProduct]);
 
