@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp } from "firebase/app";
 import { initializeFirestore, persistentLocalCache, persistentSingleTabManager, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy, getDoc, setDoc, where, getDocs, limit } from "firebase/firestore";
 
@@ -220,6 +220,7 @@ const [newsletterEmail, setNewsletterEmail] = useState("");
 const [newsletterSaving, setNewsletterSaving] = useState(false);
 const [newsletterSubs, setNewsletterSubs] = useState([]);
 const [pedidos, setPedidos] = useState([]);
+const [hoverVentaDia, setHoverVentaDia] = useState(null);
 // El banner y el orden del catalogo son documentos especiales guardados en la
 // coleccion "productos" (mismas reglas de Firestore que ya existen: lectura
 // publica, escritura solo admin), pero se leen con su propio listener en vez
@@ -417,6 +418,55 @@ setPedidos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
 }, (e) => console.error("PEDIDOS_LOAD_ERROR", e));
 return () => unsubPedidos();
 }, [isAdmin]);
+
+// Estadisticas para el Dashboard de ventas: se calculan en el cliente a partir
+// de los ultimos 200 pedidos ya cargados arriba (no se hacen consultas nuevas
+// a Firestore). Alcanza para un negocio de este tamano; si en el futuro hace
+// falta mas historial, conviene guardar agregados aparte en vez de traer mas
+// pedidos al cliente.
+const ventasStats = useMemo(() => {
+if (!pedidos.length) return null;
+const totalFacturado = pedidos.reduce((a, p) => a + (Number(p.total) || 0), 0);
+const cantidadPedidos = pedidos.length;
+const ticketPromedio = totalFacturado / cantidadPedidos;
+
+const porOrigen = { mercadopago: 0, whatsapp: 0 };
+pedidos.forEach(p => {
+const key = p.origen === "mercadopago" ? "mercadopago" : "whatsapp";
+porOrigen[key] += Number(p.total) || 0;
+});
+
+const hoy = new Date();
+hoy.setHours(0, 0, 0, 0);
+const dias = [];
+for (let i = 13; i >= 0; i--) {
+const d = new Date(hoy);
+d.setDate(d.getDate() - i);
+dias.push(d);
+}
+const ventasPorDia = dias.map(d => {
+const siguienteDia = new Date(d);
+siguienteDia.setDate(siguienteDia.getDate() + 1);
+const total = pedidos.reduce((a, p) => {
+const fecha = p.createdAt && p.createdAt.toDate ? p.createdAt.toDate() : null;
+if (fecha && fecha >= d && fecha < siguienteDia) return a + (Number(p.total) || 0);
+return a;
+}, 0);
+return { fecha: d, total };
+});
+
+const productosMap = {};
+pedidos.forEach(p => {
+(p.items || []).forEach(it => {
+const key = it.nombre || it.id || "Producto";
+if (!productosMap[key]) productosMap[key] = { nombre: key, cantidad: 0 };
+productosMap[key].cantidad += Number(it.qty) || 0;
+});
+});
+const topProductos = Object.values(productosMap).sort((a, b) => b.cantidad - a.cantidad).slice(0, 5);
+
+return { totalFacturado, cantidadPedidos, ticketPromedio, porOrigen, ventasPorDia, topProductos };
+}, [pedidos]);
 
 // Banner del sitio y orden del catalogo: documentos sueltos (no una lista
 // ordenada), asi que se escuchan directo por su id en vez de salir de
@@ -2611,6 +2661,82 @@ avisosStock.map(a => (
 <button onClick={() => handleDeleteAviso(a.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer" }}>Eliminar</button>
 </div>
 ))
+)}
+</div>
+<div style={{ marginTop: "40px" }}>
+<h2 style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>📊 Dashboard de ventas</h2>
+<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Calculado sobre los ultimos 200 pedidos registrados (Mercado Pago aprobados + enviados por WhatsApp).</p>
+{!ventasStats ? (
+<p style={{ color: "#9a9a9a" }}>Todavia no hay pedidos registrados para mostrar estadisticas.</p>
+) : (
+<>
+<div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "20px" }}>
+<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Facturado (ult. 200)</div>
+<div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{formatPrice(ventasStats.totalFacturado)}</div>
+</div>
+<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Ticket promedio</div>
+<div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{formatPrice(ventasStats.ticketPromedio)}</div>
+</div>
+<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Via Mercado Pago</div>
+<div style={{ color: "#9ddb9d", fontSize: "22px", fontWeight: "700" }}>{ventasStats.totalFacturado > 0 ? Math.round((ventasStats.porOrigen.mercadopago / ventasStats.totalFacturado) * 100) : 0}%</div>
+</div>
+<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Via WhatsApp</div>
+<div style={{ color: "#e0b84a", fontSize: "22px", fontWeight: "700" }}>{ventasStats.totalFacturado > 0 ? Math.round((ventasStats.porOrigen.whatsapp / ventasStats.totalFacturado) * 100) : 0}%</div>
+</div>
+</div>
+
+<div style={{ ...S.adminCard, marginBottom: "20px" }}>
+<div style={{ color: "#bdbdbd", fontSize: "13px", marginBottom: "14px" }}>Ventas por dia (ultimos 14 dias)</div>
+<div style={{ overflowX: "auto" }}>
+<div style={{ display: "flex", alignItems: "flex-end", gap: "6px", height: "120px", minWidth: "380px", borderBottom: "1px solid #2b2b2b", paddingBottom: "4px" }}>
+{(() => {
+const max = Math.max(...ventasStats.ventasPorDia.map(d => d.total), 1);
+return ventasStats.ventasPorDia.map((d, i) => (
+<div key={i} onMouseEnter={() => setHoverVentaDia(i)} onMouseLeave={() => setHoverVentaDia(h => h === i ? null : h)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end", position: "relative", cursor: "default" }}>
+{hoverVentaDia === i && (
+<div style={{ position: "absolute", bottom: "100%", marginBottom: "6px", background: "#0f0f0f", border: "1px solid #d4af37", borderRadius: "6px", padding: "4px 8px", fontSize: "11px", color: "#fff", whiteSpace: "nowrap", zIndex: 5 }}>
+{d.fecha.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })} · {formatPrice(d.total)}
+</div>
+)}
+<div style={{ width: "100%", maxWidth: "22px", height: `${Math.max((d.total / max) * 100, d.total > 0 ? 3 : 0)}%`, background: d.total > 0 ? "linear-gradient(180deg, #e0c158, #d4af37)" : "transparent", borderRadius: "4px 4px 0 0" }} />
+</div>
+));
+})()}
+</div>
+<div style={{ display: "flex", gap: "6px", minWidth: "380px", marginTop: "4px" }}>
+{ventasStats.ventasPorDia.map((d, i) => (
+<div key={i} style={{ flex: 1, textAlign: "center", fontSize: "10px", color: "#898781" }}>{String(d.fecha.getDate()).padStart(2, "0")}</div>
+))}
+</div>
+</div>
+</div>
+
+<div style={S.adminCard}>
+<div style={{ color: "#bdbdbd", fontSize: "13px", marginBottom: "14px" }}>Productos mas vendidos (por unidades)</div>
+{ventasStats.topProductos.length === 0 ? (
+<p style={{ color: "#9a9a9a", margin: 0 }}>Sin datos todavia.</p>
+) : (
+<div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+{(() => {
+const maxCantidad = Math.max(...ventasStats.topProductos.map(p => p.cantidad), 1);
+return ventasStats.topProductos.map((p, i) => (
+<div key={i} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+<div style={{ width: "140px", fontSize: "13px", color: "#fff", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nombre}</div>
+<div style={{ flex: 1, background: "#0f0f0f", borderRadius: "4px", height: "18px", overflow: "hidden" }}>
+<div style={{ width: `${(p.cantidad / maxCantidad) * 100}%`, height: "100%", background: "linear-gradient(90deg, #d4af37, #e0c158)", borderRadius: "4px" }} />
+</div>
+<div style={{ width: "60px", textAlign: "right", fontSize: "13px", color: "#d4af37", fontWeight: "700", flexShrink: 0 }}>{p.cantidad} u.</div>
+</div>
+));
+})()}
+</div>
+)}
+</div>
+</>
 )}
 </div>
 <div style={{ marginTop: "40px" }}>
