@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
-import { initializeFirestore, persistentLocalCache, persistentSingleTabManager, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy, getDoc, setDoc, where, getDocs } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentSingleTabManager, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, orderBy, getDoc, setDoc, where, getDocs, limit } from "firebase/firestore";
 
 const firebaseConfig = {
 apiKey: "AIzaSyAQlmsNO4bF9SVfwrcK6_-HJ_KFrcjTINg",
@@ -219,6 +219,7 @@ const [cuponSaving, setCuponSaving] = useState(false);
 const [newsletterEmail, setNewsletterEmail] = useState("");
 const [newsletterSaving, setNewsletterSaving] = useState(false);
 const [newsletterSubs, setNewsletterSubs] = useState([]);
+const [pedidos, setPedidos] = useState([]);
 // El banner y el orden del catalogo son documentos especiales guardados en la
 // coleccion "productos" (mismas reglas de Firestore que ya existen: lectura
 // publica, escritura solo admin), pero se leen con su propio listener en vez
@@ -406,6 +407,17 @@ setNewsletterSubs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
 return () => unsubNews();
 }, [isAdmin]);
 
+// Registro de pedidos: tambien solo para el admin, y limitado a los ultimos
+// 200 para no traer toda la coleccion completa a medida que crece.
+useEffect(() => {
+if (!isAdmin) { setPedidos([]); return; }
+const qPedidos = query(collection(db, "pedidos"), orderBy("createdAt", "desc"), limit(200));
+const unsubPedidos = onSnapshot(qPedidos, (snap) => {
+setPedidos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+}, (e) => console.error("PEDIDOS_LOAD_ERROR", e));
+return () => unsubPedidos();
+}, [isAdmin]);
+
 // Banner del sitio y orden del catalogo: documentos sueltos (no una lista
 // ordenada), asi que se escuchan directo por su id en vez de salir de
 // "products" (ver comentario junto a bannerConfig/catalogOrderConfig).
@@ -554,6 +566,23 @@ if (pending.promoCode) msg += " - Codigo promocional: " + pending.promoCode;
 if (pending.customerPhone) msg += " - Mi telefono: " + pending.customerPhone;
 if (pending.isGift) msg += " - Es un regalo" + (pending.giftMessage ? (": \"" + pending.giftMessage + "\"") : "") + (pending.hideGiftPrice ? " (IMPORTANTE: no mostrar el precio en el paquete)" : "") + (pending.giftWrap ? " - Con envoltorio de regalo (sin costo)" : "");
 msg += " - Pago realizado con Mercado Pago - Total: " + formatPrice(pending.totalAEnviar);
+// Registro del pedido: a esta pantalla solo se llega cuando Mercado Pago
+// aprobo el pago (auto_return: "approved" en la preferencia), asi que el
+// pedido se guarda como pagado.
+addDoc(collection(db, "pedidos"), {
+items: (pending.cartUsed || []).map(i => ({ id: i.id, nombre: getProductName(i), qty: i.qty, precio: Number(i.precio) || 0 })),
+total: pending.totalAEnviar,
+medioPago: "mercadopago",
+origen: "mercadopago",
+estado: "pagado",
+nombre: pending.customerName,
+direccion: pending.customerAddress,
+telefono: pending.customerPhone || null,
+esRegalo: !!pending.isGift,
+cuponCodigo: pending.promoCode || null,
+orderId: pending.orderId || null,
+createdAt: serverTimestamp(),
+}).catch(e => console.error("PEDIDO_LOG_MP_ERROR", e));
 const waUrl = "https://wa.me/2914261941?text=" + encodeURIComponent(msg);
 window.open(waUrl, "_blank");
 localStorage.removeItem("mpPedidoPendiente");
@@ -639,26 +668,6 @@ document.head.appendChild(script);
 }
 script.textContent = JSON.stringify(productLd);
 } catch {}
-}, [selectedProduct]);
-
-// El <title> de la pestana y la meta description tambien cambian al abrir un
-// producto, para que cada perfume tenga su propio titulo al indexarse en
-// Google o al compartir el link (antes quedaba siempre el titulo generico
-// de la home, tanto en busquedas como al pegar el link en WhatsApp).
-useEffect(() => {
-if (selectedProduct && isPerfume(selectedProduct)) {
-const nombre = getProductName(selectedProduct);
-document.title = nombre + " | Esencia Perfumeria";
-const metaDesc = document.querySelector('meta[name="description"]');
-if (metaDesc) {
-const desc = (selectedProduct.descripcion || "").trim();
-metaDesc.setAttribute("content", desc ? desc.slice(0, 160) : ("Compra " + nombre + " en Esencia Perfumeria. Envio gratis en Bahia Blanca y envios a todo el pais."));
-}
-} else {
-document.title = "Perfumes en Bahia Blanca | Esencia Perfumeria - Envio Gratis";
-const metaDesc = document.querySelector('meta[name="description"]');
-if (metaDesc) metaDesc.setAttribute("content", "Perfumes arabes y de disenador 100% originales en Bahia Blanca, con envio gratis en la ciudad y envios a todo el pais. Mas de 300 fragancias.");
-}
 }, [selectedProduct]);
 
 useEffect(() => {
@@ -1625,6 +1634,27 @@ setReferralPendingIds(referralPendingIds.slice(1));
 }
 const totalAEnviar = Math.max(totalCartUsed - usedDiscount, 0);
 msg += " - Total: " + formatPrice(totalAEnviar);
+// Registro del pedido para el panel de administracion. No confirma que la
+// transferencia o el efectivo se hayan cobrado de verdad (eso lo coordina el
+// negocio por WhatsApp); solo deja constancia de que el pedido se mando.
+try {
+await addDoc(collection(db, "pedidos"), {
+items: cartUsed.map(i => ({ id: i.id, nombre: getProductName(i), qty: i.qty, precio: Number(i.precio) || 0 })),
+subtotal: totalCartUsed,
+descuento: usedDiscount,
+total: totalAEnviar,
+cuponCodigo: cuponUsado.cupon ? cuponUsado.cupon.id : null,
+medioPago: paymentMethod,
+origen: "whatsapp",
+estado: "enviado",
+nombre: customerName.trim(),
+direccion: customerAddress.trim(),
+telefono: customerPhone.trim() || null,
+esRegalo: !!isGift,
+uid: user ? user.uid : null,
+createdAt: serverTimestamp(),
+});
+} catch (e) { console.error("PEDIDO_LOG_ERROR", e); }
 const waUrl = "https://wa.me/2914261941?text=" + encodeURIComponent(msg);
 if (waWindow) { waWindow.location.href = waUrl; } else { window.location.href = waUrl; }
 setTimeout(() => {
@@ -2554,6 +2584,38 @@ avisosStock.map(a => (
 <button onClick={() => handleDeleteAviso(a.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer" }}>Eliminar</button>
 </div>
 ))
+)}
+</div>
+<div style={{ marginTop: "40px" }}>
+<h2 style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>📋 Pedidos recientes</h2>
+<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Se registran los pedidos pagados y confirmados con Mercado Pago, y los que se mandaron por WhatsApp para pagar con transferencia o efectivo (estos ultimos quedan como "enviado": todavia no confirman que el pago se haya recibido de verdad, eso lo coordinas vos por WhatsApp).</p>
+{pedidos.length > 0 && (
+<div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "16px" }}>
+<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Pedidos (ultimos 200)</div>
+<div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{pedidos.length}</div>
+</div>
+<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Total (ultimos 200)</div>
+<div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{formatPrice(pedidos.reduce((a, p) => a + (Number(p.total) || 0), 0))}</div>
+</div>
+</div>
+)}
+{pedidos.length === 0 ? (
+<p style={{ color: "#9a9a9a" }}>Todavia no hay pedidos registrados.</p>
+) : (
+<div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+{pedidos.map(p => (
+<div key={p.id} style={{ ...S.adminCard, padding: "14px 18px", display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
+<div style={{ flex: 1, minWidth: "180px" }}>
+<strong>{p.nombre || "Sin nombre"}</strong>
+<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{(p.items || []).length} producto(s) · {p.createdAt && p.createdAt.toDate ? p.createdAt.toDate().toLocaleString("es-AR") : ""}</div>
+</div>
+<span style={{ fontSize: "12px", fontWeight: "700", color: p.origen === "mercadopago" ? "#9ddb9d" : "#e0b84a", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "4px 10px" }}>{p.origen === "mercadopago" ? "Mercado Pago" : (p.medioPago === "transferencia" ? "Transferencia" : "Efectivo")}</span>
+<strong style={{ color: "#d4af37" }}>{formatPrice(p.total)}</strong>
+</div>
+))}
+</div>
 )}
 </div>
 <div style={{ marginTop: "40px" }}>
