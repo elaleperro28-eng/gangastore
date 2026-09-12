@@ -641,6 +641,26 @@ script.textContent = JSON.stringify(productLd);
 } catch {}
 }, [selectedProduct]);
 
+// El <title> de la pestana y la meta description tambien cambian al abrir un
+// producto, para que cada perfume tenga su propio titulo al indexarse en
+// Google o al compartir el link (antes quedaba siempre el titulo generico
+// de la home, tanto en busquedas como al pegar el link en WhatsApp).
+useEffect(() => {
+if (selectedProduct && isPerfume(selectedProduct)) {
+const nombre = getProductName(selectedProduct);
+document.title = nombre + " | Esencia Perfumeria";
+const metaDesc = document.querySelector('meta[name="description"]');
+if (metaDesc) {
+const desc = (selectedProduct.descripcion || "").trim();
+metaDesc.setAttribute("content", desc ? desc.slice(0, 160) : ("Compra " + nombre + " en Esencia Perfumeria. Envio gratis en Bahia Blanca y envios a todo el pais."));
+}
+} else {
+document.title = "Perfumes en Bahia Blanca | Esencia Perfumeria - Envio Gratis";
+const metaDesc = document.querySelector('meta[name="description"]');
+if (metaDesc) metaDesc.setAttribute("content", "Perfumes arabes y de disenador 100% originales en Bahia Blanca, con envio gratis en la ciudad y envios a todo el pais. Mas de 300 fragancias.");
+}
+}, [selectedProduct]);
+
 useEffect(() => {
 let unsub = () => {};
 let cancelled = false;
