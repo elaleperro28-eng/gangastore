@@ -1,13 +1,6 @@
 {
   "rewrites": [
-    {
-      "source": "/",
-      "has": [
-        { "type": "query", "key": "p" },
-        { "type": "header", "key": "user-agent", "value": "(facebookexternalhit|Facebot|Twitterbot|WhatsApp|TelegramBot|Slackbot|LinkedInBot|Discordbot|redditbot|Pinterest|SkypeUriPreview|vkShare|Iframely|Embedly|Applebot|W3C_Validator)" }
-      ],
-      "destination": "/api/og"
-    },
+    { "source": "/producto/:id", "destination": "/api/og?id=:id" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
