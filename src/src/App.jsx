@@ -213,6 +213,9 @@ const [bannerSaving, setBannerSaving] = useState(false);
 const [catalogOrderForm, setCatalogOrderForm] = useState(null);
 const [catalogOrderSaving, setCatalogOrderSaving] = useState(false);
 const [catalogManualSearch, setCatalogManualSearch] = useState("");
+const [cupones, setCupones] = useState([]);
+const [cuponForm, setCuponForm] = useState({ codigo: "", tipo: "porcentaje", valor: "", minCompra: "", fechaExpiracion: "" });
+const [cuponSaving, setCuponSaving] = useState(false);
 // El banner y el orden del catalogo son documentos especiales guardados en la
 // coleccion "productos" (mismas reglas de Firestore que ya existen: lectura
 // publica, escritura solo admin), pero se leen con su propio listener en vez
@@ -366,6 +369,16 @@ const unsub2 = onSnapshot(q2, (snap) => {
 setResenas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
 });
 return () => unsub2();
+}, []);
+
+// Cupones de descuento: se cargan para todos (no solo el admin) porque el
+// carrito del cliente los necesita para validar el codigo que ingresa.
+useEffect(() => {
+const qCupones = query(collection(db, "cupones"), orderBy("createdAt", "desc"));
+const unsubCupones = onSnapshot(qCupones, (snap) => {
+setCupones(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+}, (e) => console.error("CUPONES_LOAD_ERROR", e));
+return () => unsubCupones();
 }, []);
 
 // Los avisos de stock incluyen el WhatsApp del cliente, asi que solo se cargan
@@ -975,6 +988,38 @@ showToast("No se pudo guardar el orden del catalogo");
 setCatalogOrderSaving(false);
 };
 
+const handleAddCupon = async () => {
+const codigo = (cuponForm.codigo || "").trim().toUpperCase();
+if (!codigo) return alert("Ingresa el codigo del cupon");
+if (!cuponForm.valor || Number(cuponForm.valor) <= 0) return alert("Ingresa un valor de descuento mayor a 0");
+setCuponSaving(true);
+try {
+await setDoc(doc(db, "cupones", codigo), {
+tipo: cuponForm.tipo || "porcentaje",
+valor: Number(cuponForm.valor) || 0,
+minCompra: cuponForm.minCompra ? Number(cuponForm.minCompra) : null,
+fechaExpiracion: cuponForm.fechaExpiracion || "",
+activo: true,
+createdAt: serverTimestamp(),
+}, { merge: true });
+setCuponForm({ codigo: "", tipo: "porcentaje", valor: "", minCompra: "", fechaExpiracion: "" });
+showToast("Cupon " + codigo + " guardado");
+} catch (e) {
+console.error("CUPON_SAVE_ERROR", e);
+showToast("No se pudo guardar el cupon");
+}
+setCuponSaving(false);
+};
+
+const handleToggleCupon = async (c) => {
+try { await updateDoc(doc(db, "cupones", c.id), { activo: !c.activo }); } catch (e) { console.error("CUPON_TOGGLE_ERROR", e); }
+};
+
+const handleDeleteCupon = async (id) => {
+if (!confirm("Eliminar el cupon " + id + "?")) return;
+try { await deleteDoc(doc(db, "cupones", id)); } catch (e) { console.error("CUPON_DELETE_ERROR", e); }
+};
+
 const handleAddProduct = async () => {
 if (!form.nombre.trim()) return alert("Ingresa el nombre del producto");
 if (!form.precio) return alert("Ingresa el precio");
@@ -1280,7 +1325,27 @@ const decantComboActive = decantComboCount >= DECANT_COMBO_MIN;
 const decantComboDiscount = decantComboActive ? Math.round(decantComboSubtotal * DECANT_COMBO_DISCOUNT_PCT) : 0;
 const freeShippingRemaining = Math.max(FREE_SHIPPING_THRESHOLD - totalCart, 0);
 const freeShippingReached = freeShippingRemaining <= 0 && totalCart > 0;
-const finalTotal = Math.max(totalCart - discountFromPoints - decantComboDiscount, 0);
+// Cupones de descuento reales: se buscan por codigo (coleccion "cupones", id = el
+// codigo en mayusculas) y se valida que esten activos, no vencidos y que la compra
+// llegue al minimo exigido. motivo describe por que NO se aplico (o null si se aplico).
+const normalizeCuponCodigo = (s) => (s || "").trim().toUpperCase();
+const evalCupon = (codigoIngresado, total) => {
+const codigo = normalizeCuponCodigo(codigoIngresado);
+if (!codigo) return { cupon: null, discount: 0, motivo: null };
+const c = cupones.find(x => x.id === codigo);
+if (!c) return { cupon: null, discount: 0, motivo: "no_encontrado" };
+if (!c.activo) return { cupon: c, discount: 0, motivo: "inactivo" };
+if (c.fechaExpiracion) {
+const exp = new Date(c.fechaExpiracion + "T23:59:59");
+if (!isNaN(exp.getTime()) && exp < new Date()) return { cupon: c, discount: 0, motivo: "vencido" };
+}
+if (c.minCompra && total < Number(c.minCompra)) return { cupon: c, discount: 0, motivo: "minimo" };
+const discount = c.tipo === "monto" ? Math.min(Number(c.valor) || 0, total) : Math.round(total * Math.max(0, Math.min(100, Number(c.valor) || 0)) / 100);
+return { cupon: c, discount, motivo: null };
+};
+const cuponEval = evalCupon(promoCode, totalCart);
+const cuponDiscount = cuponEval.discount;
+const finalTotal = Math.max(totalCart - discountFromPoints - decantComboDiscount - cuponDiscount, 0);
 
 const handleAccountAuth = async () => {
 setAccountError("");
@@ -1339,6 +1404,8 @@ const decantComboSubtotalUsed = decantLinesUsed.reduce((acc, i) => acc + (Number
 const decantComboDiscountUsed = Math.round(decantComboSubtotalUsed * DECANT_COMBO_DISCOUNT_PCT);
 if (decantComboDiscountUsed > 0) usedDiscount += decantComboDiscountUsed;
 }
+const cuponUsadoMp = evalCupon(promoCode, totalCartUsed);
+if (cuponUsadoMp.discount > 0) usedDiscount += cuponUsadoMp.discount;
 const totalAEnviar = Math.max(totalCartUsed - usedDiscount, 0);
 const orderId = "EP" + Date.now().toString(36).toUpperCase();
 try {
@@ -1423,6 +1490,11 @@ if (decantComboDiscountUsed > 0) {
 usedDiscount += decantComboDiscountUsed;
 msg += " - Set de " + decantComboCountUsed + " decants distintos: " + Math.round(DECANT_COMBO_DISCOUNT_PCT * 100) + "% OFF ($" + decantComboDiscountUsed.toLocaleString("es-CL") + ")";
 }
+}
+const cuponUsado = evalCupon(promoCode, totalCartUsed);
+if (cuponUsado.discount > 0) {
+usedDiscount += cuponUsado.discount;
+msg += " - Cupon " + cuponUsado.cupon.id + ": " + formatPrice(cuponUsado.discount) + " de descuento";
 }
 const referralCodeEntered = referralInput.trim().toUpperCase();
 let referralUsedThisOrder = false;
@@ -2028,6 +2100,53 @@ Aleatorio (mezclado entre todos, cambia solo)
 </div>
 </div>
 ); })()}
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<h3 style={{ margin: "0 0 6px" }}>🏷️ Cupones de descuento</h3>
+<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Crea codigos que el cliente ingresa en el carrito para recibir un descuento automatico, igual que el de los sets de decants.</p>
+<div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "12px" }}>
+<div style={{ flex: "1 1 140px" }}>
+<label style={S.label}>Codigo</label>
+<input type="text" value={cuponForm.codigo} onChange={e => setCuponForm(f => ({ ...f, codigo: e.target.value.toUpperCase() }))} style={S.input} placeholder="Ej: VERANO10" />
+</div>
+<div style={{ flex: "1 1 140px" }}>
+<label style={S.label}>Tipo</label>
+<select style={S.select} value={cuponForm.tipo} onChange={e => setCuponForm(f => ({ ...f, tipo: e.target.value }))}>
+<option value="porcentaje">Porcentaje (%)</option>
+<option value="monto">Monto fijo ($)</option>
+</select>
+</div>
+<div style={{ flex: "1 1 140px" }}>
+<label style={S.label}>{cuponForm.tipo === "monto" ? "Monto a descontar" : "Porcentaje a descontar"}</label>
+<input type="number" value={cuponForm.valor} onChange={e => setCuponForm(f => ({ ...f, valor: e.target.value }))} style={S.input} placeholder={cuponForm.tipo === "monto" ? "Ej: 5000" : "Ej: 10"} />
+</div>
+</div>
+<div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "16px" }}>
+<div style={{ flex: "1 1 180px" }}>
+<label style={S.label}>Compra minima (opcional)</label>
+<input type="number" value={cuponForm.minCompra} onChange={e => setCuponForm(f => ({ ...f, minCompra: e.target.value }))} style={S.input} placeholder="Ej: 20000" />
+</div>
+<div style={{ flex: "1 1 180px" }}>
+<label style={S.label}>Vence el (opcional)</label>
+<input type="date" value={cuponForm.fechaExpiracion} onChange={e => setCuponForm(f => ({ ...f, fechaExpiracion: e.target.value }))} style={S.input} />
+</div>
+</div>
+<button onClick={handleAddCupon} disabled={cuponSaving} style={{ ...S.btn, padding: "10px 20px", opacity: cuponSaving ? 0.6 : 1 }}>{cuponSaving ? "Guardando..." : "Guardar cupon"}</button>
+{cupones.length > 0 && (
+<div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "8px" }}>
+{cupones.map(c => (
+<div key={c.id} style={{ display: "flex", alignItems: "center", gap: "10px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px 12px", opacity: c.activo ? 1 : 0.5, flexWrap: "wrap" }}>
+<strong style={{ color: "#d4af37" }}>{c.id}</strong>
+<span style={{ fontSize: "13px", color: "#bdbdbd" }}>{c.tipo === "monto" ? formatPrice(c.valor) : (c.valor + "%")} OFF{c.minCompra ? (" · minimo " + formatPrice(c.minCompra)) : ""}{c.fechaExpiracion ? (" · vence " + c.fechaExpiracion) : ""}</span>
+<span style={{ fontSize: "11px", fontWeight: "700", color: c.activo ? "#9ddb9d" : "#e0b84a" }}>{c.activo ? "ACTIVO" : "PAUSADO"}</span>
+<div style={{ marginLeft: "auto", display: "flex", gap: "8px" }}>
+<button onClick={() => handleToggleCupon(c)} style={{ ...S.btnOutline, padding: "6px 12px", fontSize: "12px" }}>{c.activo ? "Pausar" : "Activar"}</button>
+<button onClick={() => handleDeleteCupon(c.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px" }}>Eliminar</button>
+</div>
+</div>
+))}
+</div>
+)}
+</div>
 <div style={{ ...S.adminCard, marginBottom: "24px" }}>
 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
 <h3 style={{ margin: 0 }}>📦 Carga Masiva de Productos</h3>
@@ -3223,14 +3342,24 @@ return pdpPhotos.length > 1 && (
 </div>
 )}
 <div style={{ borderTop: "1px solid #2b2b2b", paddingTop: "16px", marginTop: "16px" }}>
-<div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(finalTotal)}{discountFromPoints > 0 && <span style={{ color: "#d4af37", fontSize: 13, display: "block" }}>(incluye descuento de {formatPrice(discountFromPoints)} por puntos)</span>}{decantComboDiscount > 0 && <span style={{ color: "#7ea87a", fontSize: 13, display: "block" }}>(incluye {formatPrice(decantComboDiscount)} OFF por set de decants)</span>}</div><div style={{ marginBottom: 12 }}>
+<div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(finalTotal)}{discountFromPoints > 0 && <span style={{ color: "#d4af37", fontSize: 13, display: "block" }}>(incluye descuento de {formatPrice(discountFromPoints)} por puntos)</span>}{decantComboDiscount > 0 && <span style={{ color: "#7ea87a", fontSize: 13, display: "block" }}>(incluye {formatPrice(decantComboDiscount)} OFF por set de decants)</span>}{cuponDiscount > 0 && <span style={{ color: "#9ddb9d", fontSize: 13, display: "block" }}>(incluye {formatPrice(cuponDiscount)} OFF por cupon {cuponEval.cupon && cuponEval.cupon.id})</span>}</div><div style={{ marginBottom: 12 }}>
 <input type="text" placeholder="Nombre y apellido *" value={customerName} onChange={e => { setCustomerName(e.target.value); if (checkoutError) setCheckoutError(""); }} style={{ ...S.input, marginBottom: 8, ...(checkoutError && !customerName.trim() ? { border: "1px solid #8b1a2a" } : {}) }} />
 <textarea placeholder="Direccion de envio (calle, numero, ciudad) *" value={customerAddress} onChange={e => { setCustomerAddress(e.target.value); if (checkoutError) setCheckoutError(""); }} style={{ ...S.input, minHeight: 50, resize: "vertical", ...(checkoutError && !customerAddress.trim() ? { border: "1px solid #8b1a2a" } : {}) }} />
 {checkoutError && <p style={{ color: "#e57373", fontSize: 13, margin: "6px 0 0" }}>{checkoutError}</p>}
 </div>
 <p style={{ color: "#8a8a8a", fontSize: 12, margin: "-8px 0 12px" }}>* Campos obligatorios para poder pedir por WhatsApp</p>
 <div style={S.cartPointsBox}><input type="text" placeholder="Tu telefono de contacto (opcional)" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} style={{ ...S.input, marginBottom: 8 }} />{user ? (<>{customerPoints !== null && (<div style={{ color: "#d4af37", fontSize: 13 }}>Tenes {customerPoints} puntos ({formatPrice(pointsToDiscount(customerPoints))} disponibles){pointsToDiscount(customerPoints) > 0 && (<label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, color: "#fff" }}><input type="checkbox" checked={redeemPoints} onChange={e => setRedeemPoints(e.target.checked)} />Usar mis puntos en este pedido</label>)}</div>)}<button style={{ ...S.btnOutline, width: "100%", marginTop: 8 }} onClick={() => loadMyPoints(user.uid)} disabled={pointsLoading}>{pointsLoading ? "Consultando..." : "Actualizar mis puntos"}</button>{referralCode && (<div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #2b2b2b" }}><p style={{ color: "#bdbdbd", fontSize: 12, margin: "0 0 4px" }}>Tu codigo de referido: <strong style={{ color: "#fff" }}>{referralCode}</strong></p><a href={"https://wa.me/?text=" + encodeURIComponent("Te invito a comprar en Esencia Perfumeria! Usa mi codigo " + referralCode + " y ambos recibimos $5.000 de descuento en tu primera compra. https://www.esenciaperfumeria.com.ar")} target="_blank" rel="noreferrer" style={{ color: "#d4af37", fontSize: 12, textDecoration: "underline" }}>Compartir con un amigo y ganar $5.000</a></div>)}</>) : (<button style={{ ...S.btnOutline, width: "100%" }} onClick={() => { setAccountMode("login"); setAccountError(""); setShowAccountModal(true); }}>Ingresa para sumar/usar puntos</button>)}</div>
-<input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Codigo promocional (opcional)" style={{ width: "100%", padding: "10px", marginBottom: "12px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", fontSize: "14px", boxSizing: "border-box" }} />
+<input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Codigo de descuento (opcional)" style={{ width: "100%", padding: "10px", marginBottom: "4px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", fontSize: "14px", boxSizing: "border-box" }} />
+{promoCode.trim() && (cuponEval.motivo === null && cuponEval.cupon ? (
+<p style={{ color: "#9ddb9d", fontSize: "13px", margin: "0 0 12px" }}>✓ Cupon {cuponEval.cupon.id} aplicado: {formatPrice(cuponDiscount)} de descuento</p>
+) : (
+<p style={{ color: "#e0b84a", fontSize: "13px", margin: "0 0 12px" }}>
+{cuponEval.motivo === "no_encontrado" && "Ese codigo no existe."}
+{cuponEval.motivo === "inactivo" && "Ese cupon ya no esta activo."}
+{cuponEval.motivo === "vencido" && "Ese cupon ya vencio."}
+{cuponEval.motivo === "minimo" && cuponEval.cupon && ("Necesitas una compra minima de " + formatPrice(cuponEval.cupon.minCompra) + " para usar este cupon.")}
+</p>
+))}
 <input type="text" value={referralInput} onChange={(e) => setReferralInput(e.target.value)} placeholder="Codigo de referido de un amigo (opcional)" style={{ width: "100%", padding: "10px", marginBottom: "8px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", fontSize: "14px", boxSizing: "border-box" }} />{referralInput.trim() && (<p style={{ color: "#d4af37", fontSize: "13px", margin: "0 0 12px" }}>Si el codigo es valido, se descuentan $5.000 al confirmar el pedido.</p>)}{user && referralCredit > 0 && !referralInput.trim() && (<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#d4af37", fontSize: "14px", marginBottom: "12px" }}><input type="checkbox" checked={redeemReferralCredit} onChange={(e) => setRedeemReferralCredit(e.target.checked)} />Usar mi credito de referidos ($5.000 de descuento en esta compra)</label>)}
 <div style={{ background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px 12px", marginBottom: "12px" }}>
 <label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}><input type="checkbox" checked={isGift} onChange={e => setIsGift(e.target.checked)} />🎁 Es un regalo</label>
