@@ -1345,12 +1345,13 @@ setOpinionSaving(false);
 };
 
 const handleShareProduct = async (product) => {
-let shareUrl = window.location.origin + window.location.pathname;
-try {
-const url = new URL(window.location.href);
-url.searchParams.set("p", product.id);
-shareUrl = url.toString();
-} catch {}
+// Se comparte con /producto/<id> (no ?p=<id>) para que WhatsApp/Facebook/etc
+// muestren la foto y el nombre de ESTE perfume en la vista previa del link:
+// esa ruta pasa por api/og.js, que le arma el title/imagen correctos al bot
+// que arma la vista previa (ver vercel.json). Al abrirla en un navegador
+// normal, esa misma funcion redirige a ?p=<id> y la app sigue igual que
+// siempre.
+let shareUrl = window.location.origin + "/producto/" + encodeURIComponent(product.id);
 const shareText = `Mira este perfume en Esencia Perfumeria: ${getProductName(product)} - ${formatPrice(getProductPrice(product))}`;
 if (navigator.share) {
 try {
