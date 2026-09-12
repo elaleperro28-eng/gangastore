@@ -1433,9 +1433,13 @@ const updateCartQty = (id, delta) => {
 setCart(c => c.map(i => i.id === id ? { ...i, qty: capQtyDelta(i.qty + delta) } : i).filter(i => i.qty > 0));
 };
 const totalCart = cart.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
-const reviewCount = resenas.length;
-const avgRating = reviewCount > 0 ? (resenas.reduce((acc, r) => acc + (Number(r.estrellas) || 5), 0) / reviewCount).toFixed(1) : null;
+// El promedio y el conteo que se muestran en las cards, en el home y en cada
+// producto salen SOLO de resenas ya publicadas (moderadas), nunca de las que
+// todavia estan pendientes de aprobacion: asi el numero que ve el cliente es
+// siempre uno que un humano ya reviso.
 const resenasPublicadas = resenas.filter(r => r.estado !== "pendiente");
+const reviewCount = resenasPublicadas.length;
+const avgRating = reviewCount > 0 ? (resenasPublicadas.reduce((acc, r) => acc + (Number(r.estrellas) || 5), 0) / reviewCount).toFixed(1) : null;
 const pointsToDiscount = (pts) => Math.floor((pts || 0) / 300) * 10000;
 const loadMyPoints = async (uid) => {
 setPointsLoading(true);
@@ -3020,6 +3024,42 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 ))}
 </div>
 </div>
+{(() => {
+const resenasPublicadas = resenas.filter(r => r.estado !== "pendiente");
+return (
+<div style={S.section}>
+<div style={S.sectionTitle}>Opiniones de Clientes</div>
+<p style={{ color: "#7a7a7a", fontSize: "13px", textAlign: "center", marginTop: "-8px", marginBottom: "20px" }}>Sobre nuestra atención y la entrega de sus pedidos, verificadas antes de publicarse.</p>
+{avgRating && <div style={{ textAlign: "center", marginBottom: "20px" }}><span style={{ ...S.ratingBadge, fontSize: "16px" }}>★ {avgRating} de 5 · {reviewCount} {reviewCount === 1 ? "opinion verificada" : "opiniones verificadas"}</span></div>}
+{resenasPublicadas.length === 0 ? (
+<p style={{ color: "#7a7a7a", textAlign: "center" }}>Todavia no hay opiniones cargadas.</p>
+) : (
+<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "18px" }}>
+{resenasPublicadas.map(r => (
+<div key={r.id} style={S.resenaCard}>
+<div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
+{r.foto ? (
+<img src={optimizeImg(r.foto, "t")} alt={r.nombre} loading="lazy" decoding="async" style={S.resenaFoto} />
+) : (
+<div style={S.resenaAvatar}>{(r.nombre || "?").trim().charAt(0).toUpperCase()}</div>
+)}
+<div>
+<div style={{ fontWeight: "700", color: "#1a1a1a" }}>{r.nombre}</div>
+{r.ciudad && <div style={{ fontSize: "12px", color: "#7a7a7a" }}>{r.ciudad}</div>}
+</div>
+</div>
+<div style={{ color: "#d4af37", marginBottom: "8px" }}>{"★".repeat(r.estrellas || 5)}{"☆".repeat(5 - (r.estrellas || 5))}</div>
+<p style={{ color: "#3a3a3a", fontSize: "14px", fontStyle: "italic", margin: 0 }}>"{r.texto}"</p>
+</div>
+))}
+</div>
+)}
+<div style={{ textAlign: "center", marginTop: "22px" }}>
+<a href="/opinar" onClick={(e) => { e.preventDefault(); setPage("opinar"); window.history.pushState({}, "", "/opinar"); window.scrollTo(0, 0); }} style={{ color: "#8a6d1f", fontSize: "13px", textDecoration: "underline", cursor: "pointer" }}>¿Ya nos compraste? Contanos tu experiencia</a>
+</div>
+</div>
+);
+})()}
 {(() => { const showCreditNow = user && referralCredit > 0; return (
 <div style={{ margin: "0 auto 8px", maxWidth: 900, padding: "0 16px" }}>
 <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "14px", background: "#1a1a1a", border: "1px solid #d4af37", borderRadius: "12px", padding: "18px 22px" }}>
@@ -3232,42 +3272,6 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <a href={`https://wa.me/2914261941?text=${encodeURIComponent("Hola! Quiero sumarme a la Lista VIP para enterarme de promos y novedades")}`} target="_blank" rel="noreferrer" onClick={() => { try { if (window.fbq) window.fbq("track", "Lead"); if (window.gtag) window.gtag("event", "generate_lead"); } catch (e) {} }} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", padding: "13px 24px", fontSize: "15px", fontWeight: "700", borderRadius: "10px", background: "#25D366", color: "#fff", textDecoration: "none" }}>💬 Sumarme a la Lista VIP</a>
 </div>
 </div>
-{(() => {
-const resenasPublicadas = resenas.filter(r => r.estado !== "pendiente");
-return (
-<div style={S.section}>
-<div style={S.sectionTitle}>Opiniones de Clientes</div>
-<p style={{ color: "#7a7a7a", fontSize: "13px", textAlign: "center", marginTop: "-8px", marginBottom: "20px" }}>Sobre nuestra atención y la entrega de sus pedidos, verificadas antes de publicarse.</p>
-{resenasPublicadas.length === 0 ? (
-<p style={{ color: "#7a7a7a", textAlign: "center" }}>Todavia no hay opiniones cargadas.</p>
-) : (
-<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "18px" }}>
-{resenasPublicadas.map(r => (
-<div key={r.id} style={S.resenaCard}>
-<div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
-{r.foto ? (
-<img src={optimizeImg(r.foto, "t")} alt={r.nombre} loading="lazy" decoding="async" style={S.resenaFoto} />
-) : (
-<div style={S.resenaAvatar}>{(r.nombre || "?").trim().charAt(0).toUpperCase()}</div>
-)}
-<div>
-<div style={{ fontWeight: "700", color: "#1a1a1a" }}>{r.nombre}</div>
-{r.ciudad && <div style={{ fontSize: "12px", color: "#7a7a7a" }}>{r.ciudad}</div>}
-</div>
-</div>
-<div style={{ color: "#d4af37", marginBottom: "8px" }}>{"★".repeat(r.estrellas || 5)}{"☆".repeat(5 - (r.estrellas || 5))}</div>
-<p style={{ color: "#3a3a3a", fontSize: "14px", fontStyle: "italic", margin: 0 }}>"{r.texto}"</p>
-</div>
-))}
-</div>
-)}
-<div style={{ textAlign: "center", marginTop: "22px" }}>
-<a href="/opinar" onClick={(e) => { e.preventDefault(); setPage("opinar"); window.history.pushState({}, "", "/opinar"); window.scrollTo(0, 0); }} style={{ color: "#8a6d1f", fontSize: "13px", textDecoration: "underline", cursor: "pointer" }}>¿Ya nos compraste? Contanos tu experiencia</a>
-</div>
-</div>
-);
-})()}
-
 {selectedProduct && (
 <div className="gs-pdp-overlay" onClick={() => setSelectedProduct(null)}>
 <style>{`
