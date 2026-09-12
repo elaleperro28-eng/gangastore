@@ -684,7 +684,7 @@ const desc = (selectedProduct.descripcion || "").trim();
 metaDesc.setAttribute("content", desc ? desc.slice(0, 160) : ("Compra " + nombre + " en Esencia Perfumeria. Envio gratis en Bahia Blanca y envios a todo el pais."));
 }
 } else {
-document.title = "Perfumes en Bahia Blanca | Esencia Perfumeria - Envio Gratis";
+document.title = "Perfumes en Bahía Blanca | Esencia Perfumeria - Envío Gratis";
 const metaDesc = document.querySelector('meta[name="description"]');
 if (metaDesc) metaDesc.setAttribute("content", "Perfumes arabes y de disenador 100% originales en Bahia Blanca, con envio gratis en la ciudad y envios a todo el pais. Mas de 300 fragancias.");
 }
