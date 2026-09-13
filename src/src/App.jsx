@@ -244,7 +244,6 @@ const [welcomePopupOpen, setWelcomePopupOpen] = useState(false);
 const [welcomePopupPhone, setWelcomePopupPhone] = useState("");
 const [welcomePopupSaving, setWelcomePopupSaving] = useState(false);
 const [welcomePopupDone, setWelcomePopupDone] = useState(false);
-const [popupContacts, setPopupContacts] = useState([]);
 const WELCOME_COUPON_CODE = "BIENVENIDA10";
 const [pedidos, setPedidos] = useState([]);
 const [hoverVentaDia, setHoverVentaDia] = useState(null);
@@ -459,16 +458,12 @@ setNewsletterSubs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
 return () => unsubNews();
 }, [isAdmin]);
 
-// Los telefonos que deja la gente en el popup de bienvenida: mismo criterio
-// de privacidad, solo se cargan para el admin.
-useEffect(() => {
-if (!isAdmin) { setPopupContacts([]); return; }
-const qContactos = query(collection(db, "contactosWhatsapp"), orderBy("createdAt", "desc"));
-const unsubContactos = onSnapshot(qContactos, (snap) => {
-setPopupContacts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-}, (e) => console.error("POPUP_CONTACTS_LOAD_ERROR", e));
-return () => unsubContactos();
-}, [isAdmin]);
+// Los contactos que dejan el WhatsApp en el popup de bienvenida viven en la
+// misma coleccion que el newsletter (mismas reglas de seguridad: cualquiera
+// puede crear/actualizar, solo el admin puede leer/borrar), asi que alcanza
+// con separar por tipo de dato en vez de sumar una coleccion nueva.
+const emailSubs = newsletterSubs.filter(s => s.email);
+const popupContacts = newsletterSubs.filter(s => s.telefono);
 
 // Registro de pedidos: tambien solo para el admin, y limitado a los ultimos
 // 200 para no traer toda la coleccion completa a medida que crece.
@@ -1262,15 +1257,16 @@ setNewsletterSaving(false);
 
 // Pide el WhatsApp en vez del email: es un contacto mas directo (casi nadie
 // revisa el mail, pero el celular lo mira todo el mundo) y sirve como base
-// mas solida para avisar ofertas o eventos de la marca. Coleccion propia
-// (contactosWhatsapp), id = solo los digitos del numero para no duplicar si
-// alguien completa el popup mas de una vez.
+// mas solida para avisar ofertas o eventos de la marca. Usa la misma
+// coleccion que el newsletter (newsletterSuscriptores) porque las reglas de
+// seguridad ya permiten crear ahi sin loguearse; el id es el numero (solo
+// digitos) para no duplicar si alguien completa el popup mas de una vez.
 const handleWelcomePopupSubscribe = async () => {
 const digits = (welcomePopupPhone || "").replace(/\D/g, "");
 if (digits.length < 8 || digits.length > 15) { showToast("Ingresa un numero de telefono valido"); return; }
 setWelcomePopupSaving(true);
 try {
-await setDoc(doc(db, "contactosWhatsapp", digits), {
+await setDoc(doc(db, "newsletterSuscriptores", digits), {
 telefono: welcomePopupPhone.trim(),
 origen: "popup_bienvenida",
 cuponEntregado: WELCOME_COUPON_CODE,
@@ -1285,8 +1281,8 @@ setWelcomePopupSaving(false);
 };
 
 const exportNewsletterToCSV = () => {
-if (!newsletterSubs.length) { alert("Todavia no hay suscriptores para exportar."); return; }
-const rows = [["email", "fecha"], ...newsletterSubs.map(s => [s.email || s.id, s.createdAt && s.createdAt.toDate ? s.createdAt.toDate().toLocaleDateString("es-AR") : ""])];
+if (!emailSubs.length) { alert("Todavia no hay suscriptores para exportar."); return; }
+const rows = [["email", "fecha"], ...emailSubs.map(s => [s.email || s.id, s.createdAt && s.createdAt.toDate ? s.createdAt.toDate().toLocaleDateString("es-AR") : ""])];
 downloadCSVFile(rows, "suscriptores_newsletter_esencia.csv");
 };
 
@@ -1303,7 +1299,7 @@ downloadCSVFile(rows, "contactos_whatsapp_popup_esencia.csv");
 
 const handleDeletePopupContact = async (id) => {
 if (!confirm("Eliminar este contacto?")) return;
-try { await deleteDoc(doc(db, "contactosWhatsapp", id)); } catch (e) { console.error("POPUP_CONTACT_DELETE_ERROR", e); }
+try { await deleteDoc(doc(db, "newsletterSuscriptores", id)); } catch (e) { console.error("POPUP_CONTACT_DELETE_ERROR", e); }
 };
 
 const handleAddProduct = async () => {
@@ -2546,14 +2542,14 @@ Aleatorio (mezclado entre todos, cambia solo)
 )}
 </div>
 <div style={{ ...S.adminCard, marginBottom: "24px" }}>
-<h3 style={{ margin: "0 0 6px" }}>📧 Suscriptores al newsletter ({newsletterSubs.length})</h3>
+<h3 style={{ margin: "0 0 6px" }}>📧 Suscriptores al newsletter ({emailSubs.length})</h3>
 <p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Emails que dejaron en el pie del sitio, ademas de la Lista VIP de WhatsApp. Exportalos para mandarles novedades por email.</p>
 <button onClick={exportNewsletterToCSV} style={{ ...S.btnOutline, marginBottom: "16px" }}>⬇ Exportar CSV</button>
-{newsletterSubs.length === 0 ? (
+{emailSubs.length === 0 ? (
 <p style={{ color: "#9a9a9a", fontSize: "13px" }}>Todavia no hay suscriptores.</p>
 ) : (
 <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "260px", overflowY: "auto" }}>
-{newsletterSubs.map(s => (
+{emailSubs.map(s => (
 <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "10px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px 12px" }}>
 <span style={{ flex: 1, fontSize: "13px" }}>{s.email || s.id}</span>
 <button onClick={() => handleDeleteNewsletterSub(s.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px" }}>Eliminar</button>
