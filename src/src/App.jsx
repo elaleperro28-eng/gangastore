@@ -241,9 +241,10 @@ const [newsletterSubs, setNewsletterSubs] = useState([]);
 // sumarse a la lista se sienta como parte de la visita y no como una molestia
 // apenas se carga la pagina.
 const [welcomePopupOpen, setWelcomePopupOpen] = useState(false);
-const [welcomePopupEmail, setWelcomePopupEmail] = useState("");
+const [welcomePopupPhone, setWelcomePopupPhone] = useState("");
 const [welcomePopupSaving, setWelcomePopupSaving] = useState(false);
 const [welcomePopupDone, setWelcomePopupDone] = useState(false);
+const [popupContacts, setPopupContacts] = useState([]);
 const WELCOME_COUPON_CODE = "BIENVENIDA10";
 const [pedidos, setPedidos] = useState([]);
 const [hoverVentaDia, setHoverVentaDia] = useState(null);
@@ -456,6 +457,17 @@ const unsubNews = onSnapshot(qNews, (snap) => {
 setNewsletterSubs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
 }, (e) => console.error("NEWSLETTER_LOAD_ERROR", e));
 return () => unsubNews();
+}, [isAdmin]);
+
+// Los telefonos que deja la gente en el popup de bienvenida: mismo criterio
+// de privacidad, solo se cargan para el admin.
+useEffect(() => {
+if (!isAdmin) { setPopupContacts([]); return; }
+const qContactos = query(collection(db, "contactosWhatsapp"), orderBy("createdAt", "desc"));
+const unsubContactos = onSnapshot(qContactos, (snap) => {
+setPopupContacts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+}, (e) => console.error("POPUP_CONTACTS_LOAD_ERROR", e));
+return () => unsubContactos();
 }, [isAdmin]);
 
 // Registro de pedidos: tambien solo para el admin, y limitado a los ultimos
@@ -1248,17 +1260,18 @@ showToast("No pudimos guardar tu email, intenta de nuevo");
 setNewsletterSaving(false);
 };
 
-// Mismo registro que el newsletter del pie de pagina (misma coleccion, mismo
-// id = email, asi que si ya estaba suscripto no se duplica), pero marcando
-// de donde vino y mostrando el cupon en la propia ventana en vez de mandarlo
-// por otro lado.
+// Pide el WhatsApp en vez del email: es un contacto mas directo (casi nadie
+// revisa el mail, pero el celular lo mira todo el mundo) y sirve como base
+// mas solida para avisar ofertas o eventos de la marca. Coleccion propia
+// (contactosWhatsapp), id = solo los digitos del numero para no duplicar si
+// alguien completa el popup mas de una vez.
 const handleWelcomePopupSubscribe = async () => {
-const email = (welcomePopupEmail || "").trim().toLowerCase();
-if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast("Ingresa un email valido"); return; }
+const digits = (welcomePopupPhone || "").replace(/\D/g, "");
+if (digits.length < 8 || digits.length > 15) { showToast("Ingresa un numero de telefono valido"); return; }
 setWelcomePopupSaving(true);
 try {
-await setDoc(doc(db, "newsletterSuscriptores", email), {
-email,
+await setDoc(doc(db, "contactosWhatsapp", digits), {
+telefono: welcomePopupPhone.trim(),
 origen: "popup_bienvenida",
 cuponEntregado: WELCOME_COUPON_CODE,
 createdAt: serverTimestamp(),
@@ -1266,7 +1279,7 @@ createdAt: serverTimestamp(),
 setWelcomePopupDone(true);
 } catch (e) {
 console.error("WELCOME_POPUP_SUBSCRIBE_ERROR", e);
-showToast("No pudimos guardar tu email, intenta de nuevo");
+showToast("No pudimos guardar tu numero, intenta de nuevo");
 }
 setWelcomePopupSaving(false);
 };
@@ -1280,6 +1293,17 @@ downloadCSVFile(rows, "suscriptores_newsletter_esencia.csv");
 const handleDeleteNewsletterSub = async (id) => {
 if (!confirm("Eliminar este suscriptor?")) return;
 try { await deleteDoc(doc(db, "newsletterSuscriptores", id)); } catch (e) { console.error("NEWSLETTER_DELETE_ERROR", e); }
+};
+
+const exportPopupContactsToCSV = () => {
+if (!popupContacts.length) { alert("Todavia no hay contactos para exportar."); return; }
+const rows = [["telefono", "fecha"], ...popupContacts.map(c => [c.telefono || c.id, c.createdAt && c.createdAt.toDate ? c.createdAt.toDate().toLocaleDateString("es-AR") : ""])];
+downloadCSVFile(rows, "contactos_whatsapp_popup_esencia.csv");
+};
+
+const handleDeletePopupContact = async (id) => {
+if (!confirm("Eliminar este contacto?")) return;
+try { await deleteDoc(doc(db, "contactosWhatsapp", id)); } catch (e) { console.error("POPUP_CONTACT_DELETE_ERROR", e); }
 };
 
 const handleAddProduct = async () => {
@@ -2533,6 +2557,23 @@ Aleatorio (mezclado entre todos, cambia solo)
 <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "10px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px 12px" }}>
 <span style={{ flex: 1, fontSize: "13px" }}>{s.email || s.id}</span>
 <button onClick={() => handleDeleteNewsletterSub(s.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px" }}>Eliminar</button>
+</div>
+))}
+</div>
+)}
+</div>
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<h3 style={{ margin: "0 0 6px" }}>📱 Contactos de WhatsApp del popup ({popupContacts.length})</h3>
+<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Numeros que dejaron a cambio del cupon de bienvenida. Exportalos para avisarles ofertas y eventos por WhatsApp.</p>
+<button onClick={exportPopupContactsToCSV} style={{ ...S.btnOutline, marginBottom: "16px" }}>⬇ Exportar CSV</button>
+{popupContacts.length === 0 ? (
+<p style={{ color: "#9a9a9a", fontSize: "13px" }}>Todavia no hay contactos.</p>
+) : (
+<div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "260px", overflowY: "auto" }}>
+{popupContacts.map(c => (
+<div key={c.id} style={{ display: "flex", alignItems: "center", gap: "10px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px 12px" }}>
+<span style={{ flex: 1, fontSize: "13px" }}>{c.telefono || c.id}</span>
+<button onClick={() => handleDeletePopupContact(c.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px" }}>Eliminar</button>
 </div>
 ))}
 </div>
@@ -4060,9 +4101,9 @@ return pdpPhotos.length > 1 && (
 <>
 <div style={{ fontSize: "34px", marginBottom: "8px" }}>✨</div>
 <h2 style={{ margin: "0 0 10px", fontFamily: "'Playfair Display', serif", color: "#d4af37", fontSize: "22px" }}>5% OFF en tu primera compra</h2>
-<p style={{ color: "#bdbdbd", fontSize: "14px", lineHeight: 1.5, margin: "0 0 16px" }}>Sumate por email y te mandamos el cupón al toque, más novedades y promos exclusivas antes que nadie.</p>
+<p style={{ color: "#bdbdbd", fontSize: "14px", lineHeight: 1.5, margin: "0 0 16px" }}>Dejanos tu WhatsApp y te mandamos el cupón al toque, más ofertas y novedades directo a tu celular.</p>
 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-<input type="email" placeholder="Tu email" value={welcomePopupEmail} onChange={e => setWelcomePopupEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handleWelcomePopupSubscribe()} style={S.input} />
+<input type="tel" placeholder="Tu WhatsApp (con código de área)" value={welcomePopupPhone} onChange={e => setWelcomePopupPhone(e.target.value)} onKeyDown={e => e.key === "Enter" && handleWelcomePopupSubscribe()} style={S.input} />
 <button style={{ ...S.btn, width: "100%", opacity: welcomePopupSaving ? 0.6 : 1 }} onClick={handleWelcomePopupSubscribe} disabled={welcomePopupSaving}>{welcomePopupSaving ? "Un momento..." : "Quiero mi 5% OFF"}</button>
 </div>
 <button onClick={() => setWelcomePopupOpen(false)} style={{ background: "none", border: "none", color: "#7a7a7a", fontSize: "12px", cursor: "pointer", marginTop: "12px" }}>No, gracias</button>
