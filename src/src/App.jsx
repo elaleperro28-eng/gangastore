@@ -244,7 +244,7 @@ const [welcomePopupOpen, setWelcomePopupOpen] = useState(false);
 const [welcomePopupPhone, setWelcomePopupPhone] = useState("");
 const [welcomePopupSaving, setWelcomePopupSaving] = useState(false);
 const [welcomePopupDone, setWelcomePopupDone] = useState(false);
-const WELCOME_COUPON_CODE = "BIENVENIDA10";
+const WELCOME_COUPON_CODE = "BIENVENIDA05";
 const [pedidos, setPedidos] = useState([]);
 const [hoverVentaDia, setHoverVentaDia] = useState(null);
 // El banner y el orden del catalogo son documentos especiales guardados en la
