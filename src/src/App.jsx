@@ -3234,7 +3234,7 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <span style={S.heroTrustBadge}>✔ 100% Originales</span>
 <span style={S.heroTrustBadge}>🚚 Envío gratis en Bahía Blanca</span>
 <span style={S.heroTrustBadge}>📦 Envíos a todo el país</span>
-<span style={S.heroTrustBadge}>⭐ +500 clientes</span>
+{avgRating && <span style={S.heroTrustBadge}>★ {avgRating} · {reviewCount} {reviewCount === 1 ? "opinión verificada" : "opiniones verificadas"}</span>}
 </div>
 <div style={S.heroBtnRow} className="gs-hero-btn-row">
 <button className="gs-hero-btn-primary" style={S.heroBtnPrimary} onClick={() => { setFilter("perfumes"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Ver Perfumes</button>
