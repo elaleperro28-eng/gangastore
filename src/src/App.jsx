@@ -4052,18 +4052,18 @@ return pdpPhotos.length > 1 && (
 <>
 <div style={{ fontSize: "34px", marginBottom: "8px" }}>🎉</div>
 <h2 style={{ margin: "0 0 10px", fontFamily: "'Playfair Display', serif", color: "#d4af37", fontSize: "22px" }}>Listo, ya sos parte!</h2>
-<p style={{ color: "#bdbdbd", fontSize: "14px", lineHeight: 1.5, margin: "0 0 16px" }}>Usá este código en el carrito para llevarte 10% OFF en tu primera compra:</p>
+<p style={{ color: "#bdbdbd", fontSize: "14px", lineHeight: 1.5, margin: "0 0 16px" }}>Usá este código en el carrito para llevarte 5% OFF en tu primera compra:</p>
 <div style={{ background: "#0f0f0f", border: "2px dashed #d4af37", borderRadius: "10px", padding: "14px", fontSize: "22px", fontWeight: "800", letterSpacing: "2px", color: "#d4af37", marginBottom: "16px" }}>{WELCOME_COUPON_CODE}</div>
 <button style={{ ...S.btn, width: "100%" }} onClick={() => setWelcomePopupOpen(false)}>Seguir viendo perfumes</button>
 </>
 ) : (
 <>
 <div style={{ fontSize: "34px", marginBottom: "8px" }}>✨</div>
-<h2 style={{ margin: "0 0 10px", fontFamily: "'Playfair Display', serif", color: "#d4af37", fontSize: "22px" }}>10% OFF en tu primera compra</h2>
+<h2 style={{ margin: "0 0 10px", fontFamily: "'Playfair Display', serif", color: "#d4af37", fontSize: "22px" }}>5% OFF en tu primera compra</h2>
 <p style={{ color: "#bdbdbd", fontSize: "14px", lineHeight: 1.5, margin: "0 0 16px" }}>Sumate por email y te mandamos el cupón al toque, más novedades y promos exclusivas antes que nadie.</p>
 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
 <input type="email" placeholder="Tu email" value={welcomePopupEmail} onChange={e => setWelcomePopupEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handleWelcomePopupSubscribe()} style={S.input} />
-<button style={{ ...S.btn, width: "100%", opacity: welcomePopupSaving ? 0.6 : 1 }} onClick={handleWelcomePopupSubscribe} disabled={welcomePopupSaving}>{welcomePopupSaving ? "Un momento..." : "Quiero mi 10% OFF"}</button>
+<button style={{ ...S.btn, width: "100%", opacity: welcomePopupSaving ? 0.6 : 1 }} onClick={handleWelcomePopupSubscribe} disabled={welcomePopupSaving}>{welcomePopupSaving ? "Un momento..." : "Quiero mi 5% OFF"}</button>
 </div>
 <button onClick={() => setWelcomePopupOpen(false)} style={{ background: "none", border: "none", color: "#7a7a7a", fontSize: "12px", cursor: "pointer", marginTop: "12px" }}>No, gracias</button>
 </>
