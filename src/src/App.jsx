@@ -2060,7 +2060,9 @@ heroSub: { fontSize: "clamp(15px,2.2vw,19px)", color: "rgba(255,255,255,0.92)", 
 heroTrustRow: { display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "center", margin: "18px 0 4px" },
 heroTrustBadge: { display: "flex", alignItems: "center", gap: "7px", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(212,175,55,0.5)", borderRadius: "24px", padding: "8px 16px", fontSize: "13px", color: "#fff", fontWeight: 600, letterSpacing: "0.3px", backdropFilter: "blur(2px)" },
 section: { padding: "70px 20px", maxWidth: "1200px", margin: "0 auto", background: "#f5efe0", borderRadius: "20px" },
+sectionCompact: { padding: "24px 20px 20px", maxWidth: "1200px", margin: "0 auto", background: "#f5efe0", borderRadius: "20px" },
 sectionTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "24px", borderBottom: "2px solid #d4af37", paddingBottom: "8px", fontFamily: "'Playfair Display', serif", color: "#1a1a1a" },
+sectionTitleCompact: { fontSize: "16px", fontWeight: "700", marginBottom: "10px", borderBottom: "2px solid #d4af37", paddingBottom: "6px", fontFamily: "'Playfair Display', serif", color: "#1a1a1a" },
 filterBar: { display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap", justifyContent: "center" },
 advFilterWrap: { maxWidth: "900px", margin: "0 auto 28px", textAlign: "center" },
 advFilterToggle: { background: "transparent", border: "1px solid #d4af37", color: "#d4af37", padding: "10px 18px", borderRadius: "24px", cursor: "pointer", fontSize: "14px", fontWeight: "600" },
@@ -2138,11 +2140,11 @@ qtyStepperRow: { display: "flex", alignItems: "center", gap: "8px", marginTop: "
 qtyBtn: { width: "26px", height: "26px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 },
 qtyValue: { minWidth: "18px", textAlign: "center", fontWeight: 700, fontSize: "14px" },
 quickBuyBtn: { display: "block", width: "100%", padding: "13px", marginTop: "10px", fontSize: "15px", fontWeight: 800, borderRadius: "10px", border: "2px solid #d4af37", background: "transparent", color: "#d4af37", cursor: "pointer" },
-recentlyViewedRow: { display: "flex", gap: "16px", overflowX: "auto", paddingBottom: "8px" },
-recentlyViewedCard: { flexShrink: 0, width: "140px", cursor: "pointer" },
-recentlyViewedImg: { width: "140px", height: "140px", objectFit: "contain", background: "#fff", borderRadius: "10px", border: "1px solid #e8ddc0" },
-recentlyViewedName: { fontSize: "12px", color: "#1a1a1a", marginTop: "6px", lineHeight: "1.3", minHeight: "32px" },
-recentlyViewedPrice: { fontSize: "13px", fontWeight: 800, color: "#8a6d1f" },
+recentlyViewedRow: { display: "flex", gap: "12px", overflowX: "auto", paddingBottom: "6px" },
+recentlyViewedCard: { flexShrink: 0, width: "104px", cursor: "pointer" },
+recentlyViewedImg: { width: "104px", height: "104px", objectFit: "contain", background: "#fff", borderRadius: "10px", border: "1px solid #e8ddc0" },
+recentlyViewedName: { fontSize: "11px", color: "#1a1a1a", marginTop: "5px", lineHeight: "1.3", minHeight: "26px" },
+recentlyViewedPrice: { fontSize: "12px", fontWeight: 800, color: "#8a6d1f" },
 };
 
 if (page === "adminLogin") {
@@ -3098,8 +3100,8 @@ return (
 </div>
 )}
 {recentlyViewedProducts.length > 0 && (
-<div style={S.section}>
-<div style={S.sectionTitle}>Vistos Recientemente</div>
+<div style={S.sectionCompact}>
+<div style={S.sectionTitleCompact}>Vistos Recientemente</div>
 <div style={S.recentlyViewedRow}>
 {recentlyViewedProducts.map(p => (
 <div key={p.id} className="product-card" style={S.recentlyViewedCard} onClick={() => setSelectedProduct(p)}>
@@ -3111,13 +3113,21 @@ return (
 </div>
 </div>
 )}
-<div style={S.section} id="productsSection">
+<div style={{ ...S.section, paddingTop: "26px" }} id="productsSection">
 <div style={S.sectionTitle}>Productos Disponibles</div>
+<div style={S.filterBar}>
+<button style={S.filterBtnPrimary(filter === "todos")} onClick={() => setFilter("todos")}>Todos</button>
+<button style={S.filterBtnPrimary(filter === "perfumes")} onClick={() => setFilter("perfumes")}>Perfumes</button>
+<button style={S.filterBtnPrimary(filter === "stock")} onClick={() => setFilter("stock")}>En Stock</button>
+<button style={S.filterBtnPrimary(filter === "pedido")} onClick={() => setFilter("pedido")}>Por Pedido</button>
+<button style={S.filterBtnPrimary(filter === "decants")} onClick={() => setFilter("decants")}>Decant</button>
+<button style={S.filterBtnPrimary(filter === "favoritos")} onClick={() => setFilter("favoritos")}>♥ Favoritos{favorites.length > 0 ? ` (${favorites.length})` : ""}</button>
+</div>
 <div style={S.searchWrap}>
 <svg style={S.searchIconSvg} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
 <input type="text" placeholder="Ej: perfume dulce, para verano, parecido a Sauvage..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={S.searchInput} />
 </div>
-<div style={{ maxWidth: "260px", margin: "0 auto 20px" }}>
+<div style={{ maxWidth: "260px", margin: "0 auto 12px" }}>
 <select style={S.select} value={sortBy} onChange={e => setSortBy(e.target.value)} disabled={!!searchQuery.trim()} title={searchQuery.trim() ? "Al buscar, se ordena por relevancia" : "Ordenar por"}>
 <option value="relevancia">Ordenar: Novedades</option>
 <option value="vendidos">Ordenar: Más vendidos</option>
@@ -3125,12 +3135,7 @@ return (
 <option value="precio_desc">Ordenar: Precio mayor a menor</option>
 </select>
 </div>
-<div style={S.filterBar}>
-<button style={S.filterBtnPrimary(filter === "todos")} onClick={() => setFilter("todos")}>Todos</button>
-<button style={S.filterBtnPrimary(filter === "perfumes")} onClick={() => setFilter("perfumes")}>Perfumes</button>
-<button style={S.filterBtnPrimary(filter === "stock")} onClick={() => setFilter("stock")}>En Stock</button>
-<button style={S.filterBtnPrimary(filter === "pedido")} onClick={() => setFilter("pedido")}>Por Pedido</button>
-<button style={S.filterBtnPrimary(filter === "decants")} onClick={() => setFilter("decants")}>Decant</button><button style={S.filterBtnPrimary(filter === "favoritos")} onClick={() => setFilter("favoritos")}>♥ Favoritos{favorites.length > 0 ? ` (${favorites.length})` : ""}</button></div><div style={{ textAlign: "center", margin: "2px 0 16px" }}>
+<div style={{ textAlign: "center", margin: "2px 0 16px" }}>
 <button style={S.advFilterToggle} onClick={() => setTagFiltersOpen(!tagFiltersOpen)}>{tagFiltersOpen ? "Ocultar mas filtros ▲" : "Mas filtros (categorias, temporada, ocasion...) ▾"}</button>
 </div>
 {tagFiltersOpen && (
