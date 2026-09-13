@@ -2060,10 +2060,10 @@ heroSub: { fontSize: "clamp(15px,2.2vw,19px)", color: "rgba(255,255,255,0.92)", 
 heroTrustRow: { display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "center", margin: "18px 0 4px" },
 heroTrustBadge: { display: "flex", alignItems: "center", gap: "7px", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(212,175,55,0.5)", borderRadius: "24px", padding: "8px 16px", fontSize: "13px", color: "#fff", fontWeight: 600, letterSpacing: "0.3px", backdropFilter: "blur(2px)" },
 section: { padding: "70px 20px", maxWidth: "1200px", margin: "0 auto", background: "#f5efe0", borderRadius: "20px" },
-sectionCompact: { padding: "24px 20px 20px", maxWidth: "1200px", margin: "0 auto", background: "#f5efe0", borderRadius: "20px" },
+sectionCompact: { padding: "16px 20px 12px", maxWidth: "1200px", margin: "0 auto", background: "#f5efe0", borderRadius: "20px" },
 sectionTitle: { fontSize: "24px", fontWeight: "700", marginBottom: "24px", borderBottom: "2px solid #d4af37", paddingBottom: "8px", fontFamily: "'Playfair Display', serif", color: "#1a1a1a" },
-sectionTitleCompact: { fontSize: "16px", fontWeight: "700", marginBottom: "10px", borderBottom: "2px solid #d4af37", paddingBottom: "6px", fontFamily: "'Playfair Display', serif", color: "#1a1a1a" },
-filterBar: { display: "flex", gap: "12px", marginBottom: "24px", flexWrap: "wrap", justifyContent: "center" },
+sectionTitleCompact: { fontSize: "14px", fontWeight: "700", marginBottom: "8px", borderBottom: "2px solid #d4af37", paddingBottom: "5px", fontFamily: "'Playfair Display', serif", color: "#1a1a1a" },
+filterBar: { display: "flex", gap: "12px", marginBottom: "16px", flexWrap: "wrap", justifyContent: "center" },
 advFilterWrap: { maxWidth: "900px", margin: "0 auto 28px", textAlign: "center" },
 advFilterToggle: { background: "transparent", border: "1px solid #d4af37", color: "#d4af37", padding: "10px 18px", borderRadius: "24px", cursor: "pointer", fontSize: "14px", fontWeight: "600" },
 advFilterBox: { marginTop: "16px", background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "12px", padding: "20px", textAlign: "left" },
@@ -2140,11 +2140,11 @@ qtyStepperRow: { display: "flex", alignItems: "center", gap: "8px", marginTop: "
 qtyBtn: { width: "26px", height: "26px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 },
 qtyValue: { minWidth: "18px", textAlign: "center", fontWeight: 700, fontSize: "14px" },
 quickBuyBtn: { display: "block", width: "100%", padding: "13px", marginTop: "10px", fontSize: "15px", fontWeight: 800, borderRadius: "10px", border: "2px solid #d4af37", background: "transparent", color: "#d4af37", cursor: "pointer" },
-recentlyViewedRow: { display: "flex", gap: "12px", overflowX: "auto", paddingBottom: "6px" },
-recentlyViewedCard: { flexShrink: 0, width: "104px", cursor: "pointer" },
-recentlyViewedImg: { width: "104px", height: "104px", objectFit: "contain", background: "#fff", borderRadius: "10px", border: "1px solid #e8ddc0" },
-recentlyViewedName: { fontSize: "11px", color: "#1a1a1a", marginTop: "5px", lineHeight: "1.3", minHeight: "26px" },
-recentlyViewedPrice: { fontSize: "12px", fontWeight: 800, color: "#8a6d1f" },
+recentlyViewedRow: { display: "flex", gap: "10px", overflowX: "auto", paddingBottom: "4px" },
+recentlyViewedCard: { flexShrink: 0, width: "88px", cursor: "pointer" },
+recentlyViewedImg: { width: "88px", height: "88px", objectFit: "contain", background: "#fff", borderRadius: "10px", border: "1px solid #e8ddc0" },
+recentlyViewedName: { fontSize: "10.5px", color: "#1a1a1a", marginTop: "4px", lineHeight: "1.25", minHeight: "22px" },
+recentlyViewedPrice: { fontSize: "11.5px", fontWeight: 800, color: "#8a6d1f" },
 };
 
 if (page === "adminLogin") {
@@ -3113,8 +3113,8 @@ return (
 </div>
 </div>
 )}
-<div style={{ ...S.section, paddingTop: "26px" }} id="productsSection">
-<div style={S.sectionTitle}>Productos Disponibles</div>
+<div style={{ ...S.section, paddingTop: "18px" }} id="productsSection">
+<div style={{ ...S.sectionTitle, marginBottom: "14px" }}>Productos Disponibles</div>
 <div style={S.filterBar}>
 <button style={S.filterBtnPrimary(filter === "todos")} onClick={() => setFilter("todos")}>Todos</button>
 <button style={S.filterBtnPrimary(filter === "perfumes")} onClick={() => setFilter("perfumes")}>Perfumes</button>
@@ -3123,31 +3123,28 @@ return (
 <button style={S.filterBtnPrimary(filter === "decants")} onClick={() => setFilter("decants")}>Decant</button>
 <button style={S.filterBtnPrimary(filter === "favoritos")} onClick={() => setFilter("favoritos")}>♥ Favoritos{favorites.length > 0 ? ` (${favorites.length})` : ""}</button>
 </div>
-<div style={S.searchWrap}>
+<div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "center", maxWidth: "620px", margin: "0 auto 10px" }}>
+<div style={{ ...S.searchWrap, flex: "1 1 240px", maxWidth: "420px", margin: 0 }}>
 <svg style={S.searchIconSvg} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
 <input type="text" placeholder="Ej: perfume dulce, para verano, parecido a Sauvage..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={S.searchInput} />
 </div>
-<div style={{ maxWidth: "260px", margin: "0 auto 12px" }}>
-<select style={S.select} value={sortBy} onChange={e => setSortBy(e.target.value)} disabled={!!searchQuery.trim()} title={searchQuery.trim() ? "Al buscar, se ordena por relevancia" : "Ordenar por"}>
+<select style={{ ...S.select, flex: "0 1 190px", maxWidth: "190px" }} value={sortBy} onChange={e => setSortBy(e.target.value)} disabled={!!searchQuery.trim()} title={searchQuery.trim() ? "Al buscar, se ordena por relevancia" : "Ordenar por"}>
 <option value="relevancia">Ordenar: Novedades</option>
 <option value="vendidos">Ordenar: Más vendidos</option>
 <option value="precio_asc">Ordenar: Precio menor a mayor</option>
 <option value="precio_desc">Ordenar: Precio mayor a menor</option>
 </select>
 </div>
-<div style={{ textAlign: "center", margin: "2px 0 16px" }}>
+<div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "center", margin: "0 0 14px" }} id="advFilterSection">
 <button style={S.advFilterToggle} onClick={() => setTagFiltersOpen(!tagFiltersOpen)}>{tagFiltersOpen ? "Ocultar mas filtros ▲" : "Mas filtros (categorias, temporada, ocasion...) ▾"}</button>
+<button style={S.advFilterToggle} onClick={() => setAdvFilterOpen(!advFilterOpen)}>{advFilterOpen ? "Ocultar filtros" : "Encontra tu perfume ideal (filtros)"}</button>
 </div>
 {tagFiltersOpen && (
 <div style={S.filterBar}><button style={S.filterBtn(filter === "mas_vendidos")} onClick={() => setFilter("mas_vendidos")}>Mas Vendidos</button><button style={S.filterBtn(filter === "novedades")} onClick={() => setFilter("novedades")}>Novedades</button><button style={S.filterBtn(filter === "larga_duracion")} onClick={() => setFilter("larga_duracion")}>Larga Duracion</button><button style={S.filterBtn(filter === "menos100k")} onClick={() => setFilter("menos100k")}>Menos de $100.000</button><button style={S.filterBtn(filter === "arabes")} onClick={() => setFilter("arabes")}>Perfumes Arabes</button><button style={S.filterBtn(filter === "disenador")} onClick={() => setFilter("disenador")}>Perfumes de Disenador</button><button style={S.filterBtn(filter === "para_regalar")} onClick={() => setFilter("para_regalar")}>Para Regalar</button><button style={S.filterBtn(filter === "top_invierno")} onClick={() => setFilter("top_invierno")}>Top Invierno</button><button style={S.filterBtn(filter === "top_verano")} onClick={() => setFilter("top_verano")}>Top Verano</button><button style={S.filterBtn(filter === "top_oficina")} onClick={() => setFilter("top_oficina")}>Top Oficina</button><button style={S.filterBtn(filter === "top_citas")} onClick={() => setFilter("top_citas")}>Top Citas</button><button style={S.filterBtn(filter === "tendenciasverano2027")} onClick={() => setFilter("tendenciasverano2027")}>☀️ Tendencias Verano 2027</button><button style={S.filterBtn(filter === "tendencia_floral_frutal")} onClick={() => setFilter("tendencia_floral_frutal")}>Floral Frutal</button><button style={S.filterBtn(filter === "tendencia_gourmand_tostado")} onClick={() => setFilter("tendencia_gourmand_tostado")}>Gourmand Tostado</button><button style={S.filterBtn(filter === "tendencia_verde_te")} onClick={() => setFilter("tendencia_verde_te")}>Verde / Te</button><button style={S.filterBtn(filter === "tendencia_almizclado_piel")} onClick={() => setFilter("tendencia_almizclado_piel")}>Almizclado Piel</button><button style={S.filterBtn(filter === "tendencia_gourmand_oscuro")} onClick={() => setFilter("tendencia_gourmand_oscuro")}>Gourmand Oscuro</button>
 </div>
 )}
-<div style={S.advFilterWrap} id="advFilterSection">
-<button style={S.advFilterToggle} onClick={() => setAdvFilterOpen(!advFilterOpen)}>
-{advFilterOpen ? "Ocultar filtros" : "Encontra tu perfume ideal (filtros)"}
-</button>
 {advFilterOpen && (
-<div style={S.advFilterBox}>
+<div style={{ ...S.advFilterBox, maxWidth: "900px", margin: "0 auto 20px" }}>
 <div style={S.advFilterGrid}>
 <div>
 <label style={S.advFilterLabel}>Marca</label>
@@ -3209,7 +3206,6 @@ return (
 <button style={{ ...S.btnOutline, marginTop: "14px" }} onClick={() => { setFilterMarca(""); setFilterPrecioMin(""); setFilterPrecioMax(""); setFilterDuracion(""); setFilterNotas(""); setFilterTemporada(""); setFilterGenero(""); setFilterTipo(""); }}>Limpiar filtros</button>
 </div>
 )}
-</div>
 {filter === "decants" && (
 <div style={{ textAlign: "center", background: "linear-gradient(135deg, #ffe28a, #d4af37)", border: "2px solid #a8842c", borderRadius: "10px", padding: "14px 18px", marginBottom: "16px", fontSize: "16px", color: "#1a1200", fontWeight: "900", textTransform: "uppercase", letterSpacing: "0.4px", lineHeight: "1.4", boxShadow: "0 4px 18px rgba(212,175,55,0.5)" }}>
 🎁 Armá tu set: llevate {DECANT_COMBO_MIN} decants distintos y obtené {Math.round(DECANT_COMBO_DISCOUNT_PCT * 100)}% OFF automático en el carrito
