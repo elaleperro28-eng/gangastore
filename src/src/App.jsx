@@ -236,6 +236,15 @@ const [cuponSaving, setCuponSaving] = useState(false);
 const [newsletterEmail, setNewsletterEmail] = useState("");
 const [newsletterSaving, setNewsletterSaving] = useState(false);
 const [newsletterSubs, setNewsletterSubs] = useState([]);
+// Popup de bienvenida con descuento a cambio del email: se muestra una sola
+// vez por navegador (localStorage), a los pocos segundos de entrar, para que
+// sumarse a la lista se sienta como parte de la visita y no como una molestia
+// apenas se carga la pagina.
+const [welcomePopupOpen, setWelcomePopupOpen] = useState(false);
+const [welcomePopupEmail, setWelcomePopupEmail] = useState("");
+const [welcomePopupSaving, setWelcomePopupSaving] = useState(false);
+const [welcomePopupDone, setWelcomePopupDone] = useState(false);
+const WELCOME_COUPON_CODE = "BIENVENIDA10";
 const [pedidos, setPedidos] = useState([]);
 const [hoverVentaDia, setHoverVentaDia] = useState(null);
 // El banner y el orden del catalogo son documentos especiales guardados en la
@@ -281,6 +290,19 @@ setToast(msg);
 if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
 toastTimerRef.current = setTimeout(() => setToast(""), 2200);
 };
+// Popup de bienvenida: aparece una sola vez por navegador (se marca en
+// localStorage apenas se muestra, sea que el visitante despues se suscriba o
+// lo cierre) a los 4 segundos de entrar, asi no tapa lo primero que carga.
+useEffect(() => {
+try {
+if (localStorage.getItem("welcomePopupShown")) return;
+} catch {}
+const t = setTimeout(() => {
+setWelcomePopupOpen(true);
+try { localStorage.setItem("welcomePopupShown", "1"); } catch {}
+}, 4000);
+return () => clearTimeout(t);
+}, []);
 const [favorites, setFavorites] = useState(() => {
 try { return JSON.parse(localStorage.getItem("favoritosEsencia") || "[]"); } catch { return []; }
 });
@@ -684,6 +706,14 @@ cuponCodigo: pending.promoCode || null,
 orderId: pending.orderId || null,
 createdAt: serverTimestamp(),
 }).catch(e => console.error("PEDIDO_LOG_MP_ERROR", e));
+// Evento de Compra para Meta Pixel / Google Ads: recien aca sabemos que el
+// pago con Mercado Pago se acredito de verdad (ver comentario arriba), asi
+// que es el mejor momento para avisarle a las campanas que esto fue una
+// venta real y no solo un click o un mensaje.
+try {
+if (window.fbq) window.fbq("track", "Purchase", { value: pending.totalAEnviar, currency: "ARS", content_type: "product", contents: (pending.cartUsed || []).map(i => ({ id: i.id, quantity: i.qty })) });
+if (window.gtag) window.gtag("event", "purchase", { transaction_id: pending.orderId || ("mp_" + Date.now()), value: pending.totalAEnviar, currency: "ARS", items: (pending.cartUsed || []).map(i => ({ item_id: i.id, item_name: getProductName(i), quantity: i.qty, price: Number(i.precio) || 0 })) });
+} catch (e) {}
 const waUrl = "https://wa.me/2914261941?text=" + encodeURIComponent(msg);
 window.open(waUrl, "_blank");
 localStorage.removeItem("mpPedidoPendiente");
@@ -1216,6 +1246,29 @@ console.error("NEWSLETTER_SUBSCRIBE_ERROR", e);
 showToast("No pudimos guardar tu email, intenta de nuevo");
 }
 setNewsletterSaving(false);
+};
+
+// Mismo registro que el newsletter del pie de pagina (misma coleccion, mismo
+// id = email, asi que si ya estaba suscripto no se duplica), pero marcando
+// de donde vino y mostrando el cupon en la propia ventana en vez de mandarlo
+// por otro lado.
+const handleWelcomePopupSubscribe = async () => {
+const email = (welcomePopupEmail || "").trim().toLowerCase();
+if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast("Ingresa un email valido"); return; }
+setWelcomePopupSaving(true);
+try {
+await setDoc(doc(db, "newsletterSuscriptores", email), {
+email,
+origen: "popup_bienvenida",
+cuponEntregado: WELCOME_COUPON_CODE,
+createdAt: serverTimestamp(),
+}, { merge: true });
+setWelcomePopupDone(true);
+} catch (e) {
+console.error("WELCOME_POPUP_SUBSCRIBE_ERROR", e);
+showToast("No pudimos guardar tu email, intenta de nuevo");
+}
+setWelcomePopupSaving(false);
 };
 
 const exportNewsletterToCSV = () => {
@@ -1867,6 +1920,15 @@ uid: user ? user.uid : null,
 createdAt: serverTimestamp(),
 });
 } catch (e) { console.error("PEDIDO_LOG_ERROR", e); }
+// Evento de Compra para Meta Pixel / Google Ads: en transferencia/efectivo
+// no hay forma de confirmar el cobro desde acá (eso lo hace el negocio por
+// WhatsApp), pero este es el momento en que el pedido queda armado y listo
+// para pagar, asi que igual sirve para que las campanas aprendan a buscar
+// gente que de verdad termina el pedido, no solo gente que escribe.
+try {
+if (window.fbq) window.fbq("track", "Purchase", { value: totalAEnviar, currency: "ARS", content_type: "product", contents: cartUsed.map(i => ({ id: i.id, quantity: i.qty })) });
+if (window.gtag) window.gtag("event", "purchase", { transaction_id: "wa_" + Date.now(), value: totalAEnviar, currency: "ARS", items: cartUsed.map(i => ({ item_id: i.id, item_name: getProductName(i), quantity: i.qty, price: Number(i.precio) || 0 })) });
+} catch (e) {}
 const waUrl = "https://wa.me/2914261941?text=" + encodeURIComponent(msg);
 if (waWindow) { waWindow.location.href = waUrl; } else { window.location.href = waUrl; }
 setTimeout(() => {
@@ -3981,6 +4043,33 @@ return pdpPhotos.length > 1 && (
 )}
 {toast && (
 <div style={S.toast}>{toast}</div>
+)}
+{welcomePopupOpen && (
+<div style={S.modal} onClick={() => setWelcomePopupOpen(false)}>
+<div style={{ ...S.modalBox, maxWidth: "420px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+<button onClick={() => setWelcomePopupOpen(false)} style={{ position: "absolute", top: "12px", right: "12px", background: "none", border: "none", color: "#9a9a9a", fontSize: "20px", cursor: "pointer", lineHeight: 1 }}>×</button>
+{welcomePopupDone ? (
+<>
+<div style={{ fontSize: "34px", marginBottom: "8px" }}>🎉</div>
+<h2 style={{ margin: "0 0 10px", fontFamily: "'Playfair Display', serif", color: "#d4af37", fontSize: "22px" }}>Listo, ya sos parte!</h2>
+<p style={{ color: "#bdbdbd", fontSize: "14px", lineHeight: 1.5, margin: "0 0 16px" }}>Usá este código en el carrito para llevarte 10% OFF en tu primera compra:</p>
+<div style={{ background: "#0f0f0f", border: "2px dashed #d4af37", borderRadius: "10px", padding: "14px", fontSize: "22px", fontWeight: "800", letterSpacing: "2px", color: "#d4af37", marginBottom: "16px" }}>{WELCOME_COUPON_CODE}</div>
+<button style={{ ...S.btn, width: "100%" }} onClick={() => setWelcomePopupOpen(false)}>Seguir viendo perfumes</button>
+</>
+) : (
+<>
+<div style={{ fontSize: "34px", marginBottom: "8px" }}>✨</div>
+<h2 style={{ margin: "0 0 10px", fontFamily: "'Playfair Display', serif", color: "#d4af37", fontSize: "22px" }}>10% OFF en tu primera compra</h2>
+<p style={{ color: "#bdbdbd", fontSize: "14px", lineHeight: 1.5, margin: "0 0 16px" }}>Sumate por email y te mandamos el cupón al toque, más novedades y promos exclusivas antes que nadie.</p>
+<div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+<input type="email" placeholder="Tu email" value={welcomePopupEmail} onChange={e => setWelcomePopupEmail(e.target.value)} onKeyDown={e => e.key === "Enter" && handleWelcomePopupSubscribe()} style={S.input} />
+<button style={{ ...S.btn, width: "100%", opacity: welcomePopupSaving ? 0.6 : 1 }} onClick={handleWelcomePopupSubscribe} disabled={welcomePopupSaving}>{welcomePopupSaving ? "Un momento..." : "Quiero mi 10% OFF"}</button>
+</div>
+<button onClick={() => setWelcomePopupOpen(false)} style={{ background: "none", border: "none", color: "#7a7a7a", fontSize: "12px", cursor: "pointer", marginTop: "12px" }}>No, gracias</button>
+</>
+)}
+</div>
+</div>
 )}
 {cart.length > 0 && !showCart && (
 <div className="gs-mobile-cart-bar" style={S.mobileCartBar} onClick={() => setShowCart(true)}>
