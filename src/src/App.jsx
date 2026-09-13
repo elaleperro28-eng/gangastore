@@ -110,8 +110,17 @@ const path = window.location.pathname;
 if (path === "/admin-login" || path === "/admin-login/") return "adminLogin";
 if (path === "/devoluciones" || path === "/devoluciones/") return "devoluciones";
 if (path === "/opinar" || path === "/opinar/") return "opinar";
+if (path === "/blog" || path === "/blog/") return "blog";
+if (path.startsWith("/blog/")) return "blogPost";
 return "home";
 });
+// Si la URL inicial es "/blog/<slug>", guardamos el slug UNA sola vez para
+// abrir esa nota apenas se terminen de cargar las notas del blog (mismo
+// truco que initialDeepLinkPidRef con los productos).
+const initialBlogSlugRef = useRef((() => {
+const m = window.location.pathname.match(/^\/blog\/([^/]+)\/?$/);
+return m ? decodeURIComponent(m[1]) : null;
+})());
 const [isMobileHero, setIsMobileHero] = useState(() => typeof window !== "undefined" && window.innerWidth <= 700);
 const [products, setProducts] = useState([]);  const [productsLoading, setProductsLoading] = useState(true);
 const [resenas, setResenas] = useState([]);
@@ -127,6 +136,13 @@ const [opinionUploading, setOpinionUploading] = useState(false);
 const [opinionSaving, setOpinionSaving] = useState(false);
 const [opinionSent, setOpinionSent] = useState(false);
 const [opinionError, setOpinionError] = useState("");
+// --- Blog (notas de contenido para SEO: guias de compra, notas olfativas, etc) ---
+const [blogPosts, setBlogPosts] = useState([]);
+const [blogForm, setBlogForm] = useState({ titulo: "", slug: "", resumen: "", contenido: "", imagen: "", categoria: "guia-compra", publicado: false });
+const [editingBlogSlug, setEditingBlogSlug] = useState(null);
+const [blogSaving, setBlogSaving] = useState(false);
+const [blogUploading, setBlogUploading] = useState(false);
+const [selectedBlogPost, setSelectedBlogPost] = useState(null);
 // Panel admin: generar/enviar el link de "dejanos tu opinion" a un cliente puntual.
 const [reviewRequestName, setReviewRequestName] = useState("");
 const [reviewRequestPhone, setReviewRequestPhone] = useState("");
@@ -376,6 +392,17 @@ setResenas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
 return () => unsub2();
 }, []);
 
+// Se cargan todas las notas (publicadas y borradores): el panel admin
+// necesita ver los borradores, y las vistas publicas filtran por
+// "publicado" al mostrarlas (mismo criterio que resenas con su "estado").
+useEffect(() => {
+const qBlog = query(collection(db, "blogPosts"), orderBy("createdAt", "desc"));
+const unsubBlog = onSnapshot(qBlog, (snap) => {
+setBlogPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+}, (e) => console.error("BLOG_LIST_ERROR", e));
+return () => unsubBlog();
+}, []);
+
 // Cupones de descuento: se cargan para todos (no solo el admin) porque el
 // carrito del cliente los necesita para validar el codigo que ingresa.
 useEffect(() => {
@@ -504,13 +531,21 @@ const handlePop = () => {
 const p = window.location.pathname;
 if (p === "/admin-login" || p === "/admin-login/") {
 setPage("adminLogin");
+} else if (p === "/blog" || p === "/blog/") {
+setPage("blog");
+setSelectedBlogPost(null);
+} else if (p.startsWith("/blog/")) {
+const m = p.match(/^\/blog\/([^/]+)\/?$/);
+const slug = m ? decodeURIComponent(m[1]) : null;
+setSelectedBlogPost(slug ? (blogPosts.find(b => b.id === slug) || null) : null);
+setPage("blogPost");
 } else {
 setPage("home");
 }
 };
 window.addEventListener("popstate", handlePop);
 return () => window.removeEventListener("popstate", handlePop);
-}, []);
+}, [blogPosts]);
 
 useEffect(() => {
 setModalActiveImg(null);
@@ -592,6 +627,21 @@ if (found && isPerfume(found)) setSelectedProduct(found);
 }
 } catch {}
 }, [products]);
+
+// Mismo mecanismo que arriba pero para abrir una nota del blog cuando se
+// entra directo a "/blog/<slug>".
+const blogDeepLinkTriedRef = useRef(false);
+useEffect(() => {
+if (page !== "blogPost" || blogDeepLinkTriedRef.current || blogPosts.length === 0) return;
+blogDeepLinkTriedRef.current = true;
+try {
+const slug = initialBlogSlugRef.current;
+if (slug) {
+const found = blogPosts.find(b => b.id === slug);
+if (found) setSelectedBlogPost(found);
+}
+} catch {}
+}, [blogPosts, page]);
 // Cuando el cliente vuelve de pagar con Mercado Pago (Checkout Pro) retomamos
 // el pedido que habiamos guardado en localStorage antes de mandarlo a pagar y
 // recien ahi mandamos el mensaje de WhatsApp con el pedido ya pago, para que
@@ -739,13 +789,19 @@ const desc = (selectedProduct.descripcion || "").trim();
 metaDesc.setAttribute("content", desc ? desc.slice(0, 160) : ("Compra " + nombre + " en Esencia Perfumeria. Envio gratis en Bahia Blanca y envios a todo el pais."));
 }
 if (canonical) canonical.setAttribute("href", "https://www.esenciaperfumeria.com.ar/?p=" + selectedProduct.id);
+} else if (selectedBlogPost) {
+// Mismo mecanismo que arriba pero para una nota del blog abierta.
+document.title = (selectedBlogPost.titulo || "Blog") + " | Blog Esencia Perfumeria";
+const metaDesc = document.querySelector('meta[name="description"]');
+if (metaDesc) metaDesc.setAttribute("content", (selectedBlogPost.resumen || "").trim().slice(0, 160) || ("Notas y guias de Esencia Perfumeria: " + (selectedBlogPost.titulo || "")));
+if (canonical) canonical.setAttribute("href", "https://www.esenciaperfumeria.com.ar/blog/" + selectedBlogPost.id);
 } else {
 document.title = "Perfumes en Bahía Blanca | Esencia Perfumeria - Envío Gratis";
 const metaDesc = document.querySelector('meta[name="description"]');
 if (metaDesc) metaDesc.setAttribute("content", "Perfumes arabes y de disenador 100% originales en Bahia Blanca, con envio gratis en la ciudad y envios a todo el pais. Mas de 300 fragancias.");
 if (canonical) canonical.setAttribute("href", "https://www.esenciaperfumeria.com.ar/");
 }
-}, [selectedProduct]);
+}, [selectedProduct, selectedBlogPost]);
 
 useEffect(() => {
 let unsub = () => {};
@@ -1254,6 +1310,79 @@ setUploadMsg("");
 const handleDeleteProduct = async (id) => {
 if (!confirm("Eliminar este producto?")) return;
 await deleteDoc(doc(db, "productos", id));
+};
+
+// --- Blog: CRUD del panel admin ---
+// Genera una URL amigable a partir del titulo (o de lo que el admin haya
+// escrito a mano en el campo "slug"), sacando acentos y caracteres raros.
+const slugify = (s) => String(s || "").toLowerCase()
+.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+
+const handleBlogImageUpload = async (file) => {
+if (!file) return;
+setBlogUploading(true);
+try {
+const link = await uploadFileToImgur(file);
+setBlogForm(f => ({ ...f, imagen: link }));
+} catch (e) {
+alert("No pudimos subir la imagen. Intenta de nuevo.");
+}
+setBlogUploading(false);
+};
+
+// El slug se usa como ID del documento (como ya se hace con referralCodes):
+// asi "/blog/<slug>" mapea directo a un documento, sin necesidad de una
+// consulta aparte. Una vez creada la nota, el slug queda fijo (no se puede
+// editar) para que un link ya compartido nunca se rompa.
+const handleSaveBlogPost = async () => {
+if (!blogForm.titulo.trim()) return alert("Ingresa el titulo de la nota");
+if (!blogForm.contenido.trim()) return alert("Ingresa el contenido de la nota");
+const slug = editingBlogSlug || slugify(blogForm.slug || blogForm.titulo);
+if (!slug) return alert("No se pudo generar la URL de la nota, proba con otro titulo.");
+setBlogSaving(true);
+try {
+const payload = {
+titulo: blogForm.titulo.trim(),
+slug,
+resumen: blogForm.resumen.trim(),
+contenido: blogForm.contenido,
+imagen: blogForm.imagen || "",
+categoria: blogForm.categoria,
+publicado: !!blogForm.publicado,
+updatedAt: serverTimestamp(),
+};
+if (!editingBlogSlug) payload.createdAt = serverTimestamp();
+await setDoc(doc(db, "blogPosts", slug), payload, { merge: true });
+setBlogForm({ titulo: "", slug: "", resumen: "", contenido: "", imagen: "", categoria: "guia-compra", publicado: false });
+setEditingBlogSlug(null);
+alert("Nota guardada");
+} catch (e) {
+console.error("BLOG_SAVE_ERROR", e);
+alert("No pudimos guardar la nota. Intenta de nuevo.");
+}
+setBlogSaving(false);
+};
+
+const handleEditBlogPost = (b) => {
+setEditingBlogSlug(b.id);
+setBlogForm({ titulo: b.titulo || "", slug: b.slug || b.id || "", resumen: b.resumen || "", contenido: b.contenido || "", imagen: b.imagen || "", categoria: b.categoria || "guia-compra", publicado: !!b.publicado });
+window.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+const handleCancelBlogEdit = () => {
+setEditingBlogSlug(null);
+setBlogForm({ titulo: "", slug: "", resumen: "", contenido: "", imagen: "", categoria: "guia-compra", publicado: false });
+};
+
+const handleDeleteBlogPost = async (id) => {
+if (!confirm("Eliminar esta nota del blog?")) return;
+await deleteDoc(doc(db, "blogPosts", id));
+};
+
+const handleTogglePublishBlogPost = async (b) => {
+try { await updateDoc(doc(db, "blogPosts", b.id), { publicado: !b.publicado, updatedAt: serverTimestamp() }); }
+catch (e) { console.error("BLOG_PUBLISH_TOGGLE_ERROR", e); }
 };
 
 const handleAddResena = async () => {
@@ -2811,6 +2940,122 @@ style={{ background: "#25D366", color: "#fff", border: "none", padding: "8px 14p
 ))
 )}
 </div>
+
+<div style={{ marginTop: "40px" }}>
+<h2 style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>📝 Blog</h2>
+<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Notas para atraer busquedas en Google (guias de compra, notas olfativas, comparativas, etc). Una nota queda como borrador (no se ve en el sitio) hasta que la publiques.</p>
+<div style={S.adminCard}>
+<label style={S.label}>Titulo</label>
+<input type="text" value={blogForm.titulo} onChange={e => setBlogForm({ ...blogForm, titulo: e.target.value })} style={{ ...S.input, marginBottom: "12px" }} placeholder="Ej: Como elegir tu perfume ideal" />
+<label style={S.label}>URL de la nota{editingBlogSlug ? " (no se puede cambiar)" : " (se genera sola si la dejas vacia)"}</label>
+<input type="text" value={editingBlogSlug || blogForm.slug} disabled={!!editingBlogSlug} onChange={e => setBlogForm({ ...blogForm, slug: e.target.value })} style={{ ...S.input, marginBottom: "4px", opacity: editingBlogSlug ? 0.6 : 1 }} placeholder="como-elegir-tu-perfume-ideal" />
+<p style={{ color: "#7a7a7a", fontSize: "12px", marginTop: 0, marginBottom: "12px" }}>esenciaperfumeria.com.ar/blog/{editingBlogSlug || slugify(blogForm.slug || blogForm.titulo) || "..."}</p>
+<label style={S.label}>Resumen (para Google y la vista previa al compartir)</label>
+<textarea value={blogForm.resumen} onChange={e => setBlogForm({ ...blogForm, resumen: e.target.value })} style={{ ...S.input, marginBottom: "12px", minHeight: "60px" }} placeholder="1 o 2 frases resumiendo la nota (hasta 160 caracteres aprox)" maxLength={220} />
+<label style={S.label}>Categoria</label>
+<select value={blogForm.categoria} onChange={e => setBlogForm({ ...blogForm, categoria: e.target.value })} style={{ ...S.input, marginBottom: "12px" }}>
+<option value="guia-compra">Guia de compra / regalo</option>
+<option value="notas-olfativas">Notas olfativas / educativo</option>
+<option value="arabes-vs-disenador">Arabes vs disenador</option>
+<option value="cuidado-duracion">Cuidado y duracion</option>
+</select>
+<label style={S.label}>Imagen de portada</label>
+<div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "12px", flexWrap: "wrap" }}>
+<input type="file" accept="image/*" onChange={e => handleBlogImageUpload(e.target.files[0])} />
+{blogUploading && <span style={{ color: "#9a9a9a", fontSize: "13px" }}>Subiendo...</span>}
+{blogForm.imagen && <img src={blogForm.imagen} alt="preview" style={{ width: "70px", height: "70px", objectFit: "cover", borderRadius: "8px" }} />}
+</div>
+<label style={S.label}>Contenido</label>
+<textarea value={blogForm.contenido} onChange={e => setBlogForm({ ...blogForm, contenido: e.target.value })} style={{ ...S.input, marginBottom: "12px", minHeight: "220px", fontFamily: "inherit" }} placeholder="Escribi la nota. Deja una linea en blanco entre parrafos." />
+<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer", marginBottom: "14px" }}>
+<input type="checkbox" checked={!!blogForm.publicado} onChange={e => setBlogForm({ ...blogForm, publicado: e.target.checked })} />
+Publicada (visible en el sitio)
+</label>
+<div style={{ display: "flex", gap: "10px" }}>
+<button onClick={handleSaveBlogPost} disabled={blogSaving} style={{ ...S.btn, padding: "10px 20px", opacity: blogSaving ? 0.6 : 1 }}>{blogSaving ? "Guardando..." : (editingBlogSlug ? "Guardar cambios" : "Crear nota")}</button>
+{editingBlogSlug && <button onClick={handleCancelBlogEdit} style={{ ...S.btnOutline, padding: "10px 20px" }}>Cancelar edicion</button>}
+</div>
+</div>
+<h3 style={{ marginTop: "24px", marginBottom: "16px" }}>Notas existentes ({blogPosts.length})</h3>
+{blogPosts.length === 0 ? (
+<p style={{ color: "#7a7a7a" }}>Todavia no hay notas cargadas.</p>
+) : (
+blogPosts.map(b => (
+<div key={b.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
+{b.imagen && <img src={b.imagen} alt={b.titulo} style={{ width: "70px", height: "70px", objectFit: "cover", borderRadius: "8px" }} />}
+<div style={{ flex: 1, minWidth: "180px" }}>
+<div style={{ fontWeight: "bold" }}>{b.titulo}</div>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>/blog/{b.id}</div>
+<span style={{ fontSize: "12px", fontWeight: "700", color: b.publicado ? "#9ddb9d" : "#e0b84a" }}>{b.publicado ? "Publicada" : "Borrador"}</span>
+</div>
+<button onClick={() => handleTogglePublishBlogPost(b)} style={{ background: b.publicado ? "#5a5a5a" : "#1e7a3d", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer", fontWeight: "700" }}>{b.publicado ? "Pasar a borrador" : "Publicar"}</button>
+<button onClick={() => handleEditBlogPost(b)} style={{ background: "#d4af37", color: "#000", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>Editar</button>
+<button onClick={() => handleDeleteBlogPost(b.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer" }}>Eliminar</button>
+</div>
+))
+)}
+</div>
+</div>
+);
+}
+
+const BLOG_CATEGORIA_LABELS = { "guia-compra": "Guía de compra", "notas-olfativas": "Notas olfativas", "arabes-vs-disenador": "Árabes vs. diseñador", "cuidado-duracion": "Cuidado y duración" };
+
+if (page === "blog") {
+const volverInicio = () => { setPage("home"); window.history.pushState({}, "", "/"); };
+const abrirPost = (b) => { setSelectedBlogPost(b); setPage("blogPost"); window.history.pushState({}, "", "/blog/" + b.id); window.scrollTo(0, 0); };
+const publicados = blogPosts.filter(b => b.publicado);
+return (
+<div style={{ ...S.body, minHeight: "100vh" }}>
+<div style={{ ...S.nav, justifyContent: "space-between" }}>
+<a href="/" onClick={(e) => { e.preventDefault(); volverInicio(); }} style={{ color: "#d4af37", fontFamily: "'Playfair Display', serif", fontSize: "22px", fontWeight: 800, textDecoration: "none" }}>Esencia Perfumeria</a>
+<button onClick={volverInicio} style={S.btnOutline}>Volver a la tienda</button>
+</div>
+<div style={{ maxWidth: "1000px", margin: "0 auto", padding: "36px 20px 60px" }}>
+<h1 style={{ color: "#d4af37", fontFamily: "'Playfair Display', serif", fontSize: "clamp(24px, 4vw, 34px)", marginBottom: "8px" }}>Blog de Esencia Perfumeria</h1>
+<p style={{ color: "#9a9a9a", marginBottom: "32px" }}>Guías de compra, notas olfativas y consejos para elegir y cuidar tu perfume.</p>
+{publicados.length === 0 ? (
+<p style={{ color: "#9a9a9a" }}>Todavía no hay notas publicadas. Volvé pronto.</p>
+) : (
+<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "20px" }}>
+{publicados.map(b => (
+<a key={b.id} href={"/blog/" + b.id} onClick={(e) => { e.preventDefault(); abrirPost(b); }} style={{ textDecoration: "none", color: "inherit", background: "#161616", border: "1px solid #2b2b2b", borderRadius: "10px", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+{b.imagen && <img src={b.imagen} alt={b.titulo} loading="lazy" style={{ width: "100%", height: "160px", objectFit: "cover" }} />}
+<div style={{ padding: "16px" }}>
+<span style={{ color: "#d4af37", fontSize: "11px", fontWeight: "700", textTransform: "uppercase" }}>{BLOG_CATEGORIA_LABELS[b.categoria] || "Nota"}</span>
+<h3 style={{ color: "#fff", fontSize: "17px", margin: "6px 0" }}>{b.titulo}</h3>
+<p style={{ color: "#9a9a9a", fontSize: "13px", margin: 0 }}>{b.resumen}</p>
+</div>
+</a>
+))}
+</div>
+)}
+</div>
+</div>
+);
+}
+
+if (page === "blogPost") {
+const volverBlog = () => { setPage("blog"); setSelectedBlogPost(null); window.history.pushState({}, "", "/blog"); };
+const irHome = () => { setPage("home"); window.history.pushState({}, "", "/"); };
+const b = selectedBlogPost;
+const parrafos = b ? String(b.contenido || "").split(/\n\s*\n/).map(s => s.trim()).filter(Boolean) : [];
+return (
+<div style={{ ...S.body, minHeight: "100vh" }}>
+<div style={{ ...S.nav, justifyContent: "space-between" }}>
+<a href="/" onClick={(e) => { e.preventDefault(); irHome(); }} style={{ color: "#d4af37", fontFamily: "'Playfair Display', serif", fontSize: "22px", fontWeight: 800, textDecoration: "none" }}>Esencia Perfumeria</a>
+<button onClick={volverBlog} style={S.btnOutline}>Volver al blog</button>
+</div>
+{!b ? (
+<div style={{ maxWidth: "760px", margin: "0 auto", padding: "60px 20px", color: "#9a9a9a", textAlign: "center" }}>Cargando nota...</div>
+) : (
+<div style={{ maxWidth: "760px", margin: "0 auto", padding: "36px 20px 60px", color: "#e8ddc0", lineHeight: "1.7" }}>
+<span style={{ color: "#d4af37", fontSize: "12px", fontWeight: "700", textTransform: "uppercase" }}>{BLOG_CATEGORIA_LABELS[b.categoria] || "Nota"}</span>
+<h1 style={{ color: "#d4af37", fontFamily: "'Playfair Display', serif", fontSize: "clamp(24px, 4vw, 34px)", margin: "6px 0 18px" }}>{b.titulo}</h1>
+{b.imagen && <img src={b.imagen} alt={b.titulo} style={{ width: "100%", maxHeight: "360px", objectFit: "cover", borderRadius: "10px", marginBottom: "24px" }} />}
+{parrafos.map((p, i) => <p key={i}>{p}</p>)}
+</div>
+)}
 </div>
 );
 }
@@ -3783,6 +4028,7 @@ return pdpPhotos.length > 1 && (
 <a href="https://wa.me/2914261941?text=Hola!%20Tengo%20una%20consulta%20sobre%20un%20pedido" target="_blank" rel="noreferrer" style={S.footerLink}>Consultar sobre un pedido</a>
 <a href="#" onClick={(e) => { e.preventDefault(); setAssistantOpen(true); }} style={S.footerLink}>Preguntas frecuentes</a>
 <a href="#advFilterSection" style={S.footerLink}>Encontra tu perfume ideal</a>
+<a href="/blog" onClick={(e) => { e.preventDefault(); setPage("blog"); window.history.pushState({}, "", "/blog"); window.scrollTo(0, 0); }} style={S.footerLink}>Blog</a>
 <a href="/devoluciones" onClick={(e) => { e.preventDefault(); setPage("devoluciones"); window.history.pushState({}, "", "/devoluciones"); window.scrollTo(0, 0); }} style={S.footerLink}>Política de Cambios y Devoluciones</a>
 <a href="/opinar" onClick={(e) => { e.preventDefault(); setPage("opinar"); window.history.pushState({}, "", "/opinar"); window.scrollTo(0, 0); }} style={S.footerLink}>Dejar mi opinión</a>
 </div>
