@@ -80,7 +80,7 @@ const MAX_CART_QTY = 20;
 const clampQty = (q) => { const n = Number(q); if (!Number.isFinite(n) || n < 1) return 1; return Math.min(Math.floor(n), MAX_CART_QTY); };
 // Para +/- en el carrito: solo topea el maximo, deja pasar 0 o negativos para poder quitar el producto.
 const capQtyDelta = (q) => { const n = Number(q); if (!Number.isFinite(n)) return 0; return Math.min(Math.floor(n), MAX_CART_QTY); };
-const IMGUR_CLIENT_ID = "546c25a59c58ad7"; const TAG_OPTIONS = [{ key: "mas_vendidos", label: "Mas vendidos" }, { key: "novedades", label: "Novedades" }, { key: "larga_duracion", label: "Larga duracion" }, { key: "para_regalar", label: "Para regalar" }, { key: "top_invierno", label: "Top invierno" }, { key: "top_verano", label: "Top verano" }, { key: "top_oficina", label: "Top oficina" }, { key: "top_citas", label: "Top citas" }, { key: "tendencia_floral_frutal", label: "Tendencia: Floral frutal" }, { key: "tendencia_gourmand_tostado", label: "Tendencia: Gourmand tostado" }, { key: "tendencia_verde_te", label: "Tendencia: Verde / Te" }, { key: "tendencia_almizclado_piel", label: "Tendencia: Almizclado piel" }, { key: "tendencia_gourmand_oscuro", label: "Tendencia: Gourmand oscuro" }];
+const IMGUR_CLIENT_ID = "546c25a59c58ad7"; const TAG_OPTIONS = [{ key: "cosmeticos", label: "Cosmeticos" }, { key: "mas_vendidos", label: "Mas vendidos" }, { key: "novedades", label: "Novedades" }, { key: "larga_duracion", label: "Larga duracion" }, { key: "para_regalar", label: "Para regalar" }, { key: "top_invierno", label: "Top invierno" }, { key: "top_verano", label: "Top verano" }, { key: "top_oficina", label: "Top oficina" }, { key: "top_citas", label: "Top citas" }, { key: "tendencia_floral_frutal", label: "Tendencia: Floral frutal" }, { key: "tendencia_gourmand_tostado", label: "Tendencia: Gourmand tostado" }, { key: "tendencia_verde_te", label: "Tendencia: Verde / Te" }, { key: "tendencia_almizclado_piel", label: "Tendencia: Almizclado piel" }, { key: "tendencia_gourmand_oscuro", label: "Tendencia: Gourmand oscuro" }];
 const shuffleArray = (arr) => {
 const a = [...arr];
 for (let i = a.length - 1; i > 0; i--) {
@@ -3472,6 +3472,7 @@ return (
 <button style={S.filterBtnPrimary(filter === "stock")} onClick={() => setFilter("stock")}>En Stock</button>
 <button style={S.filterBtnPrimary(filter === "pedido")} onClick={() => setFilter("pedido")}>Por Pedido</button>
 <button style={S.filterBtnPrimary(filter === "decants")} onClick={() => setFilter("decants")}>Decant</button>
+  <button style={S.filterBtnPrimary(filter === "cosmeticos")} onClick={() => setFilter("cosmeticos")}>Cosméticos</button>
 <button style={S.filterBtnPrimary(filter === "favoritos")} onClick={() => setFilter("favoritos")}>♥ Favoritos{favorites.length > 0 ? ` (${favorites.length})` : ""}</button>
 </div>
 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center", maxWidth: "620px", margin: "0 auto 8px" }}>
