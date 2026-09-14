@@ -325,6 +325,16 @@ return () => { clearTimeout(showT); clearTimeout(hideT); };
 const [favorites, setFavorites] = useState(() => {
 try { return JSON.parse(localStorage.getItem("favoritosEsencia") || "[]"); } catch { return []; }
 });
+// Semilla del orden aleatorio del catalogo: una nueva por visita (sessionStorage),
+// asi el mezclado cambia cada vez que alguien entra al sitio, pero se mantiene
+// estable mientras esa persona navega (no salta la grilla en cada render).
+const [catalogRandomSeed] = useState(() => {
+try {
+let s = sessionStorage.getItem("catalogRandomSeed");
+if (!s) { s = Math.random().toString(36).slice(2) + Date.now(); sessionStorage.setItem("catalogRandomSeed", s); }
+return s;
+} catch { return Math.random().toString(36).slice(2) + Date.now(); }
+});
 const toggleFavorite = (id) => {
 setFavorites(f => {
 const next = f.includes(id) ? f.filter(x => x !== id) : [...f, id];
@@ -2200,12 +2210,13 @@ featured.sort((a, b) => idIndex.get(a.id) - idIndex.get(b.id));
 return [...featured, ...rest];
 }
 if (config.modo === "aleatorio") {
-// Orden aleatorio pero estable: se recalcula una vez por dia (no en cada
-// render) para que la grilla no salte mientras el cliente navega.
-const daySeed = new Date().toISOString().slice(0, 10);
+// Orden aleatorio pero estable dentro de la visita: usa una semilla nueva
+// por sesion (catalogRandomSeed) en vez de una semilla fija por dia, asi
+// el mezclado cambia cada vez que alguien entra al sitio en vez de
+// repetir siempre el mismo orden.
 const rankFor = (id) => {
 let h = 2166136261;
-const s = daySeed + "|" + id;
+const s = catalogRandomSeed + "|" + id;
 for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
 return (h >>> 0) / 4294967295;
 };
