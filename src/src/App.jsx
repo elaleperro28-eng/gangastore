@@ -3397,34 +3397,34 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 {(() => {
 const resenasPublicadas = resenas.filter(r => r.estado !== "pendiente");
 return (
-<div style={S.section}>
-<div style={S.sectionTitle}>Opiniones de Clientes</div>
-<p style={{ color: "#7a7a7a", fontSize: "13px", textAlign: "center", marginTop: "-8px", marginBottom: "20px" }}>Sobre nuestra atención y la entrega de sus pedidos, verificadas antes de publicarse.</p>
-{avgRating && <div style={{ textAlign: "center", marginBottom: "20px" }}><span style={{ ...S.ratingBadge, fontSize: "16px" }}>★ {avgRating} de 5 · {reviewCount} {reviewCount === 1 ? "opinion verificada" : "opiniones verificadas"}</span></div>}
+<div style={{ ...S.section, padding: "40px 20px" }}>
+<div style={{ ...S.sectionTitle, fontSize: "20px", marginBottom: "10px" }}>Opiniones de Clientes</div>
+<p style={{ color: "#7a7a7a", fontSize: "13px", textAlign: "center", marginTop: "-4px", marginBottom: "16px" }}>Sobre nuestra atención y la entrega de sus pedidos, verificadas antes de publicarse.</p>
+{avgRating && <div style={{ textAlign: "center", marginBottom: "16px" }}><span style={{ ...S.ratingBadge, fontSize: "16px" }}>★ {avgRating} de 5 · {reviewCount} {reviewCount === 1 ? "opinion verificada" : "opiniones verificadas"}</span></div>}
 {resenasPublicadas.length === 0 ? (
 <p style={{ color: "#7a7a7a", textAlign: "center" }}>Todavia no hay opiniones cargadas.</p>
 ) : (
-<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "18px" }}>
+<div className="gs-reviews-scroll">
 {resenasPublicadas.map(r => (
-<div key={r.id} style={S.resenaCard}>
-<div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
+<div key={r.id} className="gs-review-card">
+<div className="gs-review-card-head">
 {r.foto ? (
-<img src={optimizeImg(r.foto, "t")} alt={r.nombre} loading="lazy" decoding="async" style={S.resenaFoto} />
+<img src={optimizeImg(r.foto, "t")} alt={r.nombre} loading="lazy" decoding="async" className="gs-review-avatar" />
 ) : (
-<div style={S.resenaAvatar}>{(r.nombre || "?").trim().charAt(0).toUpperCase()}</div>
+<div className="gs-review-avatar-fallback">{(r.nombre || "?").trim().charAt(0).toUpperCase()}</div>
 )}
 <div>
-<div style={{ fontWeight: "700", color: "#1a1a1a" }}>{r.nombre}</div>
-{r.ciudad && <div style={{ fontSize: "12px", color: "#7a7a7a" }}>{r.ciudad}</div>}
+<div className="gs-review-name">{r.nombre}</div>
+{r.ciudad && <div className="gs-review-city">{r.ciudad}</div>}
 </div>
 </div>
-<div style={{ color: "#d4af37", marginBottom: "8px" }}>{"★".repeat(r.estrellas || 5)}{"☆".repeat(5 - (r.estrellas || 5))}</div>
-<p style={{ color: "#3a3a3a", fontSize: "14px", fontStyle: "italic", margin: 0 }}>"{r.texto}"</p>
+<div className="gs-review-stars">{"★".repeat(r.estrellas || 5)}{"☆".repeat(5 - (r.estrellas || 5))}</div>
+<p className="gs-review-text">"{r.texto}"</p>
 </div>
 ))}
 </div>
 )}
-<div style={{ textAlign: "center", marginTop: "22px" }}>
+<div style={{ textAlign: "center", marginTop: "18px" }}>
 <a href="/opinar" onClick={(e) => { e.preventDefault(); setPage("opinar"); window.history.pushState({}, "", "/opinar"); window.scrollTo(0, 0); }} style={{ color: "#8a6d1f", fontSize: "13px", textDecoration: "underline", cursor: "pointer" }}>¿Ya nos compraste? Contanos tu experiencia</a>
 </div>
 </div>
@@ -3681,8 +3681,18 @@ return (
 .gs-pdp-reviews-block { margin-bottom: 44px; }
 .gs-pdp-reviews-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
 .gs-pdp-similar-scroll { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; -webkit-overflow-scrolling: touch; }
-.gs-pdp-similar-card { flex-shrink: 0; width: 160px; background: #1a1a1a; border: 1px solid #2b2b2b; border-radius: 10px; padding: 10px; cursor: pointer; transition: border-color .15s ease; }
+.gs-pdp-similar-card { flex-shrink: 0; width: 175px; background: #1a1a1a; border: 1px solid #2b2b2b; border-radius: 10px; padding: 10px; cursor: pointer; transition: border-color .15s ease; }
 .gs-pdp-similar-card:hover { border-color: #d4af37; }
+.gs-pdp-section-title-sm { font-size: 17px; font-weight: 700; margin-bottom: 14px; padding-bottom: 6px; border-bottom: 1px solid #3a3a3a; font-family: 'Playfair Display', serif; color: #cfcfcf; }
+.gs-reviews-scroll { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+.gs-review-card { flex-shrink: 0; width: 200px; scroll-snap-align: start; background: #ffffff; border-radius: 10px; padding: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 1px solid #e8ddc0; }
+.gs-review-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.gs-review-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid #d4af37; flex-shrink: 0; }
+.gs-review-avatar-fallback { width: 36px; height: 36px; border-radius: 50%; background: #d4af37; color: #000; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+.gs-review-name { font-weight: 700; color: #1a1a1a; font-size: 13px; line-height: 1.25; }
+.gs-review-city { font-size: 11px; color: #7a7a7a; }
+.gs-review-stars { color: #d4af37; font-size: 12px; margin-bottom: 6px; }
+.gs-review-text { color: #3a3a3a; font-size: 12.5px; font-style: italic; margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 `}</style>
 <div className="gs-pdp-grid" onClick={e => e.stopPropagation()}>
 <button onClick={() => setSelectedProduct(null)} className="gs-pdp-topbtn" style={{ right: "20px" }} aria-label="Cerrar">✕</button>
@@ -3827,36 +3837,6 @@ return pdpPhotos.length > 1 && (
 </div>
 </div>
 <div className="gs-pdp-below">
-<div className="gs-pdp-reviews-block">
-<div className="gs-pdp-section-title">Opiniones de Clientes</div>
-{avgRating && <div style={{ ...S.ratingBadge, marginBottom: "14px" }}>★ {avgRating} de 5 · {reviewCount} {reviewCount === 1 ? "opinion" : "opiniones"}</div>}
-{resenasPublicadas.length === 0 ? (
-<p style={{ color: "#8a8a8a" }}>Todavia no hay opiniones cargadas.</p>
-) : (
-<div className="gs-pdp-reviews-grid">
-{resenasPublicadas.slice(0, 6).map(r => (
-<div key={r.id} style={S.resenaCard}>
-<div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
-{r.foto ? (
-<img src={optimizeImg(r.foto, "t")} alt={r.nombre} loading="lazy" decoding="async" style={S.resenaFoto} />
-) : (
-<div style={S.resenaAvatar}>{(r.nombre || "?").trim().charAt(0).toUpperCase()}</div>
-)}
-<div>
-<div style={{ fontWeight: "700", color: "#1a1a1a" }}>{r.nombre}</div>
-{r.ciudad && <div style={{ fontSize: "12px", color: "#7a7a7a" }}>{r.ciudad}</div>}
-</div>
-</div>
-<div style={{ color: "#d4af37", marginBottom: "8px" }}>{"★".repeat(r.estrellas || 5)}{"☆".repeat(5 - (r.estrellas || 5))}</div>
-<p style={{ color: "#3a3a3a", fontSize: "14px", fontStyle: "italic", margin: 0 }}>"{r.texto}"</p>
-</div>
-))}
-</div>
-)}
-<div style={{ textAlign: "center", marginTop: "18px" }}>
-<a href="/opinar" onClick={(e) => { e.preventDefault(); setSelectedProduct(null); setPage("opinar"); window.history.pushState({}, "", "/opinar"); window.scrollTo(0, 0); }} style={{ color: "#d4af37", fontSize: "13px", textDecoration: "underline", cursor: "pointer" }}>¿Ya nos compraste? Contanos tu experiencia</a>
-</div>
-</div>
 {pdpSimilarProducts.length > 0 && (
 <div className="gs-pdp-similar-block">
 <div className="gs-pdp-section-title">Productos Similares</div>
@@ -3872,6 +3852,36 @@ return pdpPhotos.length > 1 && (
 </div>
 </div>
 )}
+<div className="gs-pdp-reviews-block">
+<div className="gs-pdp-section-title-sm">Opiniones de Clientes</div>
+{avgRating && <div style={{ ...S.ratingBadge, marginBottom: "12px" }}>★ {avgRating} de 5 · {reviewCount} {reviewCount === 1 ? "opinion" : "opiniones"}</div>}
+{resenasPublicadas.length === 0 ? (
+<p style={{ color: "#8a8a8a" }}>Todavia no hay opiniones cargadas.</p>
+) : (
+<div className="gs-reviews-scroll">
+{resenasPublicadas.slice(0, 6).map(r => (
+<div key={r.id} className="gs-review-card">
+<div className="gs-review-card-head">
+{r.foto ? (
+<img src={optimizeImg(r.foto, "t")} alt={r.nombre} loading="lazy" decoding="async" className="gs-review-avatar" />
+) : (
+<div className="gs-review-avatar-fallback">{(r.nombre || "?").trim().charAt(0).toUpperCase()}</div>
+)}
+<div>
+<div className="gs-review-name">{r.nombre}</div>
+{r.ciudad && <div className="gs-review-city">{r.ciudad}</div>}
+</div>
+</div>
+<div className="gs-review-stars">{"★".repeat(r.estrellas || 5)}{"☆".repeat(5 - (r.estrellas || 5))}</div>
+<p className="gs-review-text">"{r.texto}"</p>
+</div>
+))}
+</div>
+)}
+<div style={{ textAlign: "center", marginTop: "16px" }}>
+<a href="/opinar" onClick={(e) => { e.preventDefault(); setSelectedProduct(null); setPage("opinar"); window.history.pushState({}, "", "/opinar"); window.scrollTo(0, 0); }} style={{ color: "#d4af37", fontSize: "13px", textDecoration: "underline", cursor: "pointer" }}>¿Ya nos compraste? Contanos tu experiencia</a>
+</div>
+</div>
 </div>
 <div className="gs-pdp-sticky-cta">
 <span className="gs-pdp-sticky-price">{formatPrice(getProductPrice(selectedProduct))}</span>
