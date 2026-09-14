@@ -117,20 +117,18 @@ const description = descRaw
 ? descRaw.slice(0, 160)
 : "Compra " + nombre + " en Esencia Perfumeria. Envio gratis en Bahia Blanca y envios a todo el pais.";
 const image = p.imageUrl || p.imagen || p.foto || p.image || p.img || "";
-// El <link rel="canonical"> apunta al formato "?p=" (el mismo que ya usan
-// el sitemap, el JSON-LD y el canonical dinamico del cliente): es la URL
-// que Google debe indexar para este producto.
-//
-// El og:url es otra cosa: Facebook (y otros bots) lo usan como "URL
-// definitiva" y vuelven a pedir ESA url para confirmar/deduplicar el
-// preview. Si le pasamos la de "?p=", el bot termina pidiendo esa url,
-// que no pasa por esta funcion (nadie la reescribe a /producto/:id) y le
-// devuelve el index.html generico -> el preview del producto se pisaba
-// con el de la home. Por eso og:url usa /producto/:id: es la unica url
-// que, la pida quien la pida, siempre resuelve a las etiquetas de este
+// El <link rel="canonical"> y el og:url apuntan los dos a /producto/:id (el
+// sitemap, el JSON-LD y el canonical dinamico del cliente en App.jsx ya
+// usan este mismo formato). Antes el canonical usaba "?p=" en vez de
+// "/producto/:id": funcionaba porque Google ejecuta JavaScript y termina
+// viendo el contenido correcto igual, pero cualquier otro rastreador o
+// herramienta que lea el HTML crudo de "?p=" (sin pasar por esta funcion)
+// se encontraba con el titulo/description genericos de la home. Usar
+// /producto/:id como canonical evita ese problema: es la unica URL que,
+// la pida quien la pida, siempre resuelve al HTML ya completo de este
 // producto.
-const canonicalUrl = SITE_URL + "/?p=" + encodeURIComponent(String(id));
-const ogUrl = SITE_URL + "/producto/" + encodeURIComponent(String(id));
+const canonicalUrl = SITE_URL + "/producto/" + encodeURIComponent(String(id));
+const ogUrl = canonicalUrl;
 
 let html = baseHtml;
 html = html.replace(/(<title>)[^<]*(<\/title>)/, "$1" + esc(title) + "$2");
