@@ -245,6 +245,7 @@ const [welcomePopupPhone, setWelcomePopupPhone] = useState("");
 const [welcomePopupSaving, setWelcomePopupSaving] = useState(false);
 const [welcomePopupDone, setWelcomePopupDone] = useState(false);
 const WELCOME_COUPON_CODE = "BIENVENIDO05";
+const [reviewNoticeIdx, setReviewNoticeIdx] = useState(null);
 const [pedidos, setPedidos] = useState([]);
 const [hoverVentaDia, setHoverVentaDia] = useState(null);
 // El banner y el orden del catalogo son documentos especiales guardados en la
@@ -303,6 +304,24 @@ try { localStorage.setItem("welcomePopupShown", "1"); } catch {}
 }, 4000);
 return () => clearTimeout(t);
 }, []);
+// Aviso de reseña real: prueba social honesta (nunca inventamos compras ni
+// contadores falsos). Muestra UNA reseña ya publicada por vez, sin repetir
+// dentro de la misma visita (se guarda el indice en sessionStorage), asi
+// quien esta mirando el catalogo ve que hay gente real conforme con su pedido.
+useEffect(() => {
+const publicadas = resenas.filter(r => r.estado !== "pendiente" && r.texto);
+if (publicadas.length === 0) return;
+let seen = 0;
+try { seen = Number(sessionStorage.getItem("reviewNoticeSeen") || "0"); } catch {}
+if (seen >= publicadas.length) return;
+let hideT;
+const showT = setTimeout(() => {
+setReviewNoticeIdx(seen);
+try { sessionStorage.setItem("reviewNoticeSeen", String(seen + 1)); } catch {}
+hideT = setTimeout(() => setReviewNoticeIdx(null), 7000);
+}, 9000);
+return () => { clearTimeout(showT); clearTimeout(hideT); };
+}, [resenas.length]);
 const [favorites, setFavorites] = useState(() => {
 try { return JSON.parse(localStorage.getItem("favoritosEsencia") || "[]"); } catch { return []; }
 });
@@ -2344,6 +2363,8 @@ footerTrustRow: { display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "4p
 footerTrustBadge: { display: "flex", alignItems: "center", gap: "6px", background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "6px 12px", fontSize: "12px", color: "#bdbdbd" },
 footerBottom: { maxWidth: "1200px", margin: "40px auto 0", paddingTop: "20px", borderTop: "1px solid #2b2b2b", display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "space-between", color: "#6b6b6b", fontSize: "12px" },
 toast: { position: "fixed", left: "50%", bottom: "100px", transform: "translateX(-50%)", background: "#1a1a1a", color: "#fff", border: "1px solid #d4af37", padding: "12px 22px", borderRadius: "30px", fontSize: "14px", fontWeight: 600, zIndex: 200, boxShadow: "0 6px 20px rgba(0,0,0,0.4)", maxWidth: "88vw", textAlign: "center", animation: "toastPop 0.25s ease" },
+reviewNotice: { position: "fixed", left: "18px", bottom: "90px", zIndex: 150, background: "#1a1a1a", border: "1px solid #2b2b2b", borderLeft: "3px solid #d4af37", borderRadius: "10px", padding: "14px 34px 14px 16px", maxWidth: "290px", boxShadow: "0 10px 28px rgba(0,0,0,0.45)", animation: "toastPop 0.3s ease" },
+reviewNoticeClose: { position: "absolute", top: "8px", right: "10px", background: "none", border: "none", color: "#7a7a7a", fontSize: "16px", cursor: "pointer", lineHeight: 1, padding: "4px" },
 favBtn: (active) => ({ position: "absolute", top: "10px", right: "10px", width: "34px", height: "34px", borderRadius: "50%", border: "none", background: active ? "rgba(212,175,55,0.95)" : "rgba(0,0,0,0.55)", color: active ? "#000" : "#fff", fontSize: "18px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 5, lineHeight: 1 }),
 mobileCartBar: { position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, background: "linear-gradient(135deg, #d4af37, #a8842c)", color: "#000", display: "none", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", cursor: "pointer", boxShadow: "0 -4px 16px rgba(0,0,0,0.35)", fontWeight: 700, boxSizing: "border-box" },
 mobileCartBarText: { fontSize: "13px" },
@@ -4082,6 +4103,19 @@ return pdpPhotos.length > 1 && (
 {toast && (
 <div style={S.toast}>{toast}</div>
 )}
+{(() => {
+const resenasNotice = resenas.filter(r => r.estado !== "pendiente" && r.texto);
+const rN = reviewNoticeIdx !== null ? resenasNotice[reviewNoticeIdx] : null;
+if (!rN) return null;
+return (
+<div style={S.reviewNotice}>
+<button onClick={() => setReviewNoticeIdx(null)} style={S.reviewNoticeClose} aria-label="Cerrar">×</button>
+<div style={{ color: "#d4af37", fontSize: "13px", marginBottom: "6px" }}>{"★".repeat(rN.estrellas || 5)}{"☆".repeat(5 - (rN.estrellas || 5))}</div>
+<div style={{ fontSize: "13px", color: "#e8ddc0", marginBottom: "8px", lineHeight: 1.4 }}>"{rN.texto}"</div>
+<div style={{ fontSize: "11.5px", color: "#9a9a9a" }}>{rN.nombre}{rN.ciudad ? ` · ${rN.ciudad}` : ""} · Reseña real</div>
+</div>
+);
+})()}
 {welcomePopupOpen && (
 <div style={S.modal} onClick={() => setWelcomePopupOpen(false)}>
 <div style={{ ...S.modalBox, maxWidth: "420px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
