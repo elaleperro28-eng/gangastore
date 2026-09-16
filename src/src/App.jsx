@@ -3382,7 +3382,7 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <button onClick={() => { setBannerDismissed(true); try { sessionStorage.setItem("esenciaBannerDismissed", "1"); } catch {} }} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: "#0b0b0b", fontSize: "17px", cursor: "pointer", padding: "4px", lineHeight: 1 }} aria-label="Cerrar banner">✕</button>
 </div>
 )}
-<style>{`@media (max-width: 700px) { .gs-nav { position: sticky !important; top: 0 !important; z-index: 80 !important; flex-wrap: wrap !important; row-gap: 8px !important; padding: 10px 12px !important; } .gs-nav-promo { position: static !important; left: auto !important; top: auto !important; transform: none !important; order: 3 !important; width: 100% !important; max-width: 100% !important; text-align: center !important; font-size: 11px !important; } .gs-nav-cart-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-nav-account-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-nav-instagram-btn { position: static !important; top: auto !important; right: auto !important; width: 36px !important; height: 36px !important; } .gs-mobile-cart-bar { display: flex !important; } } .gs-reviews-scroll { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; } .gs-review-card { flex-shrink: 0; width: 200px; background: #ffffff; border-radius: 10px; padding: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 1px solid #e8ddc0; } .gs-review-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; } .gs-review-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid #d4af37; flex-shrink: 0; } .gs-review-avatar-fallback { width: 36px; height: 36px; border-radius: 50%; background: #d4af37; color: #000; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; } .gs-review-name { font-weight: 700; color: #1a1a1a; font-size: 13px; line-height: 1.25; } .gs-review-city { font-size: 11px; color: #7a7a7a; } .gs-review-stars { color: #d4af37; font-size: 12px; margin-bottom: 6px; } .gs-review-text { color: #3a3a3a; font-size: 12.5px; font-style: italic; margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }`}</style>
+<style>{`@media (max-width: 700px) { .gs-nav { position: sticky !important; top: 0 !important; z-index: 80 !important; flex-wrap: wrap !important; row-gap: 8px !important; padding: 10px 12px !important; } .gs-nav-promo { position: static !important; left: auto !important; top: auto !important; transform: none !important; order: 3 !important; width: 100% !important; max-width: 100% !important; text-align: center !important; font-size: 11px !important; } .gs-nav-cart-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-nav-account-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-nav-instagram-btn { position: static !important; top: auto !important; right: auto !important; width: 36px !important; height: 36px !important; } .gs-mobile-cart-bar { display: flex !important; } } .gs-reviews-scroll { overflow: hidden; } .gs-reviews-track { display: flex; gap: 14px; width: max-content; animation: gsReviewsScroll 42s linear infinite; } .gs-reviews-scroll:hover .gs-reviews-track { animation-play-state: paused; } @keyframes gsReviewsScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } } .gs-review-card { flex-shrink: 0; width: 200px; background: #ffffff; border-radius: 10px; padding: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 1px solid #e8ddc0; } .gs-review-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; } .gs-review-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid #d4af37; flex-shrink: 0; } .gs-review-avatar-fallback { width: 36px; height: 36px; border-radius: 50%; background: #d4af37; color: #000; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; } .gs-review-name { font-weight: 700; color: #1a1a1a; font-size: 13px; line-height: 1.25; } .gs-review-city { font-size: 11px; color: #7a7a7a; } .gs-review-stars { color: #d4af37; font-size: 12px; margin-bottom: 6px; } .gs-review-text { color: #3a3a3a; font-size: 12.5px; font-style: italic; margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }`}</style>
 <div style={S.nav} className="gs-nav">
 <div style={S.navPromo} className="gs-nav-promo"><span style={{ color: "#d4af37" }}>PERFUMES ORIGINALES</span> / <span style={{ color: "#ffffff" }}>APROVECHA CODIGO PROMOCIONAL</span></div>
 <a href="https://www.instagram.com/esenciaperfumeria.bb/" target="_blank" rel="noopener noreferrer" style={S.navInstagramBtn} className="gs-nav-instagram-btn" aria-label="Instagram"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d4af37" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.5" y2="6.5"></line></svg></a>
@@ -3479,8 +3479,9 @@ return (
 <p style={{ color: "#7a7a7a", textAlign: "center" }}>Todavia no hay opiniones cargadas.</p>
 ) : (
 <div className="gs-reviews-scroll">
-{resenasPublicadas.map(r => (
-<div key={r.id} className="gs-review-card">
+<div className="gs-reviews-track">
+{[...resenasPublicadas, ...resenasPublicadas].map((r, i) => (
+<div key={r.id + "-" + i} className="gs-review-card">
 <div className="gs-review-card-head">
 {r.foto ? (
 <img src={optimizeImg(r.foto, "t")} alt={r.nombre} loading="lazy" decoding="async" className="gs-review-avatar" />
@@ -3496,6 +3497,7 @@ return (
 <p className="gs-review-text">"{r.texto}"</p>
 </div>
 ))}
+</div>
 </div>
 )}
 <div style={{ textAlign: "center", marginTop: "18px" }}>
@@ -3924,8 +3926,9 @@ return pdpPhotos.length > 1 && (
 <p style={{ color: "#8a8a8a" }}>Todavia no hay opiniones cargadas.</p>
 ) : (
 <div className="gs-reviews-scroll">
-{resenasPublicadas.slice(0, 6).map(r => (
-<div key={r.id} className="gs-review-card">
+<div className="gs-reviews-track">
+{[...resenasPublicadas.slice(0, 6), ...resenasPublicadas.slice(0, 6)].map((r, i) => (
+<div key={r.id + "-" + i} className="gs-review-card">
 <div className="gs-review-card-head">
 {r.foto ? (
 <img src={optimizeImg(r.foto, "t")} alt={r.nombre} loading="lazy" decoding="async" className="gs-review-avatar" />
@@ -3941,6 +3944,7 @@ return pdpPhotos.length > 1 && (
 <p className="gs-review-text">"{r.texto}"</p>
 </div>
 ))}
+</div>
 </div>
 )}
 <div style={{ textAlign: "center", marginTop: "16px" }}>
