@@ -3319,7 +3319,7 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <button onClick={() => { setBannerDismissed(true); try { sessionStorage.setItem("esenciaBannerDismissed", "1"); } catch {} }} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: "#0b0b0b", fontSize: "17px", cursor: "pointer", padding: "4px", lineHeight: 1 }} aria-label="Cerrar banner">✕</button>
 </div>
 )}
-<style>{`@media (max-width: 700px) { .gs-nav { position: sticky !important; top: 0 !important; z-index: 80 !important; flex-wrap: wrap !important; row-gap: 8px !important; padding: 10px 12px !important; } .gs-nav-promo { position: static !important; left: auto !important; top: auto !important; transform: none !important; order: 3 !important; width: 100% !important; max-width: 100% !important; text-align: center !important; font-size: 11px !important; } .gs-nav-cart-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-nav-account-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-nav-instagram-btn { position: static !important; top: auto !important; right: auto !important; width: 36px !important; height: 36px !important; } .gs-mobile-cart-bar { display: flex !important; } } .gs-reviews-scroll { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; } .gs-review-card { flex-shrink: 0; width: 200px; scroll-snap-align: start; background: #ffffff; border-radius: 10px; padding: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 1px solid #e8ddc0; } .gs-review-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; } .gs-review-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid #d4af37; flex-shrink: 0; } .gs-review-avatar-fallback { width: 36px; height: 36px; border-radius: 50%; background: #d4af37; color: #000; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; } .gs-review-name { font-weight: 700; color: #1a1a1a; font-size: 13px; line-height: 1.25; } .gs-review-city { font-size: 11px; color: #7a7a7a; } .gs-review-stars { color: #d4af37; font-size: 12px; margin-bottom: 6px; } .gs-review-text { color: #3a3a3a; font-size: 12.5px; font-style: italic; margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }`}</style>
+<style>{`@media (max-width: 700px) { .gs-nav { position: sticky !important; top: 0 !important; z-index: 80 !important; flex-wrap: wrap !important; row-gap: 8px !important; padding: 10px 12px !important; } .gs-nav-promo { position: static !important; left: auto !important; top: auto !important; transform: none !important; order: 3 !important; width: 100% !important; max-width: 100% !important; text-align: center !important; font-size: 11px !important; } .gs-nav-cart-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-nav-account-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-nav-instagram-btn { position: static !important; top: auto !important; right: auto !important; width: 36px !important; height: 36px !important; } .gs-mobile-cart-bar { display: flex !important; } } .gs-reviews-scroll { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; } .gs-review-card { flex-shrink: 0; width: 200px; background: #ffffff; border-radius: 10px; padding: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 1px solid #e8ddc0; } .gs-review-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; } .gs-review-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid #d4af37; flex-shrink: 0; } .gs-review-avatar-fallback { width: 36px; height: 36px; border-radius: 50%; background: #d4af37; color: #000; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; } .gs-review-name { font-weight: 700; color: #1a1a1a; font-size: 13px; line-height: 1.25; } .gs-review-city { font-size: 11px; color: #7a7a7a; } .gs-review-stars { color: #d4af37; font-size: 12px; margin-bottom: 6px; } .gs-review-text { color: #3a3a3a; font-size: 12.5px; font-style: italic; margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }`}</style>
 <div style={S.nav} className="gs-nav">
 <div style={S.navPromo} className="gs-nav-promo"><span style={{ color: "#d4af37" }}>PERFUMES ORIGINALES</span> / <span style={{ color: "#ffffff" }}>APROVECHA CODIGO PROMOCIONAL</span></div>
 <a href="https://www.instagram.com/esenciaperfumeria.bb/" target="_blank" rel="noopener noreferrer" style={S.navInstagramBtn} className="gs-nav-instagram-btn" aria-label="Instagram"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d4af37" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.5" y2="6.5"></line></svg></a>
@@ -3460,24 +3460,6 @@ return (
 </div>
 </div>
 ); })()}
-{trendProducts.length > 0 && (
-<div style={S.section}>
-<div style={S.sectionTitle}>☀️ Tendencias para el Verano 2027</div>
-<p style={{ textAlign: "center", color: "#bdbdbd", maxWidth: 560, margin: "-6px auto 18px", fontSize: "14px" }}>Nuestra selección de perfumes ideales para el verano 2027, disponibles ahora.</p>
-<div style={S.recentlyViewedRow}>
-{trendProducts.map(p => (
-<div key={p.id} className="product-card" style={S.recentlyViewedCard} onClick={() => setSelectedProduct(p)}>
-<img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
-<div style={S.recentlyViewedName}>{getProductName(p)}</div>
-<div style={S.recentlyViewedPrice}>{formatPrice(getProductPrice(p))}</div>
-</div>
-))}
-</div>
-<div style={{ textAlign: "center", marginTop: "16px" }}>
-<button style={S.btnOutline} onClick={() => { setFilter("tendenciasverano2027"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Ver toda la colección</button>
-</div>
-</div>
-)}
 {recentlyViewedProducts.length > 0 && (
 <div style={S.recentlyViewedWrap}>
 <button style={S.recentlyViewedToggle} onClick={() => setRecentlyViewedOpen(!recentlyViewedOpen)}>
@@ -3600,7 +3582,7 @@ return (
 </div>
 <div style={S.grid} className="product-grid">
 {productsLoading && Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={"skel" + i} />)}
-{!productsLoading && filteredProducts.slice(0, visibleCount).map(product => (
+{!productsLoading && filteredProducts.slice(0, visibleCount).flatMap((product, productIdx) => { const card = (
 <div key={product.id} className="product-card" style={{ ...S.card, position: "relative" }} onClick={() => setSelectedProduct(product)}>
 <button className={"fav-btn" + (favorites.includes(product.id) ? " active" : "")} onClick={e => { e.stopPropagation(); toggleFavorite(product.id); }} style={S.favBtn(favorites.includes(product.id))} aria-label="Favorito">{favorites.includes(product.id) ? "♥" : "♡"}</button>
 <img className="card-img" src={optimizeImg(getProductImage(product), "m")} alt={getProductName(product)} style={S.cardImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
@@ -3641,7 +3623,25 @@ return (
 )}
 </div>
 </div>
+); if (productIdx === 11 && trendProducts.length > 0) { return [
+<div key="trend-banner" style={{ gridColumn: "1 / -1", ...S.section, padding: "30px 20px" }}>
+<div style={S.sectionTitle}>☀️ Tendencias para el Verano 2027</div>
+<p style={{ textAlign: "center", color: "#bdbdbd", maxWidth: 560, margin: "-6px auto 18px", fontSize: "14px" }}>Nuestra selección de perfumes ideales para el verano 2027, disponibles ahora.</p>
+<div style={S.recentlyViewedRow}>
+{trendProducts.map(p => (
+<div key={p.id} className="product-card" style={S.recentlyViewedCard} onClick={() => setSelectedProduct(p)}>
+<img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+<div style={S.recentlyViewedName}>{getProductName(p)}</div>
+<div style={S.recentlyViewedPrice}>{formatPrice(getProductPrice(p))}</div>
+</div>
 ))}
+</div>
+<div style={{ textAlign: "center", marginTop: "16px" }}>
+<button style={S.btnOutline} onClick={() => setFilter("tendenciasverano2027")}>Ver toda la colección</button>
+</div>
+</div>,
+card
+]; } return [card]; })}
 {!productsLoading && filteredProducts.length === 0 && <p style={{ color: "#bdbdbd", gridColumn: "1/-1" }}>No hay productos en esta categoria.</p>}
 </div>
 {visibleCount < filteredProducts.length && (
