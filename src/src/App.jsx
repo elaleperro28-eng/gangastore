@@ -785,7 +785,7 @@ const itemListLd = {
 "priceCurrency": "ARS",
 "price": String(getProductPrice(p)),
 "availability": getProductDisp(p) === "agotado" ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
-"url": "https://www.esenciaperfumeria.com.ar/?p=" + p.id
+"url": "https://www.esenciaperfumeria.com.ar/producto/" + p.id
 }
 }
 }))
@@ -824,7 +824,7 @@ const productLd = {
 "priceCurrency": "ARS",
 "price": String(getProductPrice(p)),
 "availability": getProductDisp(p) === "agotado" ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
-"url": "https://www.esenciaperfumeria.com.ar/?p=" + p.id
+"url": "https://www.esenciaperfumeria.com.ar/producto/" + p.id
 }
 };
 if (!script) {
@@ -844,7 +844,9 @@ script.textContent = JSON.stringify(productLd);
 // El <link rel="canonical"> tambien se actualiza: antes quedaba fijo en la
 // home en todas las fichas de producto, lo que le decia a Google que NO
 // indexe esas 100+ URLs del sitemap como paginas propias (le pisaba el
-// trabajo al title/description/JSON-LD de cada producto).
+// trabajo al title/description/JSON-LD de cada producto). Usa el formato
+// "/producto/<id>" (no "?p=<id>") para que coincida con el sitemap, el
+// JSON-LD y el canonical dinamico que arma api/og.js para bots.
 useEffect(() => {
 let canonical = document.querySelector('link[rel="canonical"]');
 if (selectedProduct && isPerfume(selectedProduct)) {
@@ -855,7 +857,7 @@ if (metaDesc) {
 const desc = (selectedProduct.descripcion || "").trim();
 metaDesc.setAttribute("content", desc ? desc.slice(0, 160) : ("Compra " + nombre + " en Esencia Perfumeria. Envio gratis en Bahia Blanca y envios a todo el pais."));
 }
-if (canonical) canonical.setAttribute("href", "https://www.esenciaperfumeria.com.ar/?p=" + selectedProduct.id);
+if (canonical) canonical.setAttribute("href", "https://www.esenciaperfumeria.com.ar/producto/" + selectedProduct.id);
 } else if (selectedBlogPost) {
 // Mismo mecanismo que arriba pero para una nota del blog abierta.
 document.title = (selectedBlogPost.titulo || "Blog") + " | Blog Esencia Perfumeria";
@@ -869,6 +871,44 @@ if (metaDesc) metaDesc.setAttribute("content", "Perfumes arabes y de disenador 1
 if (canonical) canonical.setAttribute("href", "https://www.esenciaperfumeria.com.ar/");
 }
 }, [selectedProduct, selectedBlogPost]);
+
+// JSON-LD "BlogPosting" para cada nota del blog abierta, asi Google puede
+// mostrarla como articulo (con fecha, autor y editor) en vez de solo como
+// pagina generica. Se arma/borra dinamicamente igual que el Product de
+// arriba (id="ld-blog-posting"), sin tocar el index.html.
+useEffect(() => {
+try {
+let script = document.getElementById("ld-blog-posting");
+if (!selectedBlogPost) {
+if (script) script.remove();
+return;
+}
+const b = selectedBlogPost;
+const fechaPublicacion = b.createdAt && b.createdAt.toDate ? b.createdAt.toDate().toISOString() : undefined;
+const blogLd = {
+"@context": "https://schema.org",
+"@type": "BlogPosting",
+"headline": b.titulo,
+"description": (b.resumen || "").slice(0, 160) || undefined,
+"image": b.imagen || undefined,
+"datePublished": fechaPublicacion,
+"author": { "@type": "Organization", "name": "Esencia Perfumeria" },
+"publisher": {
+"@type": "Organization",
+"name": "Esencia Perfumeria",
+"logo": { "@type": "ImageObject", "url": "https://i.imgur.com/sgR3LY9.jpeg" }
+},
+"mainEntityOfPage": "https://www.esenciaperfumeria.com.ar/blog/" + b.id
+};
+if (!script) {
+script = document.createElement("script");
+script.type = "application/ld+json";
+script.id = "ld-blog-posting";
+document.head.appendChild(script);
+}
+script.textContent = JSON.stringify(blogLd);
+} catch {}
+}, [selectedBlogPost]);
 
 useEffect(() => {
 let unsub = () => {};
@@ -1672,6 +1712,29 @@ const totalCart = cart.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty,
 const resenasPublicadas = resenas.filter(r => r.estado !== "pendiente");
 const reviewCount = resenasPublicadas.length;
 const avgRating = reviewCount > 0 ? (resenasPublicadas.reduce((acc, r) => acc + (Number(r.estrellas) || 5), 0) / reviewCount).toFixed(1) : null;
+// Le sumamos al JSON-LD "OnlineStore" de index.html (id="ld-organization")
+// el campo aggregateRating apenas haya opiniones publicadas, para que
+// Google pueda mostrar las estrellas de la tienda en los resultados de
+// busqueda. Si todavia no hay opiniones, no se agrega el campo (Google
+// penaliza el aggregateRating sin reviews reales detras).
+useEffect(() => {
+try {
+const script = document.getElementById("ld-organization");
+if (!script) return;
+const data = JSON.parse(script.textContent);
+if (reviewCount > 0 && avgRating) {
+data.aggregateRating = {
+"@type": "AggregateRating",
+"ratingValue": String(avgRating),
+"reviewCount": String(reviewCount),
+"bestRating": "5"
+};
+} else {
+delete data.aggregateRating;
+}
+script.textContent = JSON.stringify(data);
+} catch {}
+}, [avgRating, reviewCount]);
 const pointsToDiscount = (pts) => Math.floor((pts || 0) / 300) * 10000;
 const loadMyPoints = async (uid) => {
 setPointsLoading(true);
@@ -3378,8 +3441,8 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } } @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } } .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; animation: fadeInUp 0.6s ease both; } .product-card:hover, .product-card:active { transform: translateY(-6px); box-shadow: 0 14px 28px rgba(212,175,55,0.18); } .card-img { transition: transform 0.35s ease; } .product-card:hover .card-img { transform: scale(1.06); } .fav-btn { transition: transform 0.2s ease, background 0.2s ease; } .fav-btn:hover { transform: scale(1.12); } .fav-btn.active { animation: favPop 0.3s ease; } @keyframes favPop { 0% { transform: scale(1); } 45% { transform: scale(1.3); } 100% { transform: scale(1); } } .add-cart-btn { transition: transform 0.2s ease, box-shadow 0.2s ease; } .add-cart-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(212,175,55,0.4); } .add-cart-btn:active { transform: scale(0.96); } @keyframes skeletonPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } } .skel { animation: skeletonPulse 1.4s ease-in-out infinite; background: #23231f; } @keyframes toastPop { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }`}</style>
 <div style={S.tickerTrack}>
 {[...tickerProducts, ...tickerProducts].map((p, i) => (
-<div key={i} className="product-card" style={{ ...S.tickerItem, position: "relative" }} onClick={() => setSelectedProduct(p)}>
-<button className={"fav-btn" + (favorites.includes(p.id) ? " active" : "")} onClick={e => { e.stopPropagation(); toggleFavorite(p.id); }} style={S.favBtn(favorites.includes(p.id))} aria-label="Favorito">{favorites.includes(p.id) ? "♥" : "♡"}</button>
+<a key={i} className="product-card" href={"/producto/" + p.id} style={{ ...S.tickerItem, display: "block", position: "relative", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); }}>
+<button className={"fav-btn" + (favorites.includes(p.id) ? " active" : "")} onClick={e => { e.preventDefault(); e.stopPropagation(); toggleFavorite(p.id); }} style={S.favBtn(favorites.includes(p.id))} aria-label="Favorito">{favorites.includes(p.id) ? "♥" : "♡"}</button>
 <img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.cardImg} loading="lazy" decoding="async" onError={(e) => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.cardBody}>
 <div style={S.cardName}>{getProductName(p)}</div>
@@ -3398,10 +3461,10 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 {getUrgencyMsg(p) && <span style={S.urgencyBadge}>{getUrgencyMsg(p)}</span>}
 </div>
 {getProductDisp(p) === "agotado"
-? <button className="add-cart-btn" style={{ ...S.btnOutline, width: "100%", marginTop: "auto", padding: "10px" }} onClick={e => { e.stopPropagation(); setSelectedProduct(p); }}>🔔 Avisarme</button>
-: <button className="add-cart-btn" style={{ ...S.btn, width: "100%", marginTop: "auto" }} onClick={e => { e.stopPropagation(); addToCart(p); }}>Agregar al Carrito</button>}
+? <button className="add-cart-btn" style={{ ...S.btnOutline, width: "100%", marginTop: "auto", padding: "10px" }} onClick={e => { e.preventDefault(); e.stopPropagation(); setSelectedProduct(p); }}>🔔 Avisarme</button>
+: <button className="add-cart-btn" style={{ ...S.btn, width: "100%", marginTop: "auto" }} onClick={e => { e.preventDefault(); e.stopPropagation(); addToCart(p); }}>Agregar al Carrito</button>}
 </div>
-</div>
+</a>
 ))}
 </div>
 </div>
@@ -3468,11 +3531,11 @@ return (
 {recentlyViewedOpen && (
 <div style={{ ...S.recentlyViewedRow, marginTop: "10px" }}>
 {recentlyViewedProducts.map(p => (
-<div key={p.id} className="product-card" style={S.recentlyViewedCard} onClick={() => setSelectedProduct(p)}>
+<a key={p.id} className="product-card" href={"/producto/" + p.id} style={{ ...S.recentlyViewedCard, display: "block", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); }}>
 <img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.recentlyViewedName}>{getProductName(p)}</div>
 <div style={S.recentlyViewedPrice}>{formatPrice(getProductPrice(p))}</div>
-</div>
+</a>
 ))}
 </div>
 )}
@@ -3583,8 +3646,8 @@ return (
 <div style={S.grid} className="product-grid">
 {productsLoading && Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={"skel" + i} />)}
 {!productsLoading && filteredProducts.slice(0, visibleCount).flatMap((product, productIdx) => { const card = (
-<div key={product.id} className="product-card" style={{ ...S.card, position: "relative" }} onClick={() => setSelectedProduct(product)}>
-<button className={"fav-btn" + (favorites.includes(product.id) ? " active" : "")} onClick={e => { e.stopPropagation(); toggleFavorite(product.id); }} style={S.favBtn(favorites.includes(product.id))} aria-label="Favorito">{favorites.includes(product.id) ? "♥" : "♡"}</button>
+<a key={product.id} className="product-card" href={"/producto/" + product.id} style={{ ...S.card, position: "relative", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(product); }}>
+<button className={"fav-btn" + (favorites.includes(product.id) ? " active" : "")} onClick={e => { e.preventDefault(); e.stopPropagation(); toggleFavorite(product.id); }} style={S.favBtn(favorites.includes(product.id))} aria-label="Favorito">{favorites.includes(product.id) ? "♥" : "♡"}</button>
 <img className="card-img" src={optimizeImg(getProductImage(product), "m")} alt={getProductName(product)} style={S.cardImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.cardBody}>
 <div style={S.cardName}>{getProductName(product)}</div>
@@ -3606,34 +3669,34 @@ return (
 {avgRating && <span style={S.ratingBadge}>★ {avgRating} ({reviewCount})</span>}
 </div>
 {getProductDisp(product) === "agotado"
-? <button className="add-cart-btn" style={{ ...S.btnOutline, width: "100%", marginTop: "auto", padding: "10px" }} onClick={e => { e.stopPropagation(); setSelectedProduct(product); }}>🔔 Avisarme</button>
-: <button className="add-cart-btn" style={{ ...S.btn, width: "100%", marginTop: "auto" }} onClick={e => { e.stopPropagation(); addToCart(product); }}>Agregar al Carrito</button>}
+? <button className="add-cart-btn" style={{ ...S.btnOutline, width: "100%", marginTop: "auto", padding: "10px" }} onClick={e => { e.preventDefault(); e.stopPropagation(); setSelectedProduct(product); }}>🔔 Avisarme</button>
+: <button className="add-cart-btn" style={{ ...S.btn, width: "100%", marginTop: "auto" }} onClick={e => { e.preventDefault(); e.stopPropagation(); addToCart(product); }}>Agregar al Carrito</button>}
 </>
 )}
 {hasDecant(product) && (
 <div style={{ marginTop: filter === "decants" ? "0" : "12px", borderTop: filter === "decants" ? "none" : "1px solid #2b2b2b", paddingTop: filter === "decants" ? "0" : "10px" }}>
 <div style={{ color: "#d4af37", fontSize: "13px", fontWeight: "bold", marginBottom: "6px" }}>Decant disponible</div>
 {getDecantPrice5(product) && (
-<button style={{ ...S.btn, width: "100%", marginTop: "6px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }} onClick={e => { e.stopPropagation(); addDecantToCart(product, 5); }}>5ml - {formatPrice(getDecantPrice5(product))}</button>
+<button style={{ ...S.btn, width: "100%", marginTop: "6px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }} onClick={e => { e.preventDefault(); e.stopPropagation(); addDecantToCart(product, 5); }}>5ml - {formatPrice(getDecantPrice5(product))}</button>
 )}
 {getDecantPrice10(product) && (
-<button style={{ ...S.btn, width: "100%", marginTop: "6px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }} onClick={e => { e.stopPropagation(); addDecantToCart(product, 10); }}>10ml - {formatPrice(getDecantPrice10(product))}</button>
+<button style={{ ...S.btn, width: "100%", marginTop: "6px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }} onClick={e => { e.preventDefault(); e.stopPropagation(); addDecantToCart(product, 10); }}>10ml - {formatPrice(getDecantPrice10(product))}</button>
 )}
 </div>
 )}
 </div>
-</div>
+</a>
 ); if (productIdx === 11 && trendProducts.length > 0) { return [
 <div key="trend-banner" style={{ gridColumn: "1 / -1", ...S.section, padding: "30px 20px" }}>
 <div style={S.sectionTitle}>☀️ Tendencias para el Verano 2027</div>
 <p style={{ textAlign: "center", color: "#bdbdbd", maxWidth: 560, margin: "-6px auto 18px", fontSize: "14px" }}>Nuestra selección de perfumes ideales para el verano 2027, disponibles ahora.</p>
 <div style={S.recentlyViewedRow}>
 {trendProducts.map(p => (
-<div key={p.id} className="product-card" style={S.recentlyViewedCard} onClick={() => setSelectedProduct(p)}>
+<a key={p.id} className="product-card" href={"/producto/" + p.id} style={{ ...S.recentlyViewedCard, display: "block", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); }}>
 <img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.recentlyViewedName}>{getProductName(p)}</div>
 <div style={S.recentlyViewedPrice}>{formatPrice(getProductPrice(p))}</div>
-</div>
+</a>
 ))}
 </div>
 <div style={{ textAlign: "center", marginTop: "16px" }}>
@@ -3692,7 +3755,7 @@ card
 .gs-pdp-reviews-block { margin-bottom: 44px; }
 .gs-pdp-reviews-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
 .gs-pdp-similar-scroll { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; -webkit-overflow-scrolling: touch; }
-.gs-pdp-similar-card { flex-shrink: 0; width: 175px; background: #1a1a1a; border: 1px solid #2b2b2b; border-radius: 10px; padding: 10px; cursor: pointer; transition: border-color .15s ease; }
+.gs-pdp-similar-card { display: block; flex-shrink: 0; width: 175px; background: #1a1a1a; border: 1px solid #2b2b2b; border-radius: 10px; padding: 10px; cursor: pointer; transition: border-color .15s ease; text-decoration: none; color: inherit; }
 .gs-pdp-similar-card:hover { border-color: #d4af37; }
 .gs-pdp-section-title-sm { font-size: 17px; font-weight: 700; margin-bottom: 14px; padding-bottom: 6px; border-bottom: 1px solid #3a3a3a; font-family: 'Playfair Display', serif; color: #cfcfcf; }
 `}</style>
@@ -3844,12 +3907,12 @@ return pdpPhotos.length > 1 && (
 <div className="gs-pdp-section-title">Productos Similares</div>
 <div className="gs-pdp-similar-scroll">
 {pdpSimilarProducts.map(p => (
-<div key={p.id} className="gs-pdp-similar-card" onClick={() => { setSelectedProduct(p); const ov = document.querySelector(".gs-pdp-overlay"); if (ov) ov.scrollTop = 0; }}>
+<a key={p.id} className="gs-pdp-similar-card" href={"/producto/" + p.id} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); const ov = document.querySelector(".gs-pdp-overlay"); if (ov) ov.scrollTop = 0; }}>
 <img src={optimizeImg(getProductImage(p), "t")} alt={getProductName(p)} loading="lazy" decoding="async" style={{ width: "100%", height: "120px", objectFit: "contain", background: "#fff", borderRadius: "6px", marginBottom: "8px" }} />
 <div style={{ fontSize: "12px", color: "#fff", marginBottom: "6px", minHeight: "32px", lineHeight: "1.3" }}>{getProductName(p)}</div>
 <div style={{ fontSize: "13px", color: "#d4af37", fontWeight: "700" }}>{formatPrice(getProductPrice(p))}</div>
 {getDiscountPercent(p) && <div style={{ fontSize: "11px", color: "#8a8a8a", textDecoration: "line-through" }}>{formatPrice(getProductOriginalPrice(p))}</div>}
-</div>
+</a>
 ))}
 </div>
 </div>
@@ -3953,11 +4016,11 @@ return pdpPhotos.length > 1 && (
 <p style={{ color: "#bdbdbd", marginBottom: "16px" }}>Estos son los que más se ajustan a lo que buscás:</p>
 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
 {getQuizRecommendations().map(p => (
-<div key={p.id} style={{ background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px", cursor: "pointer" }} onClick={() => { setShowQuiz(false); setSelectedProduct(p); }}>
+<a key={p.id} href={"/producto/" + p.id} style={{ display: "block", background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px", cursor: "pointer", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setShowQuiz(false); setSelectedProduct(p); }}>
 <img src={optimizeImg(getProductImage(p), "t")} alt={getProductName(p)} loading="lazy" decoding="async" style={{ width: "100%", height: "90px", objectFit: "contain", background: "#fff", borderRadius: "6px", marginBottom: "8px" }} />
 <div style={{ fontSize: "12px", marginBottom: "4px", lineHeight: "1.3" }}>{getProductName(p)}</div>
 <div style={{ color: "#d4af37", fontWeight: "700", fontSize: "13px" }}>{formatPrice(getProductPrice(p))}</div>
-</div>
+</a>
 ))}
 </div>
 {getQuizRecommendations().length === 0 && <p style={{ color: "#bdbdbd" }}>No encontramos un match exacto todavía. Probá de nuevo con otras respuestas o mirá todo el catálogo.</p>}
