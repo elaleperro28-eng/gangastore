@@ -73,7 +73,11 @@ export default async function handler(req, res) {
         const image = p.imageUrl || p.imagen || p.foto || p.image || p.img || "";
         const disp = p.disponibilidad || "stock";
         const availability = disp === "agotado" ? "out_of_stock" : disp === "pedido" ? "backorder" : "in_stock";
-        const link = SITE_URL + "/?p=" + encodeURIComponent(p.id);
+        // "/producto/:id" (no "?p="): es la misma URL que ya usan el sitemap,
+        // el canonical y el JSON-LD del sitio, y la unica que pasa por
+        // api/og.js para mostrarle a Google Shopping el titulo/imagen
+        // correctos del producto en vez de los genericos de la home.
+        const link = SITE_URL + "/producto/" + encodeURIComponent(p.id);
         const description = String(p.descripcion || p.nombre || "").slice(0, 5000);
         return (
           "<item>\n" +
