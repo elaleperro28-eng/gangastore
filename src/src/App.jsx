@@ -642,6 +642,21 @@ return next;
 }
 }, [selectedProduct]);
 
+// Evento "ViewContent" del Pixel de Meta (+ "view_item" de GA4) cada vez que
+// se abre una ficha de producto: sin esto, Meta solo sabe que alguien entro
+// al sitio (PageView) pero no que perfume miro, y no puede armar publicos de
+// remarketing dinamico ("le mostramos el mismo perfume que ya vio") ni
+// anuncios de catalogo. Los otros eventos (AddToCart, InitiateCheckout,
+// Purchase) ya estaban, este era el que faltaba en el embudo.
+useEffect(() => {
+if (!selectedProduct || !selectedProduct.id) return;
+try {
+const price = Number(selectedProduct.precio || selectedProduct.price || 0);
+if (window.fbq) window.fbq("track", "ViewContent", { content_ids: [selectedProduct.id], content_type: "product", content_name: getProductName(selectedProduct), value: price, currency: "ARS" });
+if (window.gtag) window.gtag("event", "view_item", { currency: "ARS", value: price, items: [{ item_id: selectedProduct.id, item_name: getProductName(selectedProduct), price }] });
+} catch {}
+}, [selectedProduct]);
+
 // Al abrir la ficha de producto a pantalla completa, bloqueamos el scroll del fondo
 // para que se sienta como una pagina propia y no como un modal chico.
 useEffect(() => {
@@ -3791,7 +3806,7 @@ return (
 </div>
 </a>
 ); if (productIdx === 11 && trendProducts.length > 0) { return [
-<div key="trend-banner" style={{ gridColumn: "1 / -1", ...S.section, padding: "30px 20px", width: "100%", maxWidth: "100%", margin: 0, boxSizing: "border-box" }}>
+<div key="trend-banner" style={{ gridColumn: "1 / -1", ...S.section, padding: "30px 20px" }}>
 <div style={S.sectionTitle}>☀️ Tendencias para el Verano 2027</div>
 <p style={{ textAlign: "center", color: "#bdbdbd", maxWidth: 560, margin: "-6px auto 18px", fontSize: "14px" }}>Nuestra selección de perfumes ideales para el verano 2027, disponibles ahora.</p>
 <div style={S.recentlyViewedRow}>
