@@ -3791,7 +3791,7 @@ return (
 </div>
 </a>
 ); if (productIdx === 11 && trendProducts.length > 0) { return [
-<div key="trend-banner" style={{ gridColumn: "1 / -1", ...S.section, padding: "30px 20px" }}>
+<div key="trend-banner" style={{ gridColumn: "1 / -1", ...S.section, padding: "30px 20px", width: "100%", maxWidth: "100%", margin: 0, boxSizing: "border-box" }}>
 <div style={S.sectionTitle}>☀️ Tendencias para el Verano 2027</div>
 <p style={{ textAlign: "center", color: "#bdbdbd", maxWidth: 560, margin: "-6px auto 18px", fontSize: "14px" }}>Nuestra selección de perfumes ideales para el verano 2027, disponibles ahora.</p>
 <div style={S.recentlyViewedRow}>
