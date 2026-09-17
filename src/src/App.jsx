@@ -910,6 +910,51 @@ script.textContent = JSON.stringify(blogLd);
 } catch {}
 }, [selectedBlogPost]);
 
+// JSON-LD "BreadcrumbList" (Inicio > Catalogo/Blog > pagina actual). Google
+// puede mostrar esta ruta en vez de la URL pelada en el resultado de
+// busqueda. Se arma/borra igual que los otros bloques dinamicos de arriba
+// (id="ld-breadcrumb"), sin tocar el index.html.
+useEffect(() => {
+try {
+let script = document.getElementById("ld-breadcrumb");
+let items = null;
+if (selectedProduct && isPerfume(selectedProduct)) {
+items = [
+{ name: "Inicio", url: "https://www.esenciaperfumeria.com.ar/" },
+{ name: "Catalogo", url: "https://www.esenciaperfumeria.com.ar/#productsSection" },
+{ name: getProductName(selectedProduct), url: "https://www.esenciaperfumeria.com.ar/producto/" + selectedProduct.id },
+];
+} else if (selectedBlogPost) {
+items = [
+{ name: "Inicio", url: "https://www.esenciaperfumeria.com.ar/" },
+{ name: "Blog", url: "https://www.esenciaperfumeria.com.ar/blog" },
+{ name: selectedBlogPost.titulo || "Nota", url: "https://www.esenciaperfumeria.com.ar/blog/" + selectedBlogPost.id },
+];
+}
+if (!items) {
+if (script) script.remove();
+return;
+}
+const breadcrumbLd = {
+"@context": "https://schema.org",
+"@type": "BreadcrumbList",
+"itemListElement": items.map((it, i) => ({
+"@type": "ListItem",
+"position": i + 1,
+"name": it.name,
+"item": it.url,
+})),
+};
+if (!script) {
+script = document.createElement("script");
+script.type = "application/ld+json";
+script.id = "ld-breadcrumb";
+document.head.appendChild(script);
+}
+script.textContent = JSON.stringify(breadcrumbLd);
+} catch {}
+}, [selectedProduct, selectedBlogPost]);
+
 useEffect(() => {
 let unsub = () => {};
 let cancelled = false;
@@ -2196,6 +2241,31 @@ const assistantFaqs = [
 const askAssistant = (faq) => {
 setAssistantChat(prev => [...prev, { from: "user", text: faq.q }, { from: "bot", text: faq.a }]);
 };
+// JSON-LD "FAQPage" con las mismas preguntas de assistantFaqs (arriba): a
+// Google le sirve el mismo contenido que ya escribieron para el asistente,
+// sin duplicar texto en ningun lado. assistantFaqs es una lista fija, asi
+// que este bloque se arma una sola vez al montar.
+useEffect(() => {
+try {
+let script = document.getElementById("ld-faq");
+if (!script) {
+script = document.createElement("script");
+script.type = "application/ld+json";
+script.id = "ld-faq";
+document.head.appendChild(script);
+}
+script.textContent = JSON.stringify({
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": assistantFaqs.map((f) => ({
+"@type": "Question",
+"name": f.q,
+"acceptedAnswer": { "@type": "Answer", "text": f.a },
+})),
+});
+} catch {}
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 const normalizeTxt = (s) => (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 const SEARCH_SYNONYMS = { dulce: ["dulce","vainilla","gourmand","caramelo","azucar","goloso"], dulces: ["dulce","vainilla","gourmand","caramelo","azucar"], fresco: ["fresco","citrico","acuatico","marino","liviano"], frescos: ["fresco","citrico","acuatico","marino"], frescura: ["fresco","citrico"], citrico: ["citrico","fresco"], citricos: ["citrico","fresco"], amaderado: ["amaderado","madera"], amaderados: ["amaderado","madera"], madera: ["amaderado","madera"], maderoso: ["amaderado","madera"], floral: ["floral","flores"], florales: ["floral","flores"], flores: ["floral"], frutal: ["frutal","fruta"], frutales: ["frutal","fruta"], afrutado: ["frutal","fruta"], oriental: ["oriental","especiado","ambar"], orientales: ["oriental","especiado","ambar"], especiado: ["especiado","oriental"], intenso: ["intenso","fuerte"], fuerte: ["intenso","fuerte"], suave: ["suave","delicado"], delicado: ["suave","delicado"], elegante: ["elegante","sofisticado"], sofisticado: ["elegante","sofisticado"], verano: ["verano"], veraniego: ["verano"], invierno: ["invierno"], invernal: ["invierno"], oficina: ["oficina","trabajo"], trabajo: ["oficina"], diario: ["todo el ano","versatil"], noche: ["noche","citas"], cita: ["citas"], citas: ["citas"], romantico: ["citas"], romantica: ["citas"], regalo: ["regalar"], regalar: ["regalar"], economico: ["economico"], barato: ["economico"], baratos: ["economico"], hombre: ["masculino"], hombres: ["masculino"], masculino: ["masculino"], mujer: ["femenino"], mujeres: ["femenino"], femenino: ["femenino"], unisex: ["unisex"], nicho: ["arabe","nicho"], arabe: ["arabe"], arabes: ["arabe"], disenador: ["disenador"] };
 const SEARCH_STOPWORDS = new Set(["quiero","quisiera","busco","buscando","necesito","algo","un","una","unos","unas","el","la","los","las","de","del","para","por","que","sea","seas","con","como","me","gustaria","tipo","estilo","perfume","perfumes","fragancia","fragancias","huele","huela","parecido","parecidos","parecida","parecidas","similar","similares","a","al","o","y","es","esta","este","mas","onda"]);
@@ -3865,8 +3935,8 @@ return pdpPhotos.length > 1 && (
 <div style={{ color: "#d4af37", fontSize: "20px", lineHeight: "1" }}>&#8595;</div>
 <div style={{ fontSize: "13px", color: "#bdbdbd", margin: "4px 0" }}>Se parece a / Inspirado en</div>
 <div style={{ fontWeight: "bold", fontSize: "17px" }}>{selectedProduct.inspiradoEn}</div>
-{selectedProduct.similitud && (
-<div style={{ color: "#d4af37", fontWeight: "900", fontSize: "22px", marginTop: "6px" }}>{selectedProduct.similitud}%</div>
+{Number(selectedProduct.similitud) > 0 && (
+<div style={{ color: "#d4af37", fontWeight: "900", fontSize: "22px", marginTop: "6px" }}>{Number(selectedProduct.similitud)}%</div>
 )}
 </div>
 </div>
