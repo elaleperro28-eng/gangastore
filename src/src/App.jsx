@@ -246,6 +246,7 @@ const [welcomePopupSaving, setWelcomePopupSaving] = useState(false);
 const [welcomePopupDone, setWelcomePopupDone] = useState(false);
 const WELCOME_COUPON_CODE = "BIENVENIDO05";
 const [reviewNoticeIdx, setReviewNoticeIdx] = useState(null);
+const [showCartReminder, setShowCartReminder] = useState(false);
 const [pedidos, setPedidos] = useState([]);
 const [hoverVentaDia, setHoverVentaDia] = useState(null);
 // El banner y el orden del catalogo son documentos especiales guardados en la
@@ -303,6 +304,24 @@ setWelcomePopupOpen(true);
 try { localStorage.setItem("welcomePopupShown", "1"); } catch {}
 }, 4000);
 return () => clearTimeout(t);
+}, []);
+// Recordatorio de carrito pendiente: si la persona vuelve al sitio (o
+// recarga la pagina) y todavia tiene productos guardados en el carrito
+// (localStorage, ver "cart" arriba), se lo recordamos con un cartelito
+// discreto y un boton para retomarlo. Solo una vez por visita
+// (sessionStorage), para no repetirlo en cada recarga de la misma sesion.
+useEffect(() => {
+if (cart.length === 0) return;
+try {
+if (sessionStorage.getItem("cartReminderShown")) return;
+} catch {}
+const showT = setTimeout(() => {
+setShowCartReminder(true);
+try { sessionStorage.setItem("cartReminderShown", "1"); } catch {}
+}, 2500);
+const hideT = setTimeout(() => setShowCartReminder(false), 10500);
+return () => { clearTimeout(showT); clearTimeout(hideT); };
+// eslint-disable-next-line react-hooks/exhaustive-deps
 }, []);
 // Aviso de reseña real: prueba social honesta (nunca inventamos compras ni
 // contadores falsos). Muestra UNA reseña ya publicada por vez, sin repetir
@@ -2106,6 +2125,17 @@ return "$" + n.toLocaleString("es-CL");
 
 const getProductName = (p) => p.nombre || p.name || p.title || "Producto";
 const getProductPrice = (p) => p.precio || p.price || 0;
+// Link de WhatsApp con el carrito actual ya redactado: para quien prefiere
+// consultar antes de completar nombre/direccion, o directamente prefiere
+// cerrar el pedido charlando por WhatsApp en vez de por el formulario. No
+// reemplaza el "Pedir por WhatsApp" del checkout (ese ya manda el pedido
+// armado con todos los datos); este es un atajo mas informal, disponible
+// apenas hay productos en el carrito.
+const buildCartWhatsAppUrl = () => {
+  const lineas = cart.map(i => `- ${i.qty}x ${getProductName(i)} (${formatPrice(getProductPrice(i))})`).join("\n");
+  const msg = `Hola! Te consulto por estos productos de mi carrito:\n${lineas}\nTotal: ${formatPrice(totalCart)}`;
+  return "https://wa.me/2914261941?text=" + encodeURIComponent(msg);
+};
 const getProductOriginalPrice = (p) => p.precioOriginal || null;
 const getDiscountPercent = (p) => {
 const orig = getProductOriginalPrice(p);
@@ -2509,6 +2539,8 @@ footerBottom: { maxWidth: "1200px", margin: "40px auto 0", paddingTop: "20px", b
 toast: { position: "fixed", left: "50%", bottom: "100px", transform: "translateX(-50%)", background: "#1a1a1a", color: "#fff", border: "1px solid #d4af37", padding: "12px 22px", borderRadius: "30px", fontSize: "14px", fontWeight: 600, zIndex: 200, boxShadow: "0 6px 20px rgba(0,0,0,0.4)", maxWidth: "88vw", textAlign: "center", animation: "toastPop 0.25s ease" },
 reviewNotice: { position: "fixed", left: "18px", bottom: "90px", zIndex: 150, background: "#1a1a1a", border: "1px solid #2b2b2b", borderLeft: "3px solid #d4af37", borderRadius: "10px", padding: "14px 34px 14px 16px", maxWidth: "290px", boxShadow: "0 10px 28px rgba(0,0,0,0.45)", animation: "toastPop 0.3s ease" },
 reviewNoticeClose: { position: "absolute", top: "8px", right: "10px", background: "none", border: "none", color: "#7a7a7a", fontSize: "16px", cursor: "pointer", lineHeight: 1, padding: "4px" },
+cartReminder: { position: "fixed", right: "18px", bottom: "90px", zIndex: 150, background: "#1a1a1a", border: "1px solid #2b2b2b", borderLeft: "3px solid #d4af37", borderRadius: "10px", padding: "14px 34px 14px 16px", maxWidth: "290px", boxShadow: "0 10px 28px rgba(0,0,0,0.45)", animation: "toastPop 0.3s ease" },
+cartReminderClose: { position: "absolute", top: "8px", right: "10px", background: "none", border: "none", color: "#7a7a7a", fontSize: "16px", cursor: "pointer", lineHeight: 1, padding: "4px" },
 favBtn: (active) => ({ position: "absolute", top: "10px", right: "10px", width: "34px", height: "34px", borderRadius: "50%", border: "none", background: active ? "rgba(212,175,55,0.95)" : "rgba(0,0,0,0.55)", color: active ? "#000" : "#fff", fontSize: "18px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 5, lineHeight: 1 }),
 mobileCartBar: { position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 90, background: "linear-gradient(135deg, #d4af37, #a8842c)", color: "#000", display: "none", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", cursor: "pointer", boxShadow: "0 -4px 16px rgba(0,0,0,0.35)", fontWeight: 700, boxSizing: "border-box" },
 mobileCartBarText: { fontSize: "13px" },
@@ -4167,6 +4199,7 @@ return pdpPhotos.length > 1 && (
 </div>
 </div>
 )}
+<a href={buildCartWhatsAppUrl()} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "11px", marginBottom: "16px", fontSize: "14px", fontWeight: "700", borderRadius: "8px", border: "1px solid #25D366", background: "transparent", color: "#25D366", textDecoration: "none", boxSizing: "border-box" }}>💬 Prefiero consultar este carrito por WhatsApp</a>
 <div style={{ borderTop: "1px solid #2b2b2b", paddingTop: "16px", marginTop: "16px" }}>
 <div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(finalTotal)}{discountFromPoints > 0 && <span style={{ color: "#d4af37", fontSize: 13, display: "block" }}>(incluye descuento de {formatPrice(discountFromPoints)} por puntos)</span>}{decantComboDiscount > 0 && <span style={{ color: "#7ea87a", fontSize: 13, display: "block" }}>(incluye {formatPrice(decantComboDiscount)} OFF por set de decants)</span>}{cuponDiscount > 0 && <span style={{ color: "#9ddb9d", fontSize: 13, display: "block" }}>(incluye {formatPrice(cuponDiscount)} OFF por cupon {cuponEval.cupon && cuponEval.cupon.id})</span>}</div><div style={{ marginBottom: 12 }}>
 <input type="text" placeholder="Nombre y apellido *" value={customerName} onChange={e => { setCustomerName(e.target.value); if (checkoutError) setCheckoutError(""); }} style={{ ...S.input, marginBottom: 8, ...(checkoutError && !customerName.trim() ? { border: "1px solid #8b1a2a" } : {}) }} />
@@ -4251,6 +4284,13 @@ return pdpPhotos.length > 1 && (
 )}
 {toast && (
 <div style={S.toast}>{toast}</div>
+)}
+{showCartReminder && cart.length > 0 && !showCart && (
+<div style={S.cartReminder}>
+<button onClick={() => setShowCartReminder(false)} style={S.cartReminderClose} aria-label="Cerrar">×</button>
+<div style={{ fontSize: "13px", color: "#e8ddc0", marginBottom: "10px", lineHeight: 1.4 }}>🛍️ Todavia tenes {cart.reduce((a, i) => a + i.qty, 0)} {cart.reduce((a, i) => a + i.qty, 0) === 1 ? "producto" : "productos"} en tu carrito ({formatPrice(totalCart)})</div>
+<button onClick={() => { setShowCart(true); setShowCartReminder(false); }} style={{ ...S.btn, width: "100%", padding: "9px", fontSize: "13px" }}>Retomar mi carrito</button>
+</div>
 )}
 {(() => {
 const resenasNotice = resenas.filter(r => r.estado !== "pendiente" && r.texto);
