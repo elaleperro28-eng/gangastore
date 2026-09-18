@@ -4017,6 +4017,18 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 </div>
 <div className="gs-hero-scroll" style={S.heroScrollCue}>↓</div>
 </div>
+<div style={{ background: "linear-gradient(90deg, #141414, #1f1f1f, #141414)", borderTop: "1px solid rgba(212,175,55,0.25)", borderBottom: "1px solid rgba(212,175,55,0.25)", padding: "12px 16px" }}>
+<div style={{ maxWidth: "900px", margin: "0 auto", display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "center", alignItems: "center" }}>
+{perfumeComboConfig && perfumeComboConfig.activo && perfumeComboPct > 0 && (
+<button onClick={() => { setFilter("perfumes"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }} style={{ display: "flex", alignItems: "center", gap: "7px", background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: "24px", padding: "8px 16px", fontSize: "12.5px", color: "#d4af37", fontWeight: 700, letterSpacing: "0.2px", cursor: "pointer" }}>
+🎁 Llevate {perfumeComboMin} perfumes y obtené {Math.round(perfumeComboPct * 100)}% OFF
+</button>
+)}
+<button onClick={() => { setFilter("decants"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }} style={{ display: "flex", alignItems: "center", gap: "7px", background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: "24px", padding: "8px 16px", fontSize: "12.5px", color: "#d4af37", fontWeight: 700, letterSpacing: "0.2px", cursor: "pointer" }}>
+🎁 Llevate {DECANT_COMBO_MIN} decants distintos y obtené {Math.round(DECANT_COMBO_DISCOUNT_PCT * 100)}% OFF
+</button>
+</div>
+</div>
 <div style={S.tickerSection}>
 <style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } } @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } } .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; animation: fadeInUp 0.6s ease both; } .product-card:hover, .product-card:active { transform: translateY(-6px); box-shadow: 0 14px 28px rgba(212,175,55,0.18); } .card-img { transition: transform 0.35s ease; } .product-card:hover .card-img { transform: scale(1.06); } .fav-btn { transition: transform 0.2s ease, background 0.2s ease; } .fav-btn:hover { transform: scale(1.12); } .fav-btn.active { animation: favPop 0.3s ease; } @keyframes favPop { 0% { transform: scale(1); } 45% { transform: scale(1.3); } 100% { transform: scale(1); } } .add-cart-btn { transition: transform 0.2s ease, box-shadow 0.2s ease; } .add-cart-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(212,175,55,0.4); } .add-cart-btn:active { transform: scale(0.96); } @keyframes skeletonPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } } .skel { animation: skeletonPulse 1.4s ease-in-out infinite; background: #23231f; } @keyframes toastPop { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }`}</style>
 <div style={S.tickerTrack}>
@@ -4248,6 +4260,11 @@ return (
 {filter === "decants" && (
 <div style={{ textAlign: "center", background: "linear-gradient(135deg, #ffe28a, #d4af37)", border: "2px solid #a8842c", borderRadius: "10px", padding: "14px 18px", marginBottom: "16px", fontSize: "16px", color: "#1a1200", fontWeight: "900", textTransform: "uppercase", letterSpacing: "0.4px", lineHeight: "1.4", boxShadow: "0 4px 18px rgba(212,175,55,0.5)" }}>
 🎁 Armá tu set: llevate {DECANT_COMBO_MIN} decants distintos y obtené {Math.round(DECANT_COMBO_DISCOUNT_PCT * 100)}% OFF automático en el carrito
+</div>
+)}
+{filter === "perfumes" && perfumeComboConfig && perfumeComboConfig.activo && perfumeComboPct > 0 && (
+<div style={{ textAlign: "center", background: "linear-gradient(135deg, #ffe28a, #d4af37)", border: "2px solid #a8842c", borderRadius: "10px", padding: "14px 18px", marginBottom: "16px", fontSize: "16px", color: "#1a1200", fontWeight: "900", textTransform: "uppercase", letterSpacing: "0.4px", lineHeight: "1.4", boxShadow: "0 4px 18px rgba(212,175,55,0.5)" }}>
+🎁 Llevate {perfumeComboMin} perfumes y obtené {Math.round(perfumeComboPct * 100)}% OFF automático en el carrito
 </div>
 )}
 <div style={{ textAlign: "center", color: "#8a8a8a", fontSize: "12px", marginBottom: "8px" }}>
