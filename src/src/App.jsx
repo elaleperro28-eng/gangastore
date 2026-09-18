@@ -80,7 +80,7 @@ const MAX_CART_QTY = 20;
 const clampQty = (q) => { const n = Number(q); if (!Number.isFinite(n) || n < 1) return 1; return Math.min(Math.floor(n), MAX_CART_QTY); };
 // Para +/- en el carrito: solo topea el maximo, deja pasar 0 o negativos para poder quitar el producto.
 const capQtyDelta = (q) => { const n = Number(q); if (!Number.isFinite(n)) return 0; return Math.min(Math.floor(n), MAX_CART_QTY); };
-const IMGUR_CLIENT_ID = "546c25a59c58ad7"; const TAG_OPTIONS = [{ key: "cosmeticos", label: "Cosmeticos" }, { key: "mas_vendidos", label: "Mas vendidos" }, { key: "novedades", label: "Novedades" }, { key: "larga_duracion", label: "Larga duracion" }, { key: "para_regalar", label: "Para regalar" }, { key: "top_invierno", label: "Top invierno" }, { key: "top_verano", label: "Top verano" }, { key: "top_oficina", label: "Top oficina" }, { key: "top_citas", label: "Top citas" }, { key: "tendencia_floral_frutal", label: "Tendencia: Floral frutal" }, { key: "tendencia_gourmand_tostado", label: "Tendencia: Gourmand tostado" }, { key: "tendencia_verde_te", label: "Tendencia: Verde / Te" }, { key: "tendencia_almizclado_piel", label: "Tendencia: Almizclado piel" }, { key: "tendencia_gourmand_oscuro", label: "Tendencia: Gourmand oscuro" }];
+const CLOUDINARY_CLOUD_NAME = "z16tezzd"; const CLOUDINARY_UPLOAD_PRESET = "g8dzs4pn"; const TAG_OPTIONS = [{ key: "cosmeticos", label: "Cosmeticos" }, { key: "mas_vendidos", label: "Mas vendidos" }, { key: "novedades", label: "Novedades" }, { key: "larga_duracion", label: "Larga duracion" }, { key: "para_regalar", label: "Para regalar" }, { key: "top_invierno", label: "Top invierno" }, { key: "top_verano", label: "Top verano" }, { key: "top_oficina", label: "Top oficina" }, { key: "top_citas", label: "Top citas" }, { key: "tendencia_floral_frutal", label: "Tendencia: Floral frutal" }, { key: "tendencia_gourmand_tostado", label: "Tendencia: Gourmand tostado" }, { key: "tendencia_verde_te", label: "Tendencia: Verde / Te" }, { key: "tendencia_almizclado_piel", label: "Tendencia: Almizclado piel" }, { key: "tendencia_gourmand_oscuro", label: "Tendencia: Gourmand oscuro" }];
 const shuffleArray = (arr) => {
 const a = [...arr];
 for (let i = a.length - 1; i > 0; i--) {
@@ -930,7 +930,7 @@ const blogLd = {
 "publisher": {
 "@type": "Organization",
 "name": "Esencia Perfumeria",
-"logo": { "@type": "ImageObject", "url": "https://i.imgur.com/sgR3LY9.jpeg" }
+"logo": { "@type": "ImageObject", "url": "https://res.cloudinary.com/z16tezzd/image/upload/v1789694146/z9xjl5ij9bnskje3cuss.jpg" }
 },
 "mainEntityOfPage": "https://www.esenciaperfumeria.com.ar/blog/" + b.id
 };
@@ -1050,16 +1050,16 @@ setUploading(true);
 setUploadingField(field);
 setUploadMsg("Subiendo archivo...");
 const formData = new FormData();
-formData.append("image", file);
+formData.append("file", file);
+formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
 try {
-const res = await fetch("https://api.imgur.com/3/image", {
+const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, {
 method: "POST",
-headers: { Authorization: `Client-ID ${IMGUR_CLIENT_ID}` },
 body: formData,
 });
 const data = await res.json();
-if (data.success) {
-setForm(f => ({ ...f, [field]: data.data.link }));
+if (data.secure_url) {
+setForm(f => ({ ...f, [field]: data.secure_url }));
 setUploadMsg("Archivo subido correctamente");
 } else {
 setUploadMsg("Error al subir archivo");
@@ -1072,17 +1072,17 @@ setUploadingField(null);
 };
 
 // ---- Carga masiva de productos (CSV) ----
-const uploadFileToImgur = async (file) => {
+const uploadFileToCloudinary = async (file) => {
 const formData = new FormData();
-formData.append("image", file);
-const res = await fetch("https://api.imgur.com/3/image", {
+formData.append("file", file);
+formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, {
 method: "POST",
-headers: { Authorization: `Client-ID ${IMGUR_CLIENT_ID}` },
 body: formData,
 });
 const data = await res.json();
-if (data.success) return data.data.link;
-throw new Error("Error al subir la imagen a Imgur");
+if (data.secure_url) return data.secure_url;
+throw new Error("Error al subir la imagen");
 };
 
 const normalizeTagInput = (input) => {
@@ -1245,7 +1245,7 @@ patch.etiquetas = r.etiquetas.split("|").map(t => normalizeTagInput(t)).filter(B
 let imageUrl = (r.imageUrl || "").trim();
 if (!imageUrl && r.imagen && r.imagen.trim()) {
 const file = bulkFilesRef.current[r.imagen.trim().toLowerCase()];
-if (file) imageUrl = await uploadFileToImgur(file);
+if (file) imageUrl = await uploadFileToCloudinary(file);
 }
 if (imageUrl) patch.imageUrl = imageUrl;
 if (Object.keys(patch).length === 0) throw new Error("La fila no tiene ningun campo para actualizar (todo vacio salvo el id)");
@@ -1257,7 +1257,7 @@ if (!r.precio || isNaN(Number(r.precio))) throw new Error("Falta el precio o no 
 let imageUrl = (r.imageUrl || "").trim();
 if (!imageUrl && r.imagen && r.imagen.trim()) {
 const file = bulkFilesRef.current[r.imagen.trim().toLowerCase()];
-if (file) imageUrl = await uploadFileToImgur(file);
+if (file) imageUrl = await uploadFileToCloudinary(file);
 }
 // La imagen es opcional: si no se encontro o no se cargo ninguna, el producto
 // se publica igual con una imagen placeholder que despues se puede reemplazar
@@ -1545,7 +1545,7 @@ const handleBlogImageUpload = async (file) => {
 if (!file) return;
 setBlogUploading(true);
 try {
-const link = await uploadFileToImgur(file);
+const link = await uploadFileToCloudinary(file);
 setBlogForm(f => ({ ...f, imagen: link }));
 } catch (e) {
 alert("No pudimos subir la imagen. Intenta de nuevo.");
@@ -1647,16 +1647,16 @@ const handleOpinionPhotoUpload = async (file) => {
 if (!file) return;
 setOpinionUploading(true);
 const formData = new FormData();
-formData.append("image", file);
+formData.append("file", file);
+formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
 try {
-const res = await fetch("https://api.imgur.com/3/image", {
+const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, {
 method: "POST",
-headers: { Authorization: `Client-ID ${IMGUR_CLIENT_ID}` },
 body: formData,
 });
 const data = await res.json();
-if (data.success) {
-setOpinionForm(f => ({ ...f, foto: data.data.link }));
+if (data.secure_url) {
+setOpinionForm(f => ({ ...f, foto: data.secure_url }));
 } else {
 setOpinionError("No pudimos subir la foto. Intenta con otra imagen.");
 }
@@ -1729,16 +1729,16 @@ const handleResenaImageUpload = async (file) => {
 if (!file) return;
 setResenaUploading(true);
 const formData = new FormData();
-formData.append("image", file);
+formData.append("file", file);
+formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
 try {
-const res = await fetch("https://api.imgur.com/3/image", {
+const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, {
 method: "POST",
-headers: { Authorization: `Client-ID ${IMGUR_CLIENT_ID}` },
 body: formData,
 });
 const data = await res.json();
-if (data.success) {
-setResenaForm(f => ({ ...f, foto: data.data.link }));
+if (data.secure_url) {
+setResenaForm(f => ({ ...f, foto: data.secure_url }));
 } else {
 alert("Error al subir la foto");
 }
@@ -2159,13 +2159,22 @@ if (!orig || orig <= price) return null;
 return Math.round((1 - price / orig) * 100);
 };
 const getProductImage = (p) => p.imageUrl || p.foto || p.image || p.img || "";
-// size: sufijo de tamano de Imgur ("t" ~160px, "m" ~320px, "l" ~640px, "h" ~1024px).
+// size: "t" ~160px, "m" ~320px, "l" ~640px, "h" ~1024px.
 // Usar el tamano mas chico que alcance segun donde se muestra la imagen ahorra
 // datos moviles: no tiene sentido bajar una imagen de 640px para un thumbnail de 60px.
+// Las imagenes viejas siguen en Imgur (usan el sufijo de tamano de Imgur) y las
+// nuevas se suben a Cloudinary (se les agrega una transformacion de ancho en la URL).
+const CLOUDINARY_SIZE_WIDTH = { t: 160, m: 320, l: 640, h: 1024 };
 const optimizeImg = (url, size = "l") => {
   if (!url) return url;
-  const m = url.match(/^(https?:\/\/i\.imgur\.com\/[a-zA-Z0-9]+)(\.(?:jpe?g|png|gif))$/i);
-  return m ? `${m[1]}${size}${m[2]}` : url;
+  const imgur = url.match(/^(https?:\/\/i\.imgur\.com\/[a-zA-Z0-9]+)(\.(?:jpe?g|png|gif))$/i);
+  if (imgur) return `${imgur[1]}${size}${imgur[2]}`;
+  const cloudinary = url.match(/^(https?:\/\/res\.cloudinary\.com\/[^/]+\/(?:image|video)\/upload\/)(.*)$/i);
+  if (cloudinary) {
+    const width = CLOUDINARY_SIZE_WIDTH[size] || CLOUDINARY_SIZE_WIDTH.l;
+    return `${cloudinary[1]}w_${width},c_limit,q_auto,f_auto/${cloudinary[2]}`;
+  }
+  return url;
 };
 const getProductDisp = (p) => p.disponibilidad || "stock";
 const getProductDias = (p) => p.diasHabiles || "3-5";
