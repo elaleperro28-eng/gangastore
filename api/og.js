@@ -63,6 +63,22 @@ function jsStringLiteral(s) {
 return JSON.stringify(String(s)).replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
 }
 
+// Mismo slug legible que arma el cliente (ver productUrl/slugify en App.jsx)
+// para que el canonical/og:url de esta funcion coincida siempre con el que
+// arma la app y el que arma api/sitemap.js y api/product-feed.js, sea cual
+// sea la URL exacta con la que entraron aca (con slug, sin slug, o con un
+// slug viejo si el producto cambio de nombre: el id manda, el slug es
+// puramente cosmetico).
+function slugify(text) {
+return String(text || "")
+.toLowerCase()
+.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+.replace(/[^a-z0-9]+/g, "-")
+.replace(/^-+|-+$/g, "")
+.slice(0, 60)
+.replace(/-+$/g, "");
+}
+
 async function fetchProduct(id) {
 const url = "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents/productos/" + encodeURIComponent(id);
 const r = await fetch(url);
@@ -127,18 +143,32 @@ const image = p.imageUrl || p.imagen || p.foto || p.image || p.img || "";
 // /producto/:id como canonical evita ese problema: es la unica URL que,
 // la pida quien la pida, siempre resuelve al HTML ya completo de este
 // producto.
-const canonicalUrl = SITE_URL + "/producto/" + encodeURIComponent(String(id));
+const slug = slugify(nombre);
+const canonicalUrl = SITE_URL + "/producto/" + (slug ? encodeURIComponent(slug) + "/" : "") + encodeURIComponent(String(id));
 const ogUrl = canonicalUrl;
+const precio = Number(p.precio || p.price || 0);
+const disp = p.disponibilidad || "stock";
 
 let html = baseHtml;
 html = html.replace(/(<title>)[^<]*(<\/title>)/, "$1" + esc(title) + "$2");
 html = replaceAttr(html, /(<meta\s+name="description"\s+content=")[^"]*(")/, description);
 html = replaceAttr(html, /(<link\s+rel="canonical"\s+href=")[^"]*(")/, canonicalUrl);
+// og:type "product" (en vez del "website" generico de la home) y los meta
+// product:* son los que WhatsApp/Facebook leen para mostrar el precio junto
+// a la vista previa del link, no solo el titulo/imagen.
+html = replaceAttr(html, /(<meta\s+property="og:type"\s+content=")[^"]*(")/, "product");
 html = replaceAttr(html, /(<meta\s+property="og:title"\s+content=")[^"]*(")/, title);
 html = replaceAttr(html, /(<meta\s+property="og:description"\s+content=")[^"]*(")/, description);
 html = replaceAttr(html, /(<meta\s+property="og:url"\s+content=")[^"]*(")/, ogUrl);
 html = replaceAttr(html, /(<meta\s+name="twitter:title"\s+content=")[^"]*(")/, title);
 html = replaceAttr(html, /(<meta\s+name="twitter:description"\s+content=")[^"]*(")/, description);
+if (precio > 0) {
+const productMeta =
+'<meta property="product:price:amount" content="' + esc(precio.toFixed(2)) + '" />\n' +
+'<meta property="product:price:currency" content="ARS" />\n' +
+'<meta property="product:availability" content="' + (disp === "agotado" ? "out of stock" : disp === "pedido" ? "preorder" : "in stock") + '" />\n';
+html = html.replace(/<\/head>/, productMeta + "</head>");
+}
 if (image) {
 html = replaceAttr(html, /(<meta\s+property="og:image"\s+content=")[^"]*(")/, image);
 html = replaceAttr(html, /(<meta\s+name="twitter:image"\s+content=")[^"]*(")/, image);
