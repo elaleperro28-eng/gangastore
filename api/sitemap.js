@@ -48,6 +48,23 @@ function isPerfumeLike(p) {
     return PERFUME_KEYWORDS.some((k) => name.includes(k));
 }
 
+// Mismo slug legible que arma el cliente (ver productUrl/slugify en App.jsx)
+// para que las URLs del sitemap coincidan con el canonical real de cada
+// producto (api/og.js arma el mismo slug a partir del nombre).
+function slugify(text) {
+    return String(text || "")
+      .toLowerCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60)
+      .replace(/-+$/g, "");
+}
+function productPath(p) {
+    const slug = slugify(p.nombre);
+    return "/producto/" + (slug ? encodeURIComponent(slug) + "/" : "") + encodeURIComponent(p.id);
+}
+
 function esc(s) {
     return String(s == null ? "" : s)
       .replace(/&/g, "&amp;")
@@ -115,12 +132,12 @@ export default async function handler(req, res) {
             .filter((p) => p.id !== "_site_banner" && !!p.nombre && isPerfumeLike(p))
             .filter((p) => Number(p.precio || p.price || 0) > 0)
             .map((p) => urlEntry(
-                      // "/producto/:id" (no "/?p=:id") porque es la URL que /api/og.js sirve
-                         // con el <title>, meta description y JSON-LD de ESE producto ya
+                      // "/producto/:slug/:id" (no "/?p=:id") porque es la URL que /api/og.js
+                         // sirve con el <title>, meta description y JSON-LD de ESE producto ya
                          // resueltos en el HTML crudo: asi cualquier rastreador que no
                          // ejecute JavaScript (o que ejecute JS pero indexe la version cruda)
                          // tambien ve el contenido correcto, no el generico de la home.
-                         SITE_URL + "/producto/" + encodeURIComponent(p.id),
+                         SITE_URL + productPath(p),
                       toLastmod(p.updateTime) || toLastmod(p.createdAt),
                       "weekly",
                       "0.8"
