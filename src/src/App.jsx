@@ -4021,7 +4021,7 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <div style={{ maxWidth: "900px", margin: "0 auto", display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "center", alignItems: "center" }}>
 {perfumeComboConfig && perfumeComboConfig.activo && perfumeComboPct > 0 && (
 <button onClick={() => { setFilter("perfumes"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }} style={{ display: "flex", alignItems: "center", gap: "7px", background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: "24px", padding: "8px 16px", fontSize: "12.5px", color: "#d4af37", fontWeight: 700, letterSpacing: "0.2px", cursor: "pointer" }}>
-🎁 Llevate {perfumeComboMin} perfumes y obtené {Math.round(perfumeComboPct * 100)}% OFF
+🎁 Llevate {perfumeComboMin} perfumes y obtené {Math.round(perfumeComboPct)}% OFF
 </button>
 )}
 <button onClick={() => { setFilter("decants"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }} style={{ display: "flex", alignItems: "center", gap: "7px", background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: "24px", padding: "8px 16px", fontSize: "12.5px", color: "#d4af37", fontWeight: 700, letterSpacing: "0.2px", cursor: "pointer" }}>
@@ -4264,7 +4264,7 @@ return (
 )}
 {filter === "perfumes" && perfumeComboConfig && perfumeComboConfig.activo && perfumeComboPct > 0 && (
 <div style={{ textAlign: "center", background: "linear-gradient(135deg, #ffe28a, #d4af37)", border: "2px solid #a8842c", borderRadius: "10px", padding: "14px 18px", marginBottom: "16px", fontSize: "16px", color: "#1a1200", fontWeight: "900", textTransform: "uppercase", letterSpacing: "0.4px", lineHeight: "1.4", boxShadow: "0 4px 18px rgba(212,175,55,0.5)" }}>
-🎁 Llevate {perfumeComboMin} perfumes y obtené {Math.round(perfumeComboPct * 100)}% OFF automático en el carrito
+🎁 Llevate {perfumeComboMin} perfumes y obtené {Math.round(perfumeComboPct)}% OFF automático en el carrito
 </div>
 )}
 <div style={{ textAlign: "center", color: "#8a8a8a", fontSize: "12px", marginBottom: "8px" }}>
