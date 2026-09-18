@@ -45,6 +45,12 @@ const BANK_TRANSFER_INFO = { banco: "Banco Galicia", titular: "Alejo Francisco C
 const FREE_SHIPPING_THRESHOLD = 150000;
 const DECANT_COMBO_MIN = 3;
 const DECANT_COMBO_DISCOUNT_PCT = 0.10;
+// Fotos viejas de productos, subidas antes de migrar a Cloudinary: pueden estar
+// guardadas en cualquiera de estos campos (imageUrl es el principal; foto/image/img
+// son nombres viejos de la misma foto principal; foto2/foto3/fotoMano/fotoCaja son
+// fotos secundarias). La migracion busca URLs de i.imgur.com en todos ellos.
+const IMGUR_MIGRATION_FIELDS = ["imageUrl", "foto", "image", "img", "foto2", "foto3", "fotoMano", "fotoCaja"];
+const isImgurUrl = (url) => typeof url === "string" && /^https?:\/\/i\.imgur\.com\//i.test(url);
 const QUIZ_QUESTIONS = [
 { key: "genero", pregunta: "¿Para quién es el perfume?", opciones: [
 { value: "femenino", label: "Para ella" },
@@ -276,6 +282,9 @@ const [editingComboId, setEditingComboId] = useState(null);
 const [comboSaving, setComboSaving] = useState(false);
 const [comboSearch, setComboSearch] = useState("");
 const [comboUploading, setComboUploading] = useState(false);
+const [imgurMigrating, setImgurMigrating] = useState(false);
+const [imgurMigrationProgress, setImgurMigrationProgress] = useState({ done: 0, total: 0 });
+const [imgurMigrationLog, setImgurMigrationLog] = useState([]);
 const [bannerDismissed, setBannerDismissed] = useState(() => {
   try { return sessionStorage.getItem("esenciaBannerDismissed") === "1"; } catch { return false; }
 });
@@ -2654,6 +2663,57 @@ return true;
 const recentlyViewedProducts = recentlyViewed.map(id => dedupedProducts.find(p => p.id === id)).filter(Boolean).slice(0, 8);
 const trendProducts = dedupedProducts.filter(p => (p.temporada || "") === "verano" && getProductDisp(p) !== "agotado");
 const adminProductsList = products.filter(p => p.id !== "_site_banner" && p.id !== "_site_catalog_order" && p.id !== "_site_perfume_combo");
+const productsWithImgur = adminProductsList.filter(p => IMGUR_MIGRATION_FIELDS.some(f => isImgurUrl(p[f])));
+const handleMigrateImgurImages = async () => {
+if (imgurMigrating) return;
+const targets = productsWithImgur;
+if (targets.length === 0) { alert("No encontre fotos de Imgur pendientes: todo el catalogo ya esta en Cloudinary."); return; }
+if (!window.confirm(`Se van a migrar las fotos de ${targets.length} producto(s) desde Imgur a Cloudinary. Puede tardar varios minutos y no hace falta quedarse en esta pantalla mirando, pero no cierres la pestana. Continuar?`)) return;
+setImgurMigrating(true);
+setImgurMigrationLog([]);
+setImgurMigrationProgress({ done: 0, total: targets.length });
+let migradas = 0, conErrores = 0;
+for (let i = 0; i < targets.length; i++) {
+const p = targets[i];
+const patch = {};
+let productError = null;
+for (const field of IMGUR_MIGRATION_FIELDS) {
+const url = p[field];
+if (!isImgurUrl(url)) continue;
+try {
+const res = await fetch(url, { mode: "cors" });
+if (!res.ok) throw new Error("HTTP " + res.status);
+const blob = await res.blob();
+const formData = new FormData();
+formData.append("file", blob);
+formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+const up = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, { method: "POST", body: formData });
+const json = await up.json();
+if (!json.secure_url) throw new Error((json.error && json.error.message) || "Cloudinary no devolvio una URL");
+patch[field] = json.secure_url;
+} catch (e) {
+productError = (productError ? productError + "; " : "") + field + ": " + (e && e.message ? e.message : String(e));
+}
+}
+if (Object.keys(patch).length > 0) {
+try {
+await updateDoc(doc(db, "productos", p.id), patch);
+migradas++;
+setImgurMigrationLog(log => [...log, { id: p.id, nombre: p.nombre || p.id, ok: true, campos: Object.keys(patch).length, error: productError }]);
+} catch (e) {
+conErrores++;
+setImgurMigrationLog(log => [...log, { id: p.id, nombre: p.nombre || p.id, ok: false, error: "No se pudo guardar en la base de datos: " + (e && e.message ? e.message : String(e)) }]);
+}
+} else {
+conErrores++;
+setImgurMigrationLog(log => [...log, { id: p.id, nombre: p.nombre || p.id, ok: false, error: productError || "No se pudo descargar ninguna foto desde Imgur" }]);
+}
+setImgurMigrationProgress({ done: i + 1, total: targets.length });
+await new Promise(r => setTimeout(r, 250));
+}
+setImgurMigrating(false);
+alert(`Migracion terminada: ${migradas} producto(s) migrados a Cloudinary, ${conErrores} con problemas. Revisa el detalle en el panel.`);
+};
 // Aplica el orden elegido por el admin (panel "Orden del catalogo") a una
 // lista ya filtrada de productos. Se usa solo cuando el cliente tiene el
 // sort en "Novedades" (relevancia); si el cliente elige otro orden, ese manda.
@@ -3164,6 +3224,30 @@ combos.map(c => (
 <div key={c.id} style={{ display: "flex", alignItems: "center", gap: "10px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px 12px" }}>
 <span style={{ flex: 1, fontSize: "13px" }}>{c.telefono || c.id}</span>
 <button onClick={() => handleDeletePopupContact(c.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px" }}>Eliminar</button>
+</div>
+))}
+</div>
+)}
+</div>
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<h3 style={{ margin: "0 0 6px" }}>🖼️ Migrar fotos antiguas de Imgur a Cloudinary</h3>
+<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Las fotos nuevas ya se suben a Cloudinary automaticamente. Esto busca los productos que todavia tienen alguna foto vieja alojada en Imgur y las pasa a Cloudinary, actualizando el producto para que quede con el link nuevo (no rompe nada mientras tanto: las fotos de Imgur siguen funcionando igual hasta que se migran).</p>
+{productsWithImgur.length === 0 ? (
+<p style={{ color: "#9ddb9d", fontSize: "13px", fontWeight: "600" }}>✓ Ya no queda ninguna foto en Imgur, todo el catalogo esta en Cloudinary.</p>
+) : (
+<>
+<p style={{ color: "#e0b84a", fontSize: "13px", fontWeight: "700", marginBottom: "12px" }}>{productsWithImgur.length} producto{productsWithImgur.length > 1 ? "s" : ""} con fotos todavia en Imgur.</p>
+<button onClick={handleMigrateImgurImages} disabled={imgurMigrating} style={{ ...S.btn, padding: "10px 20px", opacity: imgurMigrating ? 0.6 : 1 }}>
+{imgurMigrating ? `Migrando... ${imgurMigrationProgress.done}/${imgurMigrationProgress.total}` : `Migrar ${productsWithImgur.length} producto${productsWithImgur.length > 1 ? "s" : ""} ahora`}
+</button>
+</>
+)}
+{imgurMigrationLog.length > 0 && (
+<div style={{ marginTop: "16px", maxHeight: "260px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px" }}>
+{imgurMigrationLog.slice().reverse().map((r, i) => (
+<div key={r.id + "-" + i} style={{ background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px 12px", fontSize: "12.5px" }}>
+<span style={{ color: r.ok ? "#9ddb9d" : "#cc6666", fontWeight: "700" }}>{r.ok ? "✓" : "✗"} {r.nombre}</span>
+{r.ok ? <span style={{ color: "#9a9a9a" }}> — {r.campos} foto{r.campos > 1 ? "s" : ""} migrada{r.campos > 1 ? "s" : ""}</span> : <span style={{ color: "#cc6666" }}> — {r.error}</span>}
 </div>
 ))}
 </div>
