@@ -259,6 +259,21 @@ const [hoverVentaMes, setHoverVentaMes] = useState(null);
 // que nunca aparecian ahi aunque se hubieran guardado bien.
 const [bannerConfig, setBannerConfig] = useState(null);
 const [catalogOrderConfig, setCatalogOrderConfig] = useState(null);
+// Combos y ofertas: dos mecanismos independientes.
+// 1) Descuento automatico por cantidad de perfumes (config en "_site_perfume_combo",
+//    mismo documento-configuracion que el banner/orden del catalogo): el admin
+//    prende/apaga y ajusta el minimo y el porcentaje sin tocar codigo.
+// 2) Combos armados a mano (coleccion "combos"): packs de 2+ productos existentes
+//    con un precio especial fijo, que se muestran como una oferta armada.
+const [perfumeComboConfig, setPerfumeComboConfig] = useState(null);
+const [perfumeComboForm, setPerfumeComboForm] = useState(null);
+const [perfumeComboSaving, setPerfumeComboSaving] = useState(false);
+const [combos, setCombos] = useState([]);
+const [comboForm, setComboForm] = useState({ nombre: "", productIds: [], precioCombo: "", imagen: "" });
+const [editingComboId, setEditingComboId] = useState(null);
+const [comboSaving, setComboSaving] = useState(false);
+const [comboSearch, setComboSearch] = useState("");
+const [comboUploading, setComboUploading] = useState(false);
 const [bannerDismissed, setBannerDismissed] = useState(() => {
   try { return sessionStorage.getItem("esenciaBannerDismissed") === "1"; } catch { return false; }
 });
@@ -703,7 +718,20 @@ setBannerConfig(snap.exists() ? { id: snap.id, ...snap.data() } : null);
 const unsubCatalogOrder = onSnapshot(doc(db, "productos", "_site_catalog_order"), (snap) => {
 setCatalogOrderConfig(snap.exists() ? { id: snap.id, ...snap.data() } : null);
 }, (e) => console.error("CATALOG_ORDER_LOAD_ERROR", e));
-return () => { unsubBanner(); unsubCatalogOrder(); };
+const unsubPerfumeCombo = onSnapshot(doc(db, "productos", "_site_perfume_combo"), (snap) => {
+setPerfumeComboConfig(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+}, (e) => console.error("PERFUME_COMBO_LOAD_ERROR", e));
+return () => { unsubBanner(); unsubCatalogOrder(); unsubPerfumeCombo(); };
+}, []);
+
+// Combos armados a mano (packs de productos con precio especial): publicos,
+// cualquiera los puede ver en el catalogo, solo el admin los crea/edita.
+useEffect(() => {
+const qCombos = query(collection(db, "combos"), orderBy("createdAt", "desc"));
+const unsubCombos = onSnapshot(qCombos, (snap) => {
+setCombos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+}, (e) => console.error("COMBOS_LOAD_ERROR", e));
+return () => unsubCombos();
 }, []);
 
 useEffect(() => {
@@ -1502,6 +1530,88 @@ if (!confirm("Eliminar el cupon " + id + "?")) return;
 try { await deleteDoc(doc(db, "cupones", id)); } catch (e) { console.error("CUPON_DELETE_ERROR", e); }
 };
 
+// Descuento automatico por cantidad de perfumes (config, ver comentario junto
+// a bannerConfig/catalogOrderConfig mas arriba).
+const handleSavePerfumeCombo = async () => {
+if (!perfumeComboForm) return;
+setPerfumeComboSaving(true);
+try {
+await setDoc(doc(db, "productos", "_site_perfume_combo"), {
+activo: !!perfumeComboForm.activo,
+minCantidad: Math.max(2, Number(perfumeComboForm.minCantidad) || 2),
+descuentoPct: Math.max(0, Math.min(90, Number(perfumeComboForm.descuentoPct) || 0)),
+updatedAt: serverTimestamp(),
+}, { merge: true });
+showToast("Combo automatico guardado");
+} catch (e) {
+console.error("PERFUME_COMBO_SAVE_ERROR", e);
+showToast("No se pudo guardar");
+}
+setPerfumeComboSaving(false);
+};
+
+// Combos armados a mano: CRUD sobre la coleccion "combos". La imagen es
+// opcional (si no se sube ninguna, se usa la foto del primer producto del
+// combo al mostrarlo en el catalogo).
+const handleComboImageUpload = async (file) => {
+if (!file) return;
+setComboUploading(true);
+try {
+const link = await uploadFileToCloudinary(file);
+setComboForm(f => ({ ...f, imagen: link }));
+} catch (e) {
+showToast("No pudimos subir la imagen");
+}
+setComboUploading(false);
+};
+const handleToggleComboProduct = (id) => {
+setComboForm(f => {
+const already = f.productIds.includes(id);
+return { ...f, productIds: already ? f.productIds.filter(x => x !== id) : [...f.productIds, id] };
+});
+};
+const handleSaveCombo = async () => {
+if (!comboForm.nombre.trim()) return alert("Ponele un nombre al combo");
+if (!comboForm.productIds || comboForm.productIds.length < 2) return alert("Elegi al menos 2 productos para el combo");
+if (!comboForm.precioCombo || Number(comboForm.precioCombo) <= 0) return alert("Ingresa el precio especial del combo");
+setComboSaving(true);
+try {
+const data = {
+nombre: comboForm.nombre.trim(),
+productIds: comboForm.productIds,
+precioCombo: Number(comboForm.precioCombo),
+imagen: comboForm.imagen || "",
+};
+if (editingComboId) {
+await updateDoc(doc(db, "combos", editingComboId), data);
+} else {
+await addDoc(collection(db, "combos"), { ...data, activo: true, createdAt: serverTimestamp() });
+}
+setComboForm({ nombre: "", productIds: [], precioCombo: "", imagen: "" });
+setEditingComboId(null);
+showToast("Combo guardado");
+} catch (e) {
+console.error("COMBO_SAVE_ERROR", e);
+showToast("No se pudo guardar el combo");
+}
+setComboSaving(false);
+};
+const handleEditCombo = (c) => {
+setEditingComboId(c.id);
+setComboForm({ nombre: c.nombre || "", productIds: c.productIds || [], precioCombo: c.precioCombo || "", imagen: c.imagen || "" });
+};
+const handleCancelComboEdit = () => {
+setEditingComboId(null);
+setComboForm({ nombre: "", productIds: [], precioCombo: "", imagen: "" });
+};
+const handleToggleCombo = async (c) => {
+try { await updateDoc(doc(db, "combos", c.id), { activo: !c.activo }); } catch (e) { console.error("COMBO_TOGGLE_ERROR", e); }
+};
+const handleDeleteCombo = async (id) => {
+if (!confirm("Eliminar este combo?")) return;
+try { await deleteDoc(doc(db, "combos", id)); } catch (e) { console.error("COMBO_DELETE_ERROR", e); }
+};
+
 // Captura de email para newsletter (ademas de la Lista VIP de WhatsApp). El id
 // del documento es el email en minuscula para no duplicar si alguien se
 // vuelve a suscribir.
@@ -1899,6 +2009,23 @@ decantSize: size,
 });
 };
 
+// Agrega un combo armado como UNA sola linea del carrito, con el precio
+// especial ya fijo (no se reparte entre los productos): mas simple y evita
+// pisar el precio individual de cada producto en otros lados del carrito.
+// comboItems queda guardado solo para mostrar/informar que trae el combo.
+const addComboToCart = (combo) => {
+const items = (combo.productIds || []).map(id => products.find(p => p.id === id)).filter(Boolean);
+if (items.length === 0) return;
+addToCart({
+id: "combo_" + combo.id,
+nombre: "🎁 Combo: " + combo.nombre,
+precio: Number(combo.precioCombo) || 0,
+imageUrl: combo.imagen || getProductImage(items[0]),
+isCombo: true,
+comboItems: items.map(p => ({ id: p.id, nombre: getProductName(p) })),
+});
+};
+
 const removeFromCart = (id) => setCart(c => c.filter(i => i.id !== id));
 const updateCartQty = (id, delta) => {
 setCart(c => c.map(i => i.id === id ? { ...i, qty: capQtyDelta(i.qty + delta) } : i).filter(i => i.qty > 0));
@@ -1974,6 +2101,17 @@ const decantComboCount = new Set(decantCartLines.map(i => i.id.split("_decant")[
 const decantComboSubtotal = decantCartLines.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
 const decantComboActive = decantComboCount >= DECANT_COMBO_MIN;
 const decantComboDiscount = decantComboActive ? Math.round(decantComboSubtotal * DECANT_COMBO_DISCOUNT_PCT) : 0;
+// Descuento automatico por cantidad de perfumes (configurable por el admin, ver
+// "_site_perfume_combo"): cuenta TODAS las unidades que no son decants ni
+// combos armados (esos ya tienen su propio precio/descuento) y si llega al
+// minimo, aplica el % configurado sobre esas lineas.
+const perfumeCartLines = cart.filter(i => !i.isDecant && !i.isCombo);
+const perfumeComboQty = perfumeCartLines.reduce((acc, i) => acc + i.qty, 0);
+const perfumeComboSubtotal = perfumeCartLines.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
+const perfumeComboMin = (perfumeComboConfig && Number(perfumeComboConfig.minCantidad)) || 2;
+const perfumeComboPct = (perfumeComboConfig && Number(perfumeComboConfig.descuentoPct)) || 0;
+const perfumeComboActive = !!(perfumeComboConfig && perfumeComboConfig.activo) && perfumeComboQty >= perfumeComboMin && perfumeComboPct > 0;
+const perfumeComboDiscount = perfumeComboActive ? Math.round(perfumeComboSubtotal * perfumeComboPct / 100) : 0;
 const freeShippingRemaining = Math.max(FREE_SHIPPING_THRESHOLD - totalCart, 0);
 const freeShippingReached = freeShippingRemaining <= 0 && totalCart > 0;
 // Cupones de descuento reales: se buscan por codigo (coleccion "cupones", id = el
@@ -1996,7 +2134,7 @@ return { cupon: c, discount, motivo: null };
 };
 const cuponEval = evalCupon(promoCode, totalCart);
 const cuponDiscount = cuponEval.discount;
-const finalTotal = Math.max(totalCart - discountFromPoints - decantComboDiscount - cuponDiscount, 0);
+const finalTotal = Math.max(totalCart - discountFromPoints - decantComboDiscount - perfumeComboDiscount - cuponDiscount, 0);
 
 const handleAccountAuth = async () => {
 setAccountError("");
@@ -2054,6 +2192,15 @@ if (decantComboCountUsed >= DECANT_COMBO_MIN) {
 const decantComboSubtotalUsed = decantLinesUsed.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
 const decantComboDiscountUsed = Math.round(decantComboSubtotalUsed * DECANT_COMBO_DISCOUNT_PCT);
 if (decantComboDiscountUsed > 0) usedDiscount += decantComboDiscountUsed;
+}
+const perfumeLinesUsed = cartUsed.filter(i => !i.isDecant && !i.isCombo);
+const perfumeQtyUsed = perfumeLinesUsed.reduce((acc, i) => acc + i.qty, 0);
+const perfumeMinUsed = (perfumeComboConfig && Number(perfumeComboConfig.minCantidad)) || 2;
+const perfumePctUsed = (perfumeComboConfig && Number(perfumeComboConfig.descuentoPct)) || 0;
+if (perfumeComboConfig && perfumeComboConfig.activo && perfumeQtyUsed >= perfumeMinUsed && perfumePctUsed > 0) {
+const perfumeSubtotalUsed = perfumeLinesUsed.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
+const perfumeComboDiscountUsed = Math.round(perfumeSubtotalUsed * perfumePctUsed / 100);
+if (perfumeComboDiscountUsed > 0) usedDiscount += perfumeComboDiscountUsed;
 }
 const cuponUsadoMp = evalCupon(promoCode, totalCartUsed);
 if (cuponUsadoMp.discount > 0) usedDiscount += cuponUsadoMp.discount;
@@ -2140,6 +2287,18 @@ const decantComboDiscountUsed = Math.round(decantComboSubtotalUsed * DECANT_COMB
 if (decantComboDiscountUsed > 0) {
 usedDiscount += decantComboDiscountUsed;
 msg += " - Set de " + decantComboCountUsed + " decants distintos: " + Math.round(DECANT_COMBO_DISCOUNT_PCT * 100) + "% OFF ($" + decantComboDiscountUsed.toLocaleString("es-CL") + ")";
+}
+}
+const perfumeLinesUsed = cartUsed.filter(i => !i.isDecant && !i.isCombo);
+const perfumeQtyUsed = perfumeLinesUsed.reduce((acc, i) => acc + i.qty, 0);
+const perfumeMinUsed = (perfumeComboConfig && Number(perfumeComboConfig.minCantidad)) || 2;
+const perfumePctUsed = (perfumeComboConfig && Number(perfumeComboConfig.descuentoPct)) || 0;
+if (perfumeComboConfig && perfumeComboConfig.activo && perfumeQtyUsed >= perfumeMinUsed && perfumePctUsed > 0) {
+const perfumeSubtotalUsed = perfumeLinesUsed.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
+const perfumeComboDiscountUsed = Math.round(perfumeSubtotalUsed * perfumePctUsed / 100);
+if (perfumeComboDiscountUsed > 0) {
+usedDiscount += perfumeComboDiscountUsed;
+msg += " - Combo de " + perfumeQtyUsed + " perfumes: " + Math.round(perfumePctUsed) + "% OFF ($" + perfumeComboDiscountUsed.toLocaleString("es-CL") + ")";
 }
 }
 const cuponUsado = evalCupon(promoCode, totalCartUsed);
@@ -2492,7 +2651,7 @@ return true;
 
 const recentlyViewedProducts = recentlyViewed.map(id => dedupedProducts.find(p => p.id === id)).filter(Boolean).slice(0, 8);
 const trendProducts = dedupedProducts.filter(p => (p.temporada || "") === "verano" && getProductDisp(p) !== "agotado");
-const adminProductsList = products.filter(p => p.id !== "_site_banner" && p.id !== "_site_catalog_order");
+const adminProductsList = products.filter(p => p.id !== "_site_banner" && p.id !== "_site_catalog_order" && p.id !== "_site_perfume_combo");
 // Aplica el orden elegido por el admin (panel "Orden del catalogo") a una
 // lista ya filtrada de productos. Se usa solo cuando el cliente tiene el
 // sort en "Novedades" (relevancia); si el cliente elige otro orden, ese manda.
@@ -2883,6 +3042,97 @@ Aleatorio (mezclado entre todos, cambia solo)
 </div>
 )}
 </div>
+{(() => {
+const pf = perfumeComboForm || { activo: (perfumeComboConfig && perfumeComboConfig.activo) || false, minCantidad: (perfumeComboConfig && perfumeComboConfig.minCantidad) || 2, descuentoPct: (perfumeComboConfig && perfumeComboConfig.descuentoPct) || 10 };
+return (
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<h3 style={{ margin: "0 0 6px" }}>🎁 Descuento automático por cantidad de perfumes</h3>
+<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Igual que el de los sets de decants, pero para perfumes enteros: si el cliente lleva el minimo de unidades que elijas aca, se le aplica el % de descuento solo en el carrito, sin que tengas que armar nada mas.</p>
+<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer", marginBottom: "12px" }}>
+<input type="checkbox" checked={!!pf.activo} onChange={e => setPerfumeComboForm({ ...pf, activo: e.target.checked })} />
+Activar el descuento automatico
+</label>
+<div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "14px" }}>
+<div style={{ flex: "1 1 180px" }}>
+<label style={S.label}>Minimo de perfumes</label>
+<input type="number" min="2" value={pf.minCantidad} onChange={e => setPerfumeComboForm({ ...pf, minCantidad: e.target.value })} style={S.input} placeholder="Ej: 2" />
+</div>
+<div style={{ flex: "1 1 180px" }}>
+<label style={S.label}>Porcentaje de descuento</label>
+<input type="number" min="0" max="90" value={pf.descuentoPct} onChange={e => setPerfumeComboForm({ ...pf, descuentoPct: e.target.value })} style={S.input} placeholder="Ej: 10" />
+</div>
+</div>
+<div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+<button onClick={handleSavePerfumeCombo} disabled={perfumeComboSaving} style={{ ...S.btn, padding: "10px 20px", opacity: perfumeComboSaving ? 0.6 : 1 }}>{perfumeComboSaving ? "Guardando..." : "Guardar"}</button>
+{perfumeComboForm && <button onClick={() => setPerfumeComboForm(null)} style={{ ...S.btnOutline, padding: "10px 20px" }}>Descartar cambios</button>}
+</div>
+</div>
+); })()}
+{(() => {
+const comboSearchResults = comboSearch.trim() ? adminProductsList.filter(p => !comboForm.productIds.includes(p.id) && normalizeTxt(getProductName(p)).includes(normalizeTxt(comboSearch))).slice(0, 8) : [];
+const comboSelectedProducts = comboForm.productIds.map(id => adminProductsList.find(p => p.id === id)).filter(Boolean);
+const precioOriginalCombo = comboSelectedProducts.reduce((a, p) => a + getProductPrice(p), 0);
+return (
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<h3 style={{ margin: "0 0 6px" }}>📦 Combos armados (packs con precio especial)</h3>
+<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Elegi 2 o mas productos que ya existen y ponele un precio especial de combo. Se muestra como una oferta armada en el catalogo, con un boton para agregar todo el pack al carrito de una.</p>
+<label style={S.label}>Nombre del combo</label>
+<input type="text" value={comboForm.nombre} onChange={e => setComboForm(f => ({ ...f, nombre: e.target.value }))} style={{ ...S.input, marginBottom: "12px" }} placeholder="Ej: Combo Regalo Dia de la Madre" />
+<label style={S.label}>Buscar y agregar productos</label>
+<input type="text" value={comboSearch} onChange={e => setComboSearch(e.target.value)} style={{ ...S.input, marginBottom: "8px" }} placeholder="Buscar perfume por nombre..." />
+{comboSearchResults.length > 0 && (
+<div style={{ background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", marginBottom: "10px", overflow: "hidden" }}>
+{comboSearchResults.map(p => (
+<div key={p.id} onClick={() => { handleToggleComboProduct(p.id); setComboSearch(""); }} style={{ padding: "8px 12px", cursor: "pointer", fontSize: "13px", borderBottom: "1px solid #2b2b2b" }}>+ {getProductName(p)} · {formatPrice(getProductPrice(p))}</div>
+))}
+</div>
+)}
+{comboSelectedProducts.length === 0 ? (
+<p style={{ color: "#8a8a8a", fontSize: "13px", marginBottom: "12px" }}>Todavia no elegiste productos para este combo.</p>
+) : (
+<div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "12px" }}>
+{comboSelectedProducts.map(p => (
+<div key={p.id} style={{ display: "flex", alignItems: "center", gap: "8px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "6px 10px" }}>
+<span style={{ flex: 1, fontSize: "13px" }}>{getProductName(p)}</span>
+<span style={{ fontSize: "12px", color: "#9a9a9a" }}>{formatPrice(getProductPrice(p))}</span>
+<button onClick={() => handleToggleComboProduct(p.id)} style={{ ...S.btnGray, padding: "4px 8px" }}>✕</button>
+</div>
+))}
+<div style={{ fontSize: "13px", color: "#bdbdbd", marginTop: "4px" }}>Precio de lista sumado: {formatPrice(precioOriginalCombo)}</div>
+</div>
+)}
+<label style={S.label}>Precio especial del combo</label>
+<input type="number" value={comboForm.precioCombo} onChange={e => setComboForm(f => ({ ...f, precioCombo: e.target.value }))} style={{ ...S.input, marginBottom: "12px" }} placeholder="Ej: 95000" />
+<label style={S.label}>Imagen del combo (opcional, si no subis ninguna se usa la foto del primer producto)</label>
+<div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "12px", flexWrap: "wrap" }}>
+<input type="file" accept="image/*" onChange={e => handleComboImageUpload(e.target.files[0])} />
+{comboUploading && <span style={{ color: "#9a9a9a", fontSize: "13px" }}>Subiendo...</span>}
+{comboForm.imagen && <img src={comboForm.imagen} alt="preview" style={{ width: "70px", height: "70px", objectFit: "cover", borderRadius: "8px" }} />}
+</div>
+<div style={{ display: "flex", gap: "10px" }}>
+<button onClick={handleSaveCombo} disabled={comboSaving} style={{ ...S.btn, padding: "10px 20px", opacity: comboSaving ? 0.6 : 1 }}>{comboSaving ? "Guardando..." : (editingComboId ? "Guardar cambios" : "Crear combo")}</button>
+{editingComboId && <button onClick={handleCancelComboEdit} style={{ ...S.btnOutline, padding: "10px 20px" }}>Cancelar edicion</button>}
+</div>
+<h3 style={{ marginTop: "24px", marginBottom: "16px" }}>Combos existentes ({combos.length})</h3>
+{combos.length === 0 ? (
+<p style={{ color: "#7a7a7a" }}>Todavia no armaste ningun combo.</p>
+) : (
+combos.map(c => (
+<div key={c.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap", opacity: c.activo ? 1 : 0.55 }}>
+{c.imagen && <img src={c.imagen} alt={c.nombre} style={{ width: "60px", height: "60px", objectFit: "cover", borderRadius: "8px" }} />}
+<div style={{ flex: 1, minWidth: "180px" }}>
+<strong>{c.nombre}</strong>
+<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{(c.productIds || []).length} productos · {formatPrice(c.precioCombo)}</div>
+<div style={{ color: c.activo ? "#9ddb9d" : "#e0b84a", fontSize: "11px", fontWeight: "700" }}>{c.activo ? "ACTIVO" : "PAUSADO"}</div>
+</div>
+<button onClick={() => handleEditCombo(c)} style={{ ...S.btnOutline, padding: "8px 14px", fontSize: "13px" }}>Editar</button>
+<button onClick={() => handleToggleCombo(c)} style={{ ...S.btnOutline, padding: "8px 14px", fontSize: "13px" }}>{c.activo ? "Pausar" : "Activar"}</button>
+<button onClick={() => handleDeleteCombo(c.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer", fontSize: "13px" }}>Eliminar</button>
+</div>
+))
+)}
+</div>
+); })()}
 <div style={{ ...S.adminCard, marginBottom: "24px" }}>
 <h3 style={{ margin: "0 0 6px" }}>📧 Suscriptores al newsletter ({emailSubs.length})</h3>
 <p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Emails que dejaron en el pie del sitio, ademas de la Lista VIP de WhatsApp. Exportalos para mandarles novedades por email.</p>
@@ -3847,6 +4097,34 @@ return (
 )}
 </div>
 )}
+{combos.filter(c => c.activo).length > 0 && (
+<div style={{ ...S.section, paddingTop: "12px" }}>
+<div style={{ ...S.sectionTitle, fontSize: "18px", marginBottom: "12px", paddingBottom: "4px" }}>🎁 Combos y Ofertas</div>
+<div style={{ display: "flex", gap: "16px", overflowX: "auto", paddingBottom: "8px" }}>
+{combos.filter(c => c.activo).map(c => {
+const comboItems = (c.productIds || []).map(id => products.find(p => p.id === id)).filter(Boolean);
+const precioOriginal = comboItems.reduce((a, p) => a + getProductPrice(p), 0);
+const ahorroCombo = Math.max(precioOriginal - (Number(c.precioCombo) || 0), 0);
+const imgCombo = c.imagen || (comboItems[0] ? getProductImage(comboItems[0]) : "");
+return (
+<div key={c.id} style={{ ...S.card, minWidth: "230px", maxWidth: "230px", flexShrink: 0, cursor: "default" }}>
+<img src={optimizeImg(imgCombo, "m")} alt={c.nombre} style={S.cardImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Combo"; }} />
+<div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: "6px", flex: 1 }}>
+<strong style={{ fontSize: "14px" }}>{c.nombre}</strong>
+<div style={{ fontSize: "12px", color: "#9a9a9a", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{comboItems.map(p => getProductName(p)).join(" + ")}</div>
+<div style={{ marginTop: "auto" }}>
+{precioOriginal > 0 && <div style={{ fontSize: "12px", color: "#8a8a8a", textDecoration: "line-through" }}>{formatPrice(precioOriginal)}</div>}
+<div style={{ fontSize: "18px", fontWeight: "800", color: "#d4af37" }}>{formatPrice(c.precioCombo)}</div>
+{ahorroCombo > 0 && <div style={{ fontSize: "12px", color: "#9ddb9d", fontWeight: "700" }}>Ahorrás {formatPrice(ahorroCombo)}</div>}
+</div>
+<button style={{ ...S.btn, marginTop: "8px" }} onClick={() => addComboToCart(c)}>Agregar combo al carrito</button>
+</div>
+</div>
+);
+})}
+</div>
+</div>
+)}
 <div style={{ ...S.section, paddingTop: "12px" }} id="productsSection">
 <div style={{ ...S.sectionTitle, fontSize: "18px", marginBottom: "8px", paddingBottom: "4px" }}>Productos Disponibles</div>
 <div style={S.filterBar}>
@@ -4371,6 +4649,16 @@ return pdpPhotos.length > 1 && (
 🎉 Set de {decantComboCount} decants distintos: {Math.round(DECANT_COMBO_DISCOUNT_PCT * 100)}% OFF aplicado (-{formatPrice(decantComboDiscount)})
 </div>
 )}
+{perfumeComboConfig && perfumeComboConfig.activo && perfumeComboPct > 0 && perfumeComboQty > 0 && perfumeComboQty < perfumeComboMin && (
+<div style={{ background: "rgba(212,175,55,0.18)", border: "1px solid #d4af37", borderRadius: "8px", padding: "10px 14px", marginBottom: "16px", fontSize: "13px", color: "#fff3d6", fontWeight: "700" }}>
+🎁 Sumá {perfumeComboMin - perfumeComboQty} perfume{perfumeComboMin - perfumeComboQty > 1 ? "s" : ""} más y llevate {Math.round(perfumeComboPct)}% OFF en tus perfumes
+</div>
+)}
+{perfumeComboActive && (
+<div style={{ background: "rgba(126,168,122,0.22)", border: "1px solid #7ea87a", borderRadius: "8px", padding: "10px 14px", marginBottom: "16px", fontSize: "13px", color: "#eafce6", fontWeight: "700" }}>
+🎉 Combo de {perfumeComboQty} perfumes: {Math.round(perfumeComboPct)}% OFF aplicado (-{formatPrice(perfumeComboDiscount)})
+</div>
+)}
 {cart.map(item => (
 <div key={item.id} style={{ display: "flex", gap: "12px", marginBottom: "16px", alignItems: "center" }}>
 <img src={optimizeImg(getProductImage(item), "t")} alt={getProductName(item)} loading="lazy" decoding="async" style={{ width: "60px", height: "60px", objectFit: "contain", background: "#fff", borderRadius: "6px" }} />
@@ -4403,7 +4691,7 @@ return pdpPhotos.length > 1 && (
 )}
 <a href={buildCartWhatsAppUrl()} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "11px", marginBottom: "16px", fontSize: "14px", fontWeight: "700", borderRadius: "8px", border: "1px solid #25D366", background: "transparent", color: "#25D366", textDecoration: "none", boxSizing: "border-box" }}>💬 Prefiero consultar este carrito por WhatsApp</a>
 <div style={{ borderTop: "1px solid #2b2b2b", paddingTop: "16px", marginTop: "16px" }}>
-<div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(finalTotal)}{discountFromPoints > 0 && <span style={{ color: "#d4af37", fontSize: 13, display: "block" }}>(incluye descuento de {formatPrice(discountFromPoints)} por puntos)</span>}{decantComboDiscount > 0 && <span style={{ color: "#7ea87a", fontSize: 13, display: "block" }}>(incluye {formatPrice(decantComboDiscount)} OFF por set de decants)</span>}{cuponDiscount > 0 && <span style={{ color: "#9ddb9d", fontSize: 13, display: "block" }}>(incluye {formatPrice(cuponDiscount)} OFF por cupon {cuponEval.cupon && cuponEval.cupon.id})</span>}</div><div style={{ marginBottom: 12 }}>
+<div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(finalTotal)}{discountFromPoints > 0 && <span style={{ color: "#d4af37", fontSize: 13, display: "block" }}>(incluye descuento de {formatPrice(discountFromPoints)} por puntos)</span>}{decantComboDiscount > 0 && <span style={{ color: "#7ea87a", fontSize: 13, display: "block" }}>(incluye {formatPrice(decantComboDiscount)} OFF por set de decants)</span>}{perfumeComboDiscount > 0 && <span style={{ color: "#7ea87a", fontSize: 13, display: "block" }}>(incluye {formatPrice(perfumeComboDiscount)} OFF por combo de perfumes)</span>}{cuponDiscount > 0 && <span style={{ color: "#9ddb9d", fontSize: 13, display: "block" }}>(incluye {formatPrice(cuponDiscount)} OFF por cupon {cuponEval.cupon && cuponEval.cupon.id})</span>}</div><div style={{ marginBottom: 12 }}>
 <input type="text" placeholder="Nombre y apellido *" value={customerName} onChange={e => { setCustomerName(e.target.value); if (checkoutError) setCheckoutError(""); }} style={{ ...S.input, marginBottom: 8, ...(checkoutError && !customerName.trim() ? { border: "1px solid #8b1a2a" } : {}) }} />
 <textarea placeholder="Direccion de envio (calle, numero, ciudad) *" value={customerAddress} onChange={e => { setCustomerAddress(e.target.value); if (checkoutError) setCheckoutError(""); }} style={{ ...S.input, minHeight: 50, resize: "vertical", ...(checkoutError && !customerAddress.trim() ? { border: "1px solid #8b1a2a" } : {}) }} />
 {checkoutError && <p style={{ color: "#e57373", fontSize: 13, margin: "6px 0 0" }}>{checkoutError}</p>}
