@@ -51,6 +51,37 @@ const DECANT_COMBO_DISCOUNT_PCT = 0.10;
 // fotos secundarias). La migracion busca URLs de i.imgur.com en todos ellos.
 const IMGUR_MIGRATION_FIELDS = ["imageUrl", "foto", "image", "img", "foto2", "foto3", "fotoMano", "fotoCaja"];
 const isImgurUrl = (url) => typeof url === "string" && /^https?:\/\/i\.imgur\.com\//i.test(url);
+// URLs de producto con slug legible para SEO, ej "/producto/carolina-herrera-
+// la-bomba-edp-80-ml/AbC123xyz" en vez de solo "/producto/AbC123xyz". El id
+// sigue siendo lo unico que se usa para buscar el producto (va en su propio
+// segmento de la URL, separado por "/"), asi que el slug es puramente
+// cosmetico/para SEO: cualquiera sea el nombre del producto o los caracteres
+// que tenga el id, el id nunca hay que "extraerlo" de vuelta del slug.
+// vercel.json tiene un rewrite para ese formato de 2 segmentos ademas del
+// viejo de 1 solo segmento, asi que los links viejos ("/producto/<id>" sin
+// slug, ya compartidos o indexados) siguen funcionando igual.
+// Misma logica duplicada en api/og.js, api/sitemap.js y api/product-feed.js
+// (funciones serverless separadas, no pueden importar nada de este archivo).
+const slugify = (text) => String(text || "")
+.toLowerCase()
+.normalize("NFD").replace(/[̀-ͯ]/g, "")
+.replace(/[^a-z0-9]+/g, "-")
+.replace(/^-+|-+$/g, "")
+.slice(0, 60)
+.replace(/-+$/g, "");
+const productUrl = (p) => {
+if (!p || !p.id) return "/producto/";
+const slug = slugify(p.nombre);
+return "/producto/" + (slug ? slug + "/" : "") + encodeURIComponent(p.id);
+};
+// El JSON-LD de cada producto (mas abajo) usaba solo InStock/OutOfStock, asi
+// que un perfume "Por Pedido" (se consigue en unos dias pero no esta ya en
+// el local) quedaba declarado como InStock: no es incorrecto para el
+// cliente (esta pagina siempre muestra todo como disponible, ver decision
+// de negocio ya tomada sobre alertas de stock), pero para Google es mas
+// preciso usar BackOrder, que ya es lo que hace api/product-feed.js para el
+// feed de Google Shopping. Mantenerlos consistentes.
+const schemaAvailability = (disp) => disp === "agotado" ? "https://schema.org/OutOfStock" : disp === "pedido" ? "https://schema.org/BackOrder" : "https://schema.org/InStock";
 const QUIZ_QUESTIONS = [
 { key: "genero", pregunta: "¿Para quién es el perfume?", opciones: [
 { value: "femenino", label: "Para ella" },
@@ -977,8 +1008,9 @@ const itemListLd = {
 "@type": "Offer",
 "priceCurrency": "ARS",
 "price": String(getProductPrice(p)),
-"availability": getProductDisp(p) === "agotado" ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
-"url": "https://www.esenciaperfumeria.com.ar/producto/" + p.id
+"availability": schemaAvailability(getProductDisp(p)),
+"itemCondition": "https://schema.org/NewCondition",
+"url": "https://www.esenciaperfumeria.com.ar" + productUrl(p)
 }
 }
 }))
@@ -1016,8 +1048,9 @@ const productLd = {
 "@type": "Offer",
 "priceCurrency": "ARS",
 "price": String(getProductPrice(p)),
-"availability": getProductDisp(p) === "agotado" ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
-"url": "https://www.esenciaperfumeria.com.ar/producto/" + p.id
+"availability": schemaAvailability(getProductDisp(p)),
+"itemCondition": "https://schema.org/NewCondition",
+"url": "https://www.esenciaperfumeria.com.ar" + productUrl(p)
 }
 };
 if (!script) {
@@ -1050,7 +1083,7 @@ if (metaDesc) {
 const desc = (selectedProduct.descripcion || "").trim();
 metaDesc.setAttribute("content", desc ? desc.slice(0, 160) : ("Compra " + nombre + " en Esencia Perfumeria. Envio gratis en Bahia Blanca y envios a todo el pais."));
 }
-if (canonical) canonical.setAttribute("href", "https://www.esenciaperfumeria.com.ar/producto/" + selectedProduct.id);
+if (canonical) canonical.setAttribute("href", "https://www.esenciaperfumeria.com.ar" + productUrl(selectedProduct));
 } else if (selectedBlogPost) {
 // Mismo mecanismo que arriba pero para una nota del blog abierta.
 document.title = (selectedBlogPost.titulo || "Blog") + " | Blog Esencia Perfumeria";
@@ -1115,7 +1148,7 @@ if (selectedProduct && isPerfume(selectedProduct)) {
 items = [
 { name: "Inicio", url: "https://www.esenciaperfumeria.com.ar/" },
 { name: "Catalogo", url: "https://www.esenciaperfumeria.com.ar/#productsSection" },
-{ name: getProductName(selectedProduct), url: "https://www.esenciaperfumeria.com.ar/producto/" + selectedProduct.id },
+{ name: getProductName(selectedProduct), url: "https://www.esenciaperfumeria.com.ar" + productUrl(selectedProduct) },
 ];
 } else if (selectedBlogPost) {
 items = [
@@ -1943,7 +1976,7 @@ const handleShareProduct = async (product) => {
 // que arma la vista previa (ver vercel.json). Al abrirla en un navegador
 // normal, esa misma funcion redirige a ?p=<id> y la app sigue igual que
 // siempre.
-let shareUrl = window.location.origin + "/producto/" + encodeURIComponent(product.id);
+let shareUrl = window.location.origin + productUrl(product);
 const shareText = `Mira este perfume en Esencia Perfumeria: ${getProductName(product)} - ${formatPrice(getProductPrice(product))}`;
 if (navigator.share) {
 try {
@@ -4117,7 +4150,7 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } } @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } } .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; animation: fadeInUp 0.6s ease both; } .product-card:hover, .product-card:active { transform: translateY(-6px); box-shadow: 0 14px 28px rgba(212,175,55,0.18); } .card-img { transition: transform 0.35s ease; } .product-card:hover .card-img { transform: scale(1.06); } .fav-btn { transition: transform 0.2s ease, background 0.2s ease; } .fav-btn:hover { transform: scale(1.12); } .fav-btn.active { animation: favPop 0.3s ease; } @keyframes favPop { 0% { transform: scale(1); } 45% { transform: scale(1.3); } 100% { transform: scale(1); } } .add-cart-btn { transition: transform 0.2s ease, box-shadow 0.2s ease; } .add-cart-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(212,175,55,0.4); } .add-cart-btn:active { transform: scale(0.96); } @keyframes skeletonPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } } .skel { animation: skeletonPulse 1.4s ease-in-out infinite; background: #23231f; } @keyframes toastPop { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }`}</style>
 <div style={S.tickerTrack}>
 {[...tickerProducts, ...tickerProducts].map((p, i) => (
-<a key={i} className="product-card" href={"/producto/" + p.id} style={{ ...S.tickerItem, display: "block", position: "relative", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); }}>
+<a key={i} className="product-card" href={productUrl(p)} style={{ ...S.tickerItem, display: "block", position: "relative", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); }}>
 <button className={"fav-btn" + (favorites.includes(p.id) ? " active" : "")} onClick={e => { e.preventDefault(); e.stopPropagation(); toggleFavorite(p.id); }} style={S.favBtn(favorites.includes(p.id))} aria-label="Favorito">{favorites.includes(p.id) ? "♥" : "♡"}</button>
 <img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.cardImg} loading="lazy" decoding="async" onError={(e) => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.cardBody}>
@@ -4209,7 +4242,7 @@ return (
 {recentlyViewedOpen && (
 <div style={{ ...S.recentlyViewedRow, marginTop: "10px" }}>
 {recentlyViewedProducts.map(p => (
-<a key={p.id} className="product-card" href={"/producto/" + p.id} style={{ ...S.recentlyViewedCard, display: "block", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); }}>
+<a key={p.id} className="product-card" href={productUrl(p)} style={{ ...S.recentlyViewedCard, display: "block", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); }}>
 <img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.recentlyViewedName}>{getProductName(p)}</div>
 <div style={S.recentlyViewedPrice}>{formatPrice(getProductPrice(p))}</div>
@@ -4357,7 +4390,7 @@ return (
 <div style={S.grid} className="product-grid">
 {productsLoading && Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={"skel" + i} />)}
 {!productsLoading && filteredProducts.slice(0, visibleCount).flatMap((product, productIdx) => { const card = (
-<a key={product.id} className="product-card" href={"/producto/" + product.id} style={{ ...S.card, position: "relative", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(product); }}>
+<a key={product.id} className="product-card" href={productUrl(product)} style={{ ...S.card, position: "relative", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(product); }}>
 <button className={"fav-btn" + (favorites.includes(product.id) ? " active" : "")} onClick={e => { e.preventDefault(); e.stopPropagation(); toggleFavorite(product.id); }} style={S.favBtn(favorites.includes(product.id))} aria-label="Favorito">{favorites.includes(product.id) ? "♥" : "♡"}</button>
 <img className="card-img" src={optimizeImg(getProductImage(product), "m")} alt={getProductName(product)} style={S.cardImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.cardBody}>
@@ -4403,7 +4436,7 @@ return (
 <p style={{ textAlign: "center", color: "#bdbdbd", maxWidth: 560, margin: "-6px auto 18px", fontSize: "14px" }}>Nuestra selección de perfumes ideales para el verano 2027, disponibles ahora.</p>
 <div style={S.recentlyViewedRow}>
 {trendProducts.map(p => (
-<a key={p.id} className="product-card" href={"/producto/" + p.id} style={{ ...S.recentlyViewedCard, display: "block", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); }}>
+<a key={p.id} className="product-card" href={productUrl(p)} style={{ ...S.recentlyViewedCard, display: "block", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); }}>
 <img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.recentlyViewedName}>{getProductName(p)}</div>
 <div style={S.recentlyViewedPrice}>{formatPrice(getProductPrice(p))}</div>
@@ -4618,7 +4651,7 @@ return pdpPhotos.length > 1 && (
 <div className="gs-pdp-section-title">Productos Similares</div>
 <div className="gs-pdp-similar-scroll">
 {pdpSimilarProducts.map(p => (
-<a key={p.id} className="gs-pdp-similar-card" href={"/producto/" + p.id} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); const ov = document.querySelector(".gs-pdp-overlay"); if (ov) ov.scrollTop = 0; }}>
+<a key={p.id} className="gs-pdp-similar-card" href={productUrl(p)} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); const ov = document.querySelector(".gs-pdp-overlay"); if (ov) ov.scrollTop = 0; }}>
 <img src={optimizeImg(getProductImage(p), "t")} alt={getProductName(p)} loading="lazy" decoding="async" style={{ width: "100%", height: "120px", objectFit: "contain", background: "#fff", borderRadius: "6px", marginBottom: "8px" }} />
 <div style={{ fontSize: "12px", color: "#fff", marginBottom: "6px", minHeight: "32px", lineHeight: "1.3" }}>{getProductName(p)}</div>
 <div style={{ fontSize: "13px", color: "#d4af37", fontWeight: "700" }}>{formatPrice(getProductPrice(p))}</div>
@@ -4729,7 +4762,7 @@ return pdpPhotos.length > 1 && (
 <p style={{ color: "#bdbdbd", marginBottom: "16px" }}>Estos son los que más se ajustan a lo que buscás:</p>
 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
 {getQuizRecommendations().map(p => (
-<a key={p.id} href={"/producto/" + p.id} style={{ display: "block", background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px", cursor: "pointer", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setShowQuiz(false); setSelectedProduct(p); }}>
+<a key={p.id} href={productUrl(p)} style={{ display: "block", background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px", cursor: "pointer", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setShowQuiz(false); setSelectedProduct(p); }}>
 <img src={optimizeImg(getProductImage(p), "t")} alt={getProductName(p)} loading="lazy" decoding="async" style={{ width: "100%", height: "90px", objectFit: "contain", background: "#fff", borderRadius: "6px", marginBottom: "8px" }} />
 <div style={{ fontSize: "12px", marginBottom: "4px", lineHeight: "1.3" }}>{getProductName(p)}</div>
 <div style={{ color: "#d4af37", fontWeight: "700", fontSize: "13px" }}>{formatPrice(getProductPrice(p))}</div>
