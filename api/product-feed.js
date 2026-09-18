@@ -34,6 +34,23 @@ function isPerfumeLike(p) {
   return PERFUME_KEYWORDS.some((k) => name.includes(k));
 }
 
+// Mismo slug legible que arma el cliente (ver productUrl/slugify en App.jsx)
+// para que el link de cada item del feed coincida con el canonical real del
+// producto (api/og.js arma el mismo slug a partir del nombre).
+function slugify(text) {
+  return String(text || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60)
+    .replace(/-+$/g, "");
+}
+function productPath(p) {
+  const slug = slugify(p.nombre);
+  return "/producto/" + (slug ? encodeURIComponent(slug) + "/" : "") + encodeURIComponent(p.id);
+}
+
 function esc(s) {
   return String(s == null ? "" : s)
     .replace(/&/g, "&amp;")
@@ -73,11 +90,11 @@ export default async function handler(req, res) {
         const image = p.imageUrl || p.imagen || p.foto || p.image || p.img || "";
         const disp = p.disponibilidad || "stock";
         const availability = disp === "agotado" ? "out_of_stock" : disp === "pedido" ? "backorder" : "in_stock";
-        // "/producto/:id" (no "?p="): es la misma URL que ya usan el sitemap,
-        // el canonical y el JSON-LD del sitio, y la unica que pasa por
-        // api/og.js para mostrarle a Google Shopping el titulo/imagen
+        // "/producto/:slug/:id" (no "?p="): es la misma URL que ya usan el
+        // sitemap, el canonical y el JSON-LD del sitio, y la unica que pasa
+        // por api/og.js para mostrarle a Google Shopping el titulo/imagen
         // correctos del producto en vez de los genericos de la home.
-        const link = SITE_URL + "/producto/" + encodeURIComponent(p.id);
+        const link = SITE_URL + productPath(p);
         const description = String(p.descripcion || p.nombre || "").slice(0, 5000);
         return (
           "<item>\n" +
