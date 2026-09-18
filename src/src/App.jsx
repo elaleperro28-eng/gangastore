@@ -249,6 +249,7 @@ const [reviewNoticeIdx, setReviewNoticeIdx] = useState(null);
 const [showCartReminder, setShowCartReminder] = useState(false);
 const [pedidos, setPedidos] = useState([]);
 const [hoverVentaDia, setHoverVentaDia] = useState(null);
+const [hoverVentaMes, setHoverVentaMes] = useState(null);
 // El banner y el orden del catalogo son documentos especiales guardados en la
 // coleccion "productos" (mismas reglas de Firestore que ya existen: lectura
 // publica, escritura solo admin), pero se leen con su propio listener en vez
@@ -514,38 +515,87 @@ const emailSubs = newsletterSubs.filter(s => s.email);
 const popupContacts = newsletterSubs.filter(s => s.telefono);
 
 // Registro de pedidos: tambien solo para el admin, y limitado a los ultimos
-// 200 para no traer toda la coleccion completa a medida que crece.
+// 500 para no traer toda la coleccion completa a medida que crece (esto tambien
+// limita cuanto historial real tienen los filtros de "Todo" y el grafico mensual
+// del Dashboard: si el negocio crece mucho, en algun momento va a convenir mover
+// estas estadisticas a un calculo agregado en el servidor en vez de en el cliente).
 useEffect(() => {
 if (!isAdmin) { setPedidos([]); return; }
-const qPedidos = query(collection(db, "pedidos"), orderBy("createdAt", "desc"), limit(200));
+const qPedidos = query(collection(db, "pedidos"), orderBy("createdAt", "desc"), limit(500));
 const unsubPedidos = onSnapshot(qPedidos, (snap) => {
 setPedidos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
 }, (e) => console.error("PEDIDOS_LOAD_ERROR", e));
 return () => unsubPedidos();
 }, [isAdmin]);
 
+// Rango de fechas elegido para el Dashboard de ventas (botones Hoy/7 dias/30
+// dias/Todo). Afecta las tarjetas de totales, el % de variacion contra el
+// periodo anterior, el grafico diario y el top de productos; el grafico
+// mensual de tendencia y la lista de "Pedidos recientes" no dependen de esto.
+const DASHBOARD_RANGES = [
+{ key: "today", label: "Hoy" },
+{ key: "7d", label: "7 dias" },
+{ key: "30d", label: "30 dias" },
+{ key: "all", label: "Todo" },
+];
+const [dashboardRange, setDashboardRange] = useState("30d");
+
 // Estadisticas para el Dashboard de ventas: se calculan en el cliente a partir
-// de los ultimos 200 pedidos ya cargados arriba (no se hacen consultas nuevas
+// de los ultimos 500 pedidos ya cargados arriba (no se hacen consultas nuevas
 // a Firestore). Alcanza para un negocio de este tamano; si en el futuro hace
 // falta mas historial, conviene guardar agregados aparte en vez de traer mas
 // pedidos al cliente.
 const ventasStats = useMemo(() => {
 if (!pedidos.length) return null;
-const totalFacturado = pedidos.reduce((a, p) => a + (Number(p.total) || 0), 0);
-const cantidadPedidos = pedidos.length;
-const ticketPromedio = totalFacturado / cantidadPedidos;
+const getFecha = (p) => (p.createdAt && p.createdAt.toDate) ? p.createdAt.toDate() : null;
+const sumTotal = (arr) => arr.reduce((a, p) => a + (Number(p.total) || 0), 0);
+
+const ahora = new Date();
+const inicioHoy = new Date(ahora);
+inicioHoy.setHours(0, 0, 0, 0);
+const diasDelRango = { today: 1, "7d": 7, "30d": 30, all: null };
+const cantDias = diasDelRango[dashboardRange];
+// "all" no tiene inicio de rango (usa todos los pedidos cargados) ni periodo
+// anterior con el que compararse.
+const inicioRango = cantDias ? (() => { const d = new Date(inicioHoy); d.setDate(d.getDate() - (cantDias - 1)); return d; })() : null;
+
+const pedidosEnRango = inicioRango ? pedidos.filter(p => { const f = getFecha(p); return f && f >= inicioRango; }) : pedidos;
+const totalFacturado = sumTotal(pedidosEnRango);
+const cantidadPedidos = pedidosEnRango.length;
+const ticketPromedio = cantidadPedidos ? totalFacturado / cantidadPedidos : 0;
+
+// Comparacion contra el periodo inmediatamente anterior, de la misma duracion
+// (ej: si el rango es "7 dias", se compara contra los 7 dias previos a esos).
+let comparativa = null;
+if (inicioRango) {
+const finRangoAnterior = new Date(inicioRango.getTime() - 1);
+const inicioRangoAnterior = new Date(inicioRango);
+inicioRangoAnterior.setDate(inicioRangoAnterior.getDate() - cantDias);
+const pedidosPeriodoAnterior = pedidos.filter(p => { const f = getFecha(p); return f && f >= inicioRangoAnterior && f <= finRangoAnterior; });
+const totalAnterior = sumTotal(pedidosPeriodoAnterior);
+const cantidadAnterior = pedidosPeriodoAnterior.length;
+const ticketAnterior = cantidadAnterior ? totalAnterior / cantidadAnterior : 0;
+const pctVariacion = (actual, previo) => { if (previo > 0) return ((actual - previo) / previo) * 100; return actual > 0 ? 100 : 0; };
+comparativa = {
+totalFacturado: pctVariacion(totalFacturado, totalAnterior),
+cantidadPedidos: pctVariacion(cantidadPedidos, cantidadAnterior),
+ticketPromedio: pctVariacion(ticketPromedio, ticketAnterior),
+tieneDatosPrevios: cantidadAnterior > 0,
+};
+}
 
 const porOrigen = { mercadopago: 0, whatsapp: 0 };
-pedidos.forEach(p => {
+pedidosEnRango.forEach(p => {
 const key = p.origen === "mercadopago" ? "mercadopago" : "whatsapp";
 porOrigen[key] += Number(p.total) || 0;
 });
 
-const hoy = new Date();
-hoy.setHours(0, 0, 0, 0);
+// Grafico diario: para "Todo" no tendria sentido un grafico de un dia por
+// cada dia de toda la historia, asi que se muestra igual que "30 dias".
+const diasParaGrafico = cantDias || 30;
 const dias = [];
-for (let i = 13; i >= 0; i--) {
-const d = new Date(hoy);
+for (let i = diasParaGrafico - 1; i >= 0; i--) {
+const d = new Date(inicioHoy);
 d.setDate(d.getDate() - i);
 dias.push(d);
 }
@@ -553,15 +603,32 @@ const ventasPorDia = dias.map(d => {
 const siguienteDia = new Date(d);
 siguienteDia.setDate(siguienteDia.getDate() + 1);
 const total = pedidos.reduce((a, p) => {
-const fecha = p.createdAt && p.createdAt.toDate ? p.createdAt.toDate() : null;
+const fecha = getFecha(p);
 if (fecha && fecha >= d && fecha < siguienteDia) return a + (Number(p.total) || 0);
 return a;
 }, 0);
 return { fecha: d, total };
 });
 
+// Tendencia mensual (ultimos 6 meses): siempre sobre todos los pedidos
+// cargados, sin importar el rango elegido arriba, para ver la evolucion de
+// mas largo plazo de un vistazo.
+const meses = [];
+for (let i = 5; i >= 0; i--) {
+meses.push(new Date(ahora.getFullYear(), ahora.getMonth() - i, 1));
+}
+const ventasPorMes = meses.map(m => {
+const siguienteMes = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+const total = pedidos.reduce((a, p) => {
+const fecha = getFecha(p);
+if (fecha && fecha >= m && fecha < siguienteMes) return a + (Number(p.total) || 0);
+return a;
+}, 0);
+return { mes: m, total };
+});
+
 const productosMap = {};
-pedidos.forEach(p => {
+pedidosEnRango.forEach(p => {
 (p.items || []).forEach(it => {
 const key = it.nombre || it.id || "Producto";
 if (!productosMap[key]) productosMap[key] = { nombre: key, cantidad: 0 };
@@ -570,8 +637,61 @@ productosMap[key].cantidad += Number(it.qty) || 0;
 });
 const topProductos = Object.values(productosMap).sort((a, b) => b.cantidad - a.cantidad).slice(0, 5);
 
-return { totalFacturado, cantidadPedidos, ticketPromedio, porOrigen, ventasPorDia, topProductos };
-}, [pedidos]);
+return { totalFacturado, cantidadPedidos, ticketPromedio, porOrigen, ventasPorDia, ventasPorMes, topProductos, comparativa, cantidadEnRango: pedidosEnRango.length };
+}, [pedidos, dashboardRange]);
+
+// Busqueda y filtro por medio de pago para la lista de "Pedidos recientes"
+// (y para lo que se descarga con "Exportar a Excel/CSV", que respeta estos
+// mismos filtros). getPedidoMedioKey/Label reproducen la misma logica que ya
+// se usaba para mostrar la etiqueta de cada pedido, asi quedan unificadas.
+const getPedidoMedioKey = (p) => p.origen === "mercadopago" ? "mercadopago" : (p.medioPago === "transferencia" ? "transferencia" : "efectivo");
+const getPedidoMedioLabel = (p) => p.origen === "mercadopago" ? "Mercado Pago" : (p.medioPago === "transferencia" ? "Transferencia" : "Efectivo");
+const [pedidosSearch, setPedidosSearch] = useState("");
+const [pedidosFilterMedio, setPedidosFilterMedio] = useState("todos");
+const pedidosFiltrados = useMemo(() => {
+const normalizar = (s) => (s || "").toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+const q = normalizar(pedidosSearch.trim());
+return pedidos.filter(p => {
+if (pedidosFilterMedio !== "todos" && getPedidoMedioKey(p) !== pedidosFilterMedio) return false;
+if (q && !normalizar(p.nombre || "").includes(q)) return false;
+return true;
+});
+}, [pedidos, pedidosSearch, pedidosFilterMedio]);
+
+// Descarga los pedidos que se ven en pantalla (respeta busqueda/filtro) como
+// un CSV que Excel abre directo con los acentos bien (con punto y coma como
+// separador, que es lo que usa Excel en configuracion regional Argentina).
+const handleExportPedidosCSV = () => {
+const escapeCsv = (v) => {
+const s = String(v ?? "");
+return /[",;\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+};
+const headers = ["Fecha", "Cliente", "Telefono", "Direccion", "Productos", "Subtotal", "Descuento", "Total", "Medio de pago", "Estado", "Cupon", "Es regalo"];
+const filas = pedidosFiltrados.map(p => [
+p.createdAt && p.createdAt.toDate ? p.createdAt.toDate().toLocaleString("es-AR") : "",
+p.nombre || "",
+p.telefono || "",
+p.direccion || "",
+(p.items || []).map(it => `${it.qty}x ${it.nombre}`).join(" | "),
+p.subtotal ?? "",
+p.descuento ?? "",
+p.total ?? "",
+getPedidoMedioLabel(p),
+p.estado || "",
+p.cuponCodigo || "",
+p.esRegalo ? "Si" : "No",
+]);
+const csv = "﻿" + [headers, ...filas].map(fila => fila.map(escapeCsv).join(";")).join("\r\n");
+const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+const url = URL.createObjectURL(blob);
+const a = document.createElement("a");
+a.href = url;
+a.download = `pedidos_${new Date().toISOString().slice(0, 10)}.csv`;
+document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
+URL.revokeObjectURL(url);
+};
 
 // Banner del sitio y orden del catalogo: documentos sueltos (no una lista
 // ordenada), asi que se escuchan directo por su id en vez de salir de
@@ -3125,19 +3245,37 @@ avisosStock.map(a => (
 </div>
 <div style={{ marginTop: "40px" }}>
 <h2 style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>📊 Dashboard de ventas</h2>
-<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Calculado sobre los ultimos 200 pedidos registrados (Mercado Pago aprobados + enviados por WhatsApp).</p>
+<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "14px" }}>Calculado sobre los ultimos 500 pedidos registrados (Mercado Pago aprobados + enviados por WhatsApp).</p>
+<div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "20px" }}>
+{DASHBOARD_RANGES.map(r => (
+<button key={r.key} onClick={() => setDashboardRange(r.key)} style={{ background: dashboardRange === r.key ? "#d4af37" : "transparent", color: dashboardRange === r.key ? "#0f0f0f" : "#d4af37", border: "1px solid #d4af37", borderRadius: "20px", padding: "6px 16px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>{r.label}</button>
+))}
+</div>
 {!ventasStats ? (
 <p style={{ color: "#9a9a9a" }}>Todavia no hay pedidos registrados para mostrar estadisticas.</p>
 ) : (
 <>
 <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "20px" }}>
 <div style={{ ...S.adminCard, flex: "1 1 160px" }}>
-<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Facturado (ult. 200)</div>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Facturado</div>
 <div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{formatPrice(ventasStats.totalFacturado)}</div>
+{ventasStats.comparativa && ventasStats.comparativa.tieneDatosPrevios && (
+<div style={{ fontSize: "12px", fontWeight: "700", color: ventasStats.comparativa.totalFacturado >= 0 ? "#9ddb9d" : "#e07a7a", marginTop: "4px" }}>{ventasStats.comparativa.totalFacturado >= 0 ? "▲" : "▼"} {Math.abs(Math.round(ventasStats.comparativa.totalFacturado))}% vs. periodo anterior</div>
+)}
+</div>
+<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Pedidos</div>
+<div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{ventasStats.cantidadPedidos}</div>
+{ventasStats.comparativa && ventasStats.comparativa.tieneDatosPrevios && (
+<div style={{ fontSize: "12px", fontWeight: "700", color: ventasStats.comparativa.cantidadPedidos >= 0 ? "#9ddb9d" : "#e07a7a", marginTop: "4px" }}>{ventasStats.comparativa.cantidadPedidos >= 0 ? "▲" : "▼"} {Math.abs(Math.round(ventasStats.comparativa.cantidadPedidos))}% vs. periodo anterior</div>
+)}
 </div>
 <div style={{ ...S.adminCard, flex: "1 1 160px" }}>
 <div style={{ color: "#9a9a9a", fontSize: "12px" }}>Ticket promedio</div>
 <div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{formatPrice(ventasStats.ticketPromedio)}</div>
+{ventasStats.comparativa && ventasStats.comparativa.tieneDatosPrevios && (
+<div style={{ fontSize: "12px", fontWeight: "700", color: ventasStats.comparativa.ticketPromedio >= 0 ? "#9ddb9d" : "#e07a7a", marginTop: "4px" }}>{ventasStats.comparativa.ticketPromedio >= 0 ? "▲" : "▼"} {Math.abs(Math.round(ventasStats.comparativa.ticketPromedio))}% vs. periodo anterior</div>
+)}
 </div>
 <div style={{ ...S.adminCard, flex: "1 1 160px" }}>
 <div style={{ color: "#9a9a9a", fontSize: "12px" }}>Via Mercado Pago</div>
@@ -3148,9 +3286,10 @@ avisosStock.map(a => (
 <div style={{ color: "#e0b84a", fontSize: "22px", fontWeight: "700" }}>{ventasStats.totalFacturado > 0 ? Math.round((ventasStats.porOrigen.whatsapp / ventasStats.totalFacturado) * 100) : 0}%</div>
 </div>
 </div>
+{dashboardRange === "all" && <p style={{ color: "#7a7a7a", fontSize: "12px", marginTop: "-12px", marginBottom: "20px" }}>"Todo" no tiene un periodo anterior con el que compararse, por eso no muestra variacion %.</p>}
 
 <div style={{ ...S.adminCard, marginBottom: "20px" }}>
-<div style={{ color: "#bdbdbd", fontSize: "13px", marginBottom: "14px" }}>Ventas por dia (ultimos 14 dias)</div>
+<div style={{ color: "#bdbdbd", fontSize: "13px", marginBottom: "14px" }}>Ventas por dia {dashboardRange === "all" ? "(ultimos 30 dias)" : `(${DASHBOARD_RANGES.find(r => r.key === dashboardRange).label.toLowerCase()})`}</div>
 <div style={{ overflowX: "auto" }}>
 <div style={{ display: "flex", alignItems: "flex-end", gap: "6px", height: "120px", minWidth: "380px", borderBottom: "1px solid #2b2b2b", paddingBottom: "4px" }}>
 {(() => {
@@ -3196,6 +3335,30 @@ return ventasStats.topProductos.map((p, i) => (
 </div>
 )}
 </div>
+
+<div style={{ ...S.adminCard, marginTop: "20px" }}>
+<div style={{ color: "#bdbdbd", fontSize: "13px", marginBottom: "14px" }}>Tendencia mensual (ultimos 6 meses)</div>
+<div style={{ display: "flex", alignItems: "flex-end", gap: "10px", height: "110px", borderBottom: "1px solid #2b2b2b", paddingBottom: "4px" }}>
+{(() => {
+const max = Math.max(...ventasStats.ventasPorMes.map(m => m.total), 1);
+return ventasStats.ventasPorMes.map((m, i) => (
+<div key={i} onMouseEnter={() => setHoverVentaMes(i)} onMouseLeave={() => setHoverVentaMes(h => h === i ? null : h)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end", position: "relative", cursor: "default" }}>
+{hoverVentaMes === i && (
+<div style={{ position: "absolute", bottom: "100%", marginBottom: "6px", background: "#0f0f0f", border: "1px solid #d4af37", borderRadius: "6px", padding: "4px 8px", fontSize: "11px", color: "#fff", whiteSpace: "nowrap", zIndex: 5 }}>
+{formatPrice(m.total)}
+</div>
+)}
+<div style={{ width: "100%", maxWidth: "40px", height: `${Math.max((m.total / max) * 100, m.total > 0 ? 3 : 0)}%`, background: m.total > 0 ? "linear-gradient(180deg, #e0c158, #d4af37)" : "transparent", borderRadius: "4px 4px 0 0" }} />
+</div>
+));
+})()}
+</div>
+<div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
+{ventasStats.ventasPorMes.map((m, i) => (
+<div key={i} style={{ flex: 1, textAlign: "center", fontSize: "10px", color: "#898781", textTransform: "capitalize" }}>{m.mes.toLocaleDateString("es-AR", { month: "short" })}</div>
+))}
+</div>
+</div>
 </>
 )}
 </div>
@@ -3205,26 +3368,40 @@ return ventasStats.topProductos.map((p, i) => (
 {pedidos.length > 0 && (
 <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "16px" }}>
 <div style={{ ...S.adminCard, flex: "1 1 160px" }}>
-<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Pedidos (ultimos 200)</div>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Pedidos (ultimos 500)</div>
 <div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{pedidos.length}</div>
 </div>
 <div style={{ ...S.adminCard, flex: "1 1 160px" }}>
-<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Total (ultimos 200)</div>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Total (ultimos 500)</div>
 <div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{formatPrice(pedidos.reduce((a, p) => a + (Number(p.total) || 0), 0))}</div>
 </div>
 </div>
 )}
+{pedidos.length > 0 && (
+<div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "16px", alignItems: "center" }}>
+<input type="text" value={pedidosSearch} onChange={e => setPedidosSearch(e.target.value)} placeholder="Buscar por nombre de cliente..." style={{ ...S.input, flex: "1 1 220px" }} />
+<select value={pedidosFilterMedio} onChange={e => setPedidosFilterMedio(e.target.value)} style={{ ...S.input, flex: "0 1 180px" }}>
+<option value="todos">Todos los medios</option>
+<option value="mercadopago">Mercado Pago</option>
+<option value="transferencia">Transferencia</option>
+<option value="efectivo">Efectivo</option>
+</select>
+<button onClick={handleExportPedidosCSV} style={{ ...S.btnOutline, padding: "10px 16px", whiteSpace: "nowrap" }}>⬇️ Exportar a Excel/CSV</button>
+</div>
+)}
 {pedidos.length === 0 ? (
 <p style={{ color: "#9a9a9a" }}>Todavia no hay pedidos registrados.</p>
+) : pedidosFiltrados.length === 0 ? (
+<p style={{ color: "#9a9a9a" }}>Ningun pedido coincide con la busqueda/filtro.</p>
 ) : (
 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-{pedidos.map(p => (
+{pedidosFiltrados.map(p => (
 <div key={p.id} style={{ ...S.adminCard, padding: "14px 18px", display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
 <div style={{ flex: 1, minWidth: "180px" }}>
 <strong>{p.nombre || "Sin nombre"}</strong>
 <div style={{ color: "#bdbdbd", fontSize: "13px" }}>{(p.items || []).length} producto(s) · {p.createdAt && p.createdAt.toDate ? p.createdAt.toDate().toLocaleString("es-AR") : ""}</div>
 </div>
-<span style={{ fontSize: "12px", fontWeight: "700", color: p.origen === "mercadopago" ? "#9ddb9d" : "#e0b84a", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "4px 10px" }}>{p.origen === "mercadopago" ? "Mercado Pago" : (p.medioPago === "transferencia" ? "Transferencia" : "Efectivo")}</span>
+<span style={{ fontSize: "12px", fontWeight: "700", color: p.origen === "mercadopago" ? "#9ddb9d" : "#e0b84a", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "4px 10px" }}>{getPedidoMedioLabel(p)}</span>
 <strong style={{ color: "#d4af37" }}>{formatPrice(p.total)}</strong>
 </div>
 ))}
