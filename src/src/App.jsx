@@ -225,6 +225,8 @@ const [uploading, setUploading] = useState(false);
 const [uploadMsg, setUploadMsg] = useState("");
 const [uploadingField, setUploadingField] = useState(null);
 const [showBulkUpload, setShowBulkUpload] = useState(false);
+const [adminProductSearch, setAdminProductSearch] = useState("");
+const [showAdminProductsList, setShowAdminProductsList] = useState(false);
 const [bannerForm, setBannerForm] = useState(null);
 const [bannerSaving, setBannerSaving] = useState(false);
 const [catalogOrderForm, setCatalogOrderForm] = useState(null);
@@ -3366,7 +3368,10 @@ return (
 )}
 </div>
 <h3 style={{ marginTop: "36px", marginBottom: "16px" }}>Productos Existentes ({adminProductsList.length})</h3>
-{adminProductsList.map(p => (
+{(() => {
+const normalizarTxt = (s) => (s || "").toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+const qBusqueda = normalizarTxt(adminProductSearch.trim());
+const renderAdminProductCard = (p) => (
 <div key={p.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center" }}>
 <img src={optimizeImg(getProductImage(p))} alt={getProductName(p)} loading="lazy" decoding="async" style={{ width: "80px", height: "80px", objectFit: "contain", background: "#fff", borderRadius: "8px", flexShrink: 0 }} />
 <div style={{ flex: 1 }}>
@@ -3383,7 +3388,28 @@ return (
 <button onClick={() => handleEditProduct(p)} style={{ background: "#d4af37", color: "#000", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>Editar</button>
 <button onClick={() => handleDeleteProduct(p.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer" }}>Eliminar</button>
 </div>
-))}
+);
+return (
+<>
+<input type="text" placeholder="🔍 Buscar perfume por nombre para editar o eliminar..." value={adminProductSearch} onChange={e => setAdminProductSearch(e.target.value)} style={{ ...S.input, marginBottom: "12px" }} />
+{qBusqueda ? (
+(() => {
+const encontrados = adminProductsList.filter(p => normalizarTxt(getProductName(p)).includes(qBusqueda));
+return encontrados.length === 0 ? (
+<p style={{ color: "#9a9a9a" }}>No se encontro ningun producto con ese nombre.</p>
+) : encontrados.map(renderAdminProductCard);
+})()
+) : (
+<>
+<button onClick={() => setShowAdminProductsList(v => !v)} style={{ ...S.btnOutline, width: "100%", padding: "12px", marginBottom: showAdminProductsList ? "12px" : 0 }}>
+{showAdminProductsList ? "▲ Ocultar lista de productos" : `▼ Ver todos los productos en stock (${adminProductsList.length})`}
+</button>
+{showAdminProductsList && adminProductsList.map(renderAdminProductCard)}
+</>
+)}
+</>
+);
+})()}
 
 {(() => {
 const resenasPendientes = resenas.filter(r => r.estado === "pendiente");
