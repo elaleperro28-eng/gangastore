@@ -186,6 +186,13 @@ const [reviewRequestPhone, setReviewRequestPhone] = useState("");
 // Panel admin: clientes con puntos/credito de fidelizacion sin canjear, para
 // mandarles un recordatorio por WhatsApp (se carga solo si isAdmin, ver mas abajo).
 const [customersWithPoints, setCustomersWithPoints] = useState([]);
+// Panel admin: carritos abandonados (clientes logueados con productos en el
+// carrito hace rato sin comprar), para poder escribirles por WhatsApp igual
+// que con los puntos sin usar. customersByUid junta nombre/telefono de
+// puntosClientes (unico lugar donde ya se guardan esos datos) para cualquier
+// cliente, no solo los que tienen 300+ puntos.
+const [customersByUid, setCustomersByUid] = useState({});
+const [abandonedCartsRaw, setAbandonedCartsRaw] = useState([]);
 const [tickerProducts, setTickerProducts] = useState([]);
 const [cart, setCart] = useState(() => {
   try {
@@ -366,16 +373,20 @@ return () => clearTimeout(t);
 // Recordatorio de carrito pendiente: si la persona vuelve al sitio (o
 // recarga la pagina) y todavia tiene productos guardados en el carrito
 // (localStorage, ver "cart" arriba), se lo recordamos con un cartelito
-// discreto y un boton para retomarlo. Solo una vez por visita
-// (sessionStorage), para no repetirlo en cada recarga de la misma sesion.
+// discreto y un boton para retomarlo. Antes era una sola vez por visita
+// (sessionStorage, se perdia al cerrar la pestana): ahora es una vez por
+// dia (localStorage con la fecha), asi alguien que se va y vuelve otro dia
+// con el mismo carrito sin comprar tambien recibe el recordatorio, en vez
+// de perderlo silenciosamente para siempre despues de la primera visita.
 useEffect(() => {
 if (cart.length === 0) return;
 try {
-if (sessionStorage.getItem("cartReminderShown")) return;
+const today = new Date().toISOString().slice(0, 10);
+if (localStorage.getItem("cartReminderShownDate") === today) return;
 } catch {}
 const showT = setTimeout(() => {
 setShowCartReminder(true);
-try { sessionStorage.setItem("cartReminderShown", "1"); } catch {}
+try { localStorage.setItem("cartReminderShownDate", new Date().toISOString().slice(0, 10)); } catch {}
 }, 2500);
 const hideT = setTimeout(() => setShowCartReminder(false), 10500);
 return () => { clearTimeout(showT); clearTimeout(hideT); };
@@ -890,6 +901,28 @@ const unsub4 = onSnapshot(q4, (snap) => {
 setCustomersWithPoints(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.puntos || 0) - (a.puntos || 0)));
 }, (e) => console.error("PUNTOS_LIST_ERROR", e));
 return () => unsub4();
+}, [isAdmin]);
+
+// Todos los clientes con nombre/telefono guardado (sin filtrar por puntos),
+// para poder mostrar esos datos junto a cualquier carrito abandonado.
+useEffect(() => {
+if (!isAdmin) { setCustomersByUid({}); return; }
+const unsub5 = onSnapshot(collection(db, "puntosClientes"), (snap) => {
+const map = {};
+snap.docs.forEach(d => { map[d.id] = { id: d.id, ...d.data() }; });
+setCustomersByUid(map);
+}, (e) => console.error("CUSTOMERS_MAP_ERROR", e));
+return () => unsub5();
+}, [isAdmin]);
+
+// Carritos guardados de clientes logueados (ver sincronizacion en el useEffect
+// de "cart" mas arriba). Se filtran/ordenan mas abajo (abandonedCartsList).
+useEffect(() => {
+if (!isAdmin) { setAbandonedCartsRaw([]); return; }
+const unsub6 = onSnapshot(collection(db, "carritosClientes"), (snap) => {
+setAbandonedCartsRaw(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+}, (e) => console.error("CARRITOS_LIST_ERROR", e));
+return () => unsub6();
 }, [isAdmin]);
 
 // Si alguien entra directo con un link tipo "?p=<id>" (compartido por WhatsApp,
@@ -2697,6 +2730,27 @@ const recentlyViewedProducts = recentlyViewed.map(id => dedupedProducts.find(p =
 const trendProducts = dedupedProducts.filter(p => (p.temporada || "") === "verano" && getProductDisp(p) !== "agotado");
 const adminProductsList = products.filter(p => p.id !== "_site_banner" && p.id !== "_site_catalog_order" && p.id !== "_site_perfume_combo");
 const productsWithImgur = adminProductsList.filter(p => IMGUR_MIGRATION_FIELDS.some(f => isImgurUrl(p[f])));
+// Carritos que llevan mas de ABANDONED_CART_HOURS sin actualizarse (ni un
+// agregado ni una compra) todavia con productos adentro: se consideran
+// "abandonados". Se ordenan por valor, de mayor a menor, para que el admin
+// priorice a quien mas vale la pena escribirle primero.
+const ABANDONED_CART_HOURS = 3;
+const formatHoursAgo = (h) => {
+if (h == null) return "";
+if (h < 24) { const n = Math.max(1, Math.round(h)); return "hace " + n + (n === 1 ? " hora" : " horas"); }
+const n = Math.round(h / 24);
+return "hace " + n + (n === 1 ? " dia" : " dias");
+};
+const abandonedCartsList = abandonedCartsRaw
+.filter(c => Array.isArray(c.carrito) && c.carrito.length > 0 && c.updatedAt && c.updatedAt.toDate)
+.map(c => {
+const total = c.carrito.reduce((acc, i) => acc + (Number(i.precio) || 0) * (Number(i.qty) || 1), 0);
+const hoursAgo = (Date.now() - c.updatedAt.toDate().getTime()) / 3600000;
+const cliente = customersByUid[c.id] || {};
+return { ...c, total, hoursAgo, nombre: cliente.nombre, telefono: cliente.telefono, email: cliente.email };
+})
+.filter(c => c.hoursAgo >= ABANDONED_CART_HOURS)
+.sort((a, b) => b.total - a.total);
 const handleMigrateImgurImages = async () => {
 if (imgurMigrating) return;
 const targets = productsWithImgur;
@@ -3832,6 +3886,44 @@ style={{ background: "#25D366", color: "#fff", border: "none", padding: "8px 14p
 )}
 </div>
 ))
+)}
+</div>
+
+<div style={{ marginTop: "40px" }}>
+<h2 style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>🛒 Carritos abandonados</h2>
+<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Clientes logueados que agregaron productos al carrito hace mas de {ABANDONED_CART_HOURS} horas y todavia no compraron. El nombre y WhatsApp se guardan solo si el cliente ya compro alguna vez despues de que se guarda ese dato.</p>
+{abandonedCartsList.length === 0 ? (
+<p style={{ color: "#9a9a9a" }}>Por ahora no hay carritos abandonados.</p>
+) : (
+<>
+<p style={{ color: "#d4af37", fontWeight: "700", marginBottom: "12px" }}>{formatPrice(abandonedCartsList.reduce((a, c) => a + c.total, 0))} esperando en {abandonedCartsList.length} carrito{abandonedCartsList.length > 1 ? "s" : ""}</p>
+{abandonedCartsList.map(c => (
+<div key={c.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
+<div style={{ flex: 1, minWidth: "220px" }}>
+<strong>{c.nombre || "Cliente sin nombre guardado"}</strong>
+<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{c.telefono ? `WhatsApp: ${c.telefono}` : "Sin WhatsApp guardado"}{c.email ? ` · ${c.email}` : ""}</div>
+<div style={{ color: "#9a9a9a", fontSize: "12px", marginTop: "2px" }}>{c.carrito.length} producto{c.carrito.length > 1 ? "s" : ""} · {formatHoursAgo(c.hoursAgo)}</div>
+<div style={{ color: "#d4af37", fontSize: "13px", fontWeight: "700" }}>{formatPrice(c.total)}</div>
+{c.recordatorioEnviado && <div style={{ color: "#9ddb9d", fontSize: "11px" }}>Ya se le mando un recordatorio</div>}
+</div>
+{c.telefono ? (
+<button
+onClick={() => {
+const itemsTxt = c.carrito.slice(0, 4).map(i => (i.nombre || "Producto") + (i.qty > 1 ? " x" + i.qty : "")).join(", ") + (c.carrito.length > 4 ? "..." : "");
+const msg = "Hola" + (c.nombre ? " " + c.nombre : "") + "! 💛 Te escribimos de Esencia Perfumeria porque vimos que dejaste en tu carrito " + itemsTxt + " sin terminar la compra. Si tenes alguna duda te ayudamos a resolverla, o si queres avanzar te lo dejamos reservado.";
+window.open("https://wa.me/" + c.telefono.replace(/\D/g, "") + "?text=" + encodeURIComponent(msg), "_blank");
+updateDoc(doc(db, "carritosClientes", c.id), { recordatorioEnviado: serverTimestamp() }).catch(e => console.error("CARRITO_RECORDATORIO_ERROR", e));
+}}
+style={{ background: "#25D366", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "700" }}
+>
+💬 Recordar por WhatsApp
+</button>
+) : (
+<span style={{ color: "#7a7a7a", fontSize: "12px" }}>Todavia no tiene WhatsApp guardado</span>
+)}
+</div>
+))}
+</>
 )}
 </div>
 
