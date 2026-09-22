@@ -222,7 +222,17 @@ const [filterGenero, setFilterGenero] = useState("");
 const [filterTipo, setFilterTipo] = useState("");
 const [assistantOpen, setAssistantOpen] = useState(false);
 const [assistantChat, setAssistantChat] = useState([{ from: "bot", text: "Hola! Soy el asistente virtual de Esencia Perfumeria. Elegi una opcion para que te ayude:" }]);
-const [promoCode, setPromoCode] = useState(""); const [customerPhone, setCustomerPhone] = useState(""); const [customerName, setCustomerName] = useState(() => { try { return localStorage.getItem("nombreEsencia") || ""; } catch { return ""; } }); const [customerAddress, setCustomerAddress] = useState(() => { try { return localStorage.getItem("direccionEsencia") || ""; } catch { return ""; } }); const [checkoutError, setCheckoutError] = useState(""); const [customerPoints, setCustomerPoints] = useState(null); const [pointsLoading, setPointsLoading] = useState(false); const [redeemPoints, setRedeemPoints] = useState(false);
+const [promoCode, setPromoCode] = useState(""); const [customerPhone, setCustomerPhone] = useState(() => { try { return localStorage.getItem("telefonoEsencia") || ""; } catch { return ""; } }); const [customerName, setCustomerName] = useState(() => { try { return localStorage.getItem("nombreEsencia") || ""; } catch { return ""; } }); const [customerStreet, setCustomerStreet] = useState(() => { try { return localStorage.getItem("calleEsencia") || localStorage.getItem("direccionEsencia") || ""; } catch { return ""; } }); const [customerLocality, setCustomerLocality] = useState(() => { try { return localStorage.getItem("localidadEsencia") || ""; } catch { return ""; } }); const [customerReference, setCustomerReference] = useState(() => { try { return localStorage.getItem("referenciaEsencia") || ""; } catch { return ""; } }); const [checkoutError, setCheckoutError] = useState(""); const [customerPoints, setCustomerPoints] = useState(null); const [pointsLoading, setPointsLoading] = useState(false); const [redeemPoints, setRedeemPoints] = useState(false);
+// Arma el string final de direccion a partir de los campos separados (calle,
+// localidad, referencia) para los mensajes de WhatsApp y el registro en
+// Firestore, sin tener que tocar todos los lugares que ya esperan un solo
+// string de "direccion" (CSV del admin, panel de pedidos, etc).
+const composeAddress = () => {
+  const parts = [customerStreet.trim(), customerLocality.trim()].filter(Boolean);
+  let addr = parts.join(", ");
+  if (customerReference.trim()) addr += " (Ref: " + customerReference.trim() + ")";
+  return addr;
+};
 const [isGift, setIsGift] = useState(false); const [giftMessage, setGiftMessage] = useState(""); const [hideGiftPrice, setHideGiftPrice] = useState(false); const [giftWrap, setGiftWrap] = useState(false);
 const [paymentMethod, setPaymentMethod] = useState(""); // "transferencia" | "efectivo" - obligatorio elegir antes de pedir por WhatsApp
 const [showQuiz, setShowQuiz] = useState(false);
@@ -504,8 +514,20 @@ useEffect(() => {
 }, [customerName]);
 
 useEffect(() => {
-  try { localStorage.setItem("direccionEsencia", customerAddress); } catch {}
-}, [customerAddress]);
+  try { localStorage.setItem("calleEsencia", customerStreet); } catch {}
+}, [customerStreet]);
+
+useEffect(() => {
+  try { localStorage.setItem("localidadEsencia", customerLocality); } catch {}
+}, [customerLocality]);
+
+useEffect(() => {
+  try { localStorage.setItem("referenciaEsencia", customerReference); } catch {}
+}, [customerReference]);
+
+useEffect(() => {
+  try { localStorage.setItem("telefonoEsencia", customerPhone); } catch {}
+}, [customerPhone]);
 
 useEffect(() => {
 try {
@@ -2249,7 +2271,7 @@ return [...cart, { ...product, qty: 1 }];
 })();
 setCart(newCart);
 setSelectedProduct(null);
-if (!customerName.trim() || !customerAddress.trim() || !paymentMethod) {
+if (!customerName.trim() || !customerStreet.trim() || !customerLocality.trim() || customerPhone.replace(/\D/g, "").length < 8 || !paymentMethod) {
 setShowCart(true);
 return;
 }
@@ -2285,8 +2307,8 @@ const totalAEnviar = Math.max(totalCartUsed - usedDiscount, 0);
 const orderId = "EP" + Date.now().toString(36).toUpperCase();
 try {
 localStorage.setItem("mpPedidoPendiente", JSON.stringify({
-orderId, cartUsed, customerName: customerName.trim(), customerAddress: customerAddress.trim(),
-promoCode, customerPhone, isGift, giftMessage, hideGiftPrice, giftWrap, totalAEnviar,
+orderId, cartUsed, customerName: customerName.trim(), customerAddress: composeAddress(),
+promoCode, customerPhone: customerPhone.trim(), isGift, giftMessage, hideGiftPrice, giftWrap, totalAEnviar,
 }));
 } catch (e) {}
 const resp = await fetch("/api/create-preference", {
@@ -2304,8 +2326,13 @@ return data.init_point;
 };
 
 const handleCheckout = async (cartOverride) => {
-if (!customerName.trim() || !customerAddress.trim() || !paymentMethod) {
-setCheckoutError("Completa tu nombre, direccion y forma de pago (transferencia, Mercado Pago o efectivo) para poder enviar el pedido.");
+if (!customerName.trim() || !customerStreet.trim() || !customerLocality.trim() || !paymentMethod) {
+setCheckoutError("Completa tu nombre, direccion (calle y localidad) y forma de pago (transferencia, Mercado Pago o efectivo) para poder enviar el pedido.");
+setShowCart(true);
+return;
+}
+if (customerPhone.replace(/\D/g, "").length < 8) {
+setCheckoutError("Ingresa un telefono de contacto valido (minimo 8 numeros) para poder coordinar la entrega.");
 setShowCart(true);
 return;
 }
@@ -2346,11 +2373,12 @@ setShowCart(true);
 }
 return;
 }
-let msg = "Hola! Quiero pedir: " + cartUsed.map(i => getProductName(i) + " x" + i.qty).join(", ");
+const orderId = "EP" + Date.now().toString(36).toUpperCase();
+let msg = "Hola! Quiero pedir (Pedido #" + orderId + "): " + cartUsed.map(i => getProductName(i) + " x" + i.qty).join(", ");
 msg += " - Nombre: " + customerName.trim();
-msg += " - Direccion de envio: " + customerAddress.trim();
+msg += " - Direccion de envio: " + composeAddress();
 if (promoCode) msg += " - Codigo promocional: " + promoCode;
-if (customerPhone) msg += " - Mi telefono: " + customerPhone;
+msg += " - Mi telefono: " + customerPhone.trim();
 if (isGift) msg += " - Es un regalo" + (giftMessage.trim() ? (": \"" + giftMessage.trim() + "\"") : "") + (hideGiftPrice ? " (IMPORTANTE: no mostrar el precio en el paquete)" : "") + (giftWrap ? " - Con envoltorio de regalo (sin costo)" : "");
 if (paymentMethod === "transferencia") msg += " - Pago por transferencia bancaria (ya envio el comprobante por este chat)";
 else if (paymentMethod === "efectivo") msg += " - Pago en efectivo al momento de la entrega";
@@ -2460,10 +2488,14 @@ medioPago: paymentMethod,
 origen: "whatsapp",
 estado: "enviado",
 nombre: customerName.trim(),
-direccion: customerAddress.trim(),
-telefono: customerPhone.trim() || null,
+direccion: composeAddress(),
+calle: customerStreet.trim(),
+localidad: customerLocality.trim(),
+referencia: customerReference.trim() || null,
+telefono: customerPhone.trim(),
 esRegalo: !!isGift,
 uid: user ? user.uid : null,
+orderId,
 createdAt: serverTimestamp(),
 });
 } catch (e) { console.error("PEDIDO_LOG_ERROR", e); }
@@ -2477,12 +2509,24 @@ if (window.fbq) window.fbq("track", "Purchase", { value: totalAEnviar, currency:
 if (window.gtag) window.gtag("event", "purchase", { transaction_id: "wa_" + Date.now(), value: totalAEnviar, currency: "ARS", items: cartUsed.map(i => ({ item_id: i.id, item_name: getProductName(i), quantity: i.qty, price: Number(i.precio) || 0 })) });
 } catch (e) {}
 const waUrl = "https://wa.me/2914261941?text=" + encodeURIComponent(msg);
-if (waWindow) { waWindow.location.href = waUrl; } else { window.location.href = waUrl; }
+if (waWindow) {
+try {
+waWindow.document.body.innerHTML =
+'<div style="text-align:center;padding:0 24px;">' +
+'<div style="font-size:40px;margin-bottom:12px;">✅</div>' +
+'<p style="color:#d4af37;font-size:17px;font-weight:700;margin:0 0 6px;">¡Pedido #' + orderId + ' confirmado!</p>' +
+'<p style="color:#bdbdbd;font-size:13px;margin:0;">Te llevamos a WhatsApp para coordinar la entrega y el pago...</p>' +
+'</div>';
+} catch (e) {}
+setTimeout(() => { try { waWindow.location.href = waUrl; } catch (e) { window.location.href = waUrl; } }, 1100);
+} else {
+window.location.href = waUrl;
+}
 setTimeout(() => {
 if (referralCode) {
-showToast("Gracias por tu pedido! Comparti tu codigo " + referralCode + " y gana $1.000");
+showToast("¡Pedido #" + orderId + " confirmado! Comparti tu codigo " + referralCode + " y gana $1.000");
 } else {
-showToast("Gracias por tu pedido! Sumate a la Lista VIP de WhatsApp para enterarte de las proximas promos");
+showToast("¡Pedido #" + orderId + " confirmado! Sumate a la Lista VIP de WhatsApp para enterarte de las proximas promos");
 }
 }, 1200);
 };
@@ -2972,6 +3016,7 @@ specIcon: { display: "flex", alignItems: "center", justifyContent: "center", wid
 specLabel: { fontSize: "11px", color: "#9a9a9a", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "3px" },
 specValue: { fontSize: "14px", color: "#ffffff", fontWeight: "700" },
 input: { width: "100%", padding: "10px 14px", background: "#1a1a1a", border: "1px solid #2b2b2b", color: "#ffffff", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box" },
+checkoutSectionTitle: { color: "#d4af37", fontWeight: 700, fontSize: "13px", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "10px", marginTop: "6px" },
 select: { width: "100%", padding: "10px 14px", background: "#1a1a1a", border: "1px solid #2b2b2b", color: "#ffffff", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box" },
 label: { display: "block", marginBottom: "6px", color: "#bdbdbd", fontSize: "14px" },
 cartOverlay: { position: "fixed", right: 0, top: 0, bottom: 0, width: "min(500px, 100vw)", background: "#0f0f0f", borderLeft: "2px solid #d4af37", padding: "70px 24px 20px 24px", overflowY: "auto", zIndex: 101, boxSizing: "border-box" },
@@ -4943,13 +4988,19 @@ return pdpPhotos.length > 1 && (
 )}
 <a href={buildCartWhatsAppUrl()} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "11px", marginBottom: "16px", fontSize: "14px", fontWeight: "700", borderRadius: "8px", border: "1px solid #25D366", background: "transparent", color: "#25D366", textDecoration: "none", boxSizing: "border-box" }}>💬 Prefiero consultar este carrito por WhatsApp</a>
 <div style={{ borderTop: "1px solid #2b2b2b", paddingTop: "16px", marginTop: "16px" }}>
-<div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(finalTotal)}{discountFromPoints > 0 && <span style={{ color: "#d4af37", fontSize: 13, display: "block" }}>(incluye descuento de {formatPrice(discountFromPoints)} por puntos)</span>}{decantComboDiscount > 0 && <span style={{ color: "#7ea87a", fontSize: 13, display: "block" }}>(incluye {formatPrice(decantComboDiscount)} OFF por set de decants)</span>}{perfumeComboDiscount > 0 && <span style={{ color: "#7ea87a", fontSize: 13, display: "block" }}>(incluye {formatPrice(perfumeComboDiscount)} OFF por combo de perfumes)</span>}{cuponDiscount > 0 && <span style={{ color: "#9ddb9d", fontSize: 13, display: "block" }}>(incluye {formatPrice(cuponDiscount)} OFF por cupon {cuponEval.cupon && cuponEval.cupon.id})</span>}</div><div style={{ marginBottom: 12 }}>
+<div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(finalTotal)}{discountFromPoints > 0 && <span style={{ color: "#d4af37", fontSize: 13, display: "block" }}>(incluye descuento de {formatPrice(discountFromPoints)} por puntos)</span>}{decantComboDiscount > 0 && <span style={{ color: "#7ea87a", fontSize: 13, display: "block" }}>(incluye {formatPrice(decantComboDiscount)} OFF por set de decants)</span>}{perfumeComboDiscount > 0 && <span style={{ color: "#7ea87a", fontSize: 13, display: "block" }}>(incluye {formatPrice(perfumeComboDiscount)} OFF por combo de perfumes)</span>}{cuponDiscount > 0 && <span style={{ color: "#9ddb9d", fontSize: 13, display: "block" }}>(incluye {formatPrice(cuponDiscount)} OFF por cupon {cuponEval.cupon && cuponEval.cupon.id})</span>}</div>
+<div style={S.checkoutSectionTitle}>📦 Datos de envío</div>
+<div style={{ marginBottom: 12 }}>
 <input type="text" placeholder="Nombre y apellido *" value={customerName} onChange={e => { setCustomerName(e.target.value); if (checkoutError) setCheckoutError(""); }} style={{ ...S.input, marginBottom: 8, ...(checkoutError && !customerName.trim() ? { border: "1px solid #8b1a2a" } : {}) }} />
-<textarea placeholder="Direccion de envio (calle, numero, ciudad) *" value={customerAddress} onChange={e => { setCustomerAddress(e.target.value); if (checkoutError) setCheckoutError(""); }} style={{ ...S.input, minHeight: 50, resize: "vertical", ...(checkoutError && !customerAddress.trim() ? { border: "1px solid #8b1a2a" } : {}) }} />
+<input type="text" placeholder="Calle y numero *" value={customerStreet} onChange={e => { setCustomerStreet(e.target.value); if (checkoutError) setCheckoutError(""); }} style={{ ...S.input, marginBottom: 8, ...(checkoutError && !customerStreet.trim() ? { border: "1px solid #8b1a2a" } : {}) }} />
+<input type="text" placeholder="Barrio o localidad *" value={customerLocality} onChange={e => { setCustomerLocality(e.target.value); if (checkoutError) setCheckoutError(""); }} style={{ ...S.input, marginBottom: 8, ...(checkoutError && !customerLocality.trim() ? { border: "1px solid #8b1a2a" } : {}) }} />
+<textarea placeholder="Referencia para la entrega (piso, depto, entre calles...) - opcional" value={customerReference} onChange={e => setCustomerReference(e.target.value)} style={{ ...S.input, minHeight: 44, resize: "vertical", marginBottom: 8 }} />
+<input type="text" placeholder="Tu telefono de contacto *" value={customerPhone} onChange={e => { setCustomerPhone(e.target.value); if (checkoutError) setCheckoutError(""); }} style={{ ...S.input, ...(checkoutError && customerPhone.replace(/\D/g, "").length < 8 ? { border: "1px solid #8b1a2a" } : {}) }} />
 {checkoutError && <p style={{ color: "#e57373", fontSize: 13, margin: "6px 0 0" }}>{checkoutError}</p>}
 </div>
 <p style={{ color: "#8a8a8a", fontSize: 12, margin: "-8px 0 12px" }}>* Campos obligatorios para poder pedir por WhatsApp</p>
-<div style={S.cartPointsBox}><input type="text" placeholder="Tu telefono de contacto (opcional)" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} style={{ ...S.input, marginBottom: 8 }} />{user ? (<>{customerPoints !== null && (<div style={{ color: "#d4af37", fontSize: 13 }}>Tenes {customerPoints} puntos ({formatPrice(pointsToDiscount(customerPoints))} disponibles){pointsToDiscount(customerPoints) > 0 && (<label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, color: "#fff" }}><input type="checkbox" checked={redeemPoints} onChange={e => setRedeemPoints(e.target.checked)} />Usar mis puntos en este pedido</label>)}</div>)}<button style={{ ...S.btnOutline, width: "100%", marginTop: 8 }} onClick={() => loadMyPoints(user.uid)} disabled={pointsLoading}>{pointsLoading ? "Consultando..." : "Actualizar mis puntos"}</button>{referralCode && (<div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #2b2b2b" }}><p style={{ color: "#bdbdbd", fontSize: 12, margin: "0 0 4px" }}>Tu codigo de referido: <strong style={{ color: "#fff" }}>{referralCode}</strong></p><a href={"https://wa.me/?text=" + encodeURIComponent("Te invito a comprar en Esencia Perfumeria! Usa mi codigo " + referralCode + " y ambos recibimos $1.000 de descuento en tu primera compra. https://www.esenciaperfumeria.com.ar")} target="_blank" rel="noreferrer" style={{ color: "#d4af37", fontSize: 12, textDecoration: "underline" }}>Compartir con un amigo y ganar $1.000</a></div>)}</>) : (<button style={{ ...S.btnOutline, width: "100%" }} onClick={() => { setAccountMode("login"); setAccountError(""); setShowAccountModal(true); }}>Ingresa para sumar/usar puntos</button>)}</div>
+<div style={S.checkoutSectionTitle}>🎁 Descuentos y beneficios</div>
+<div style={S.cartPointsBox}>{user ? (<>{customerPoints !== null && (<div style={{ color: "#d4af37", fontSize: 13 }}>Tenes {customerPoints} puntos ({formatPrice(pointsToDiscount(customerPoints))} disponibles){pointsToDiscount(customerPoints) > 0 && (<label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, color: "#fff" }}><input type="checkbox" checked={redeemPoints} onChange={e => setRedeemPoints(e.target.checked)} />Usar mis puntos en este pedido</label>)}</div>)}<button style={{ ...S.btnOutline, width: "100%", marginTop: 8 }} onClick={() => loadMyPoints(user.uid)} disabled={pointsLoading}>{pointsLoading ? "Consultando..." : "Actualizar mis puntos"}</button>{referralCode && (<div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #2b2b2b" }}><p style={{ color: "#bdbdbd", fontSize: 12, margin: "0 0 4px" }}>Tu codigo de referido: <strong style={{ color: "#fff" }}>{referralCode}</strong></p><a href={"https://wa.me/?text=" + encodeURIComponent("Te invito a comprar en Esencia Perfumeria! Usa mi codigo " + referralCode + " y ambos recibimos $1.000 de descuento en tu primera compra. https://www.esenciaperfumeria.com.ar")} target="_blank" rel="noreferrer" style={{ color: "#d4af37", fontSize: 12, textDecoration: "underline" }}>Compartir con un amigo y ganar $1.000</a></div>)}</>) : (<button style={{ ...S.btnOutline, width: "100%" }} onClick={() => { setAccountMode("login"); setAccountError(""); setShowAccountModal(true); }}>Ingresa para sumar/usar puntos</button>)}</div>
 <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Codigo de descuento (opcional)" style={{ width: "100%", padding: "10px", marginBottom: "4px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", fontSize: "14px", boxSizing: "border-box" }} />
 {promoCode.trim() && (cuponEval.motivo === null && cuponEval.cupon ? (
 <p style={{ color: "#9ddb9d", fontSize: "13px", margin: "0 0 12px" }}>✓ Cupon {cuponEval.cupon.id} aplicado: {formatPrice(cuponDiscount)} de descuento</p>
@@ -4968,8 +5019,8 @@ return pdpPhotos.length > 1 && (
 {isGift && (<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "13px", cursor: "pointer", marginTop: "8px" }}><input type="checkbox" checked={giftWrap} onChange={e => setGiftWrap(e.target.checked)} />🎀 Envolver para regalo (sin costo)</label>)}
 {isGift && (<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "13px", cursor: "pointer", marginTop: "8px" }}><input type="checkbox" checked={hideGiftPrice} onChange={e => setHideGiftPrice(e.target.checked)} />No mostrar el precio en el paquete</label>)}
 </div>
+<div style={S.checkoutSectionTitle}>💳 Forma de pago *</div>
 <div style={{ background: "#1a1a1a", border: "1px solid " + (checkoutError && !paymentMethod ? "#8b1a2a" : "#2b2b2b"), borderRadius: "8px", padding: "10px 12px", marginBottom: "12px" }}>
-<div style={{ color: "#fff", fontSize: "14px", marginBottom: "8px" }}>Forma de pago *</div>
 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
 <label style={{ display: "flex", alignItems: "center", gap: "6px", color: "#fff", fontSize: "14px", cursor: "pointer", border: "1px solid " + (paymentMethod === "transferencia" ? "#d4af37" : "#2b2b2b"), borderRadius: "6px", padding: "8px 10px", flex: "1 1 140px" }}>
 <input type="radio" name="paymentMethod" checked={paymentMethod === "transferencia"} onChange={() => { setPaymentMethod("transferencia"); if (checkoutError) setCheckoutError(""); }} />
