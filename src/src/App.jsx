@@ -2987,6 +2987,12 @@ tickerSection: { padding: "40px 0", background: "#f5efe0", borderTop: "1px solid
 tickerTrack: { display: "flex", gap: "30px", width: "max-content", animation: "gangaTicker 90s linear infinite" },
 tickerItem: { background: "#1a1a1a", borderRadius: "12px", overflow: "hidden", border: "1px solid #2b2b2b", width: "220px", flexShrink: 0, cursor: "pointer" },
 filterBtnPrimary: (a) => ({ background: a ? "linear-gradient(135deg, #d4af37, #a8842c)" : "#2b2210", color: a ? "#000000" : "#d4af37", border: a ? "none" : "2px solid #d4af37", padding: "8px 16px", borderRadius: "20px", cursor: "pointer", fontWeight: "800", fontSize: "13px" }),
+// Version mas grande de filterBtnPrimary para los filtros de categoria de
+// producto (Perfumes / Decant / Cosmeticos): son la decision mas importante
+// que toma alguien al entrar (que tipo de producto busca), asi que tienen
+// que verse mas grandes y notorios que los filtros de stock (que son un
+// refinamiento secundario, no la categoria en si).
+filterBtnCategory: (a) => ({ background: a ? "linear-gradient(135deg, #d4af37, #a8842c)" : "#2b2210", color: a ? "#000000" : "#d4af37", border: a ? "none" : "2px solid #d4af37", padding: "13px 26px", borderRadius: "26px", cursor: "pointer", fontWeight: "800", fontSize: "16.5px", boxShadow: a ? "0 4px 16px rgba(212,175,55,0.4)" : "none" }),
 filterBtn: (a) => ({ background: a ? "linear-gradient(135deg, #d4af37, #a8842c)" : "#1a1a1a", color: a ? "#000000" : "#9a9a9a", border: a ? "none" : "1px solid #2b2b2b", padding: "6px 14px", borderRadius: "16px", cursor: "pointer", fontWeight: "500", fontSize: "12px" }),
 grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "26px" },
 card: { background: "#1a1a1a", borderRadius: "14px", overflow: "hidden", border: "1px solid #2b2b2b", cursor: "pointer", display: "flex", flexDirection: "column" },
@@ -4419,14 +4425,16 @@ return (
 )}
 <div style={{ ...S.section, paddingTop: "12px" }} id="productsSection">
 <div style={{ ...S.sectionTitle, fontSize: "18px", marginBottom: "8px", paddingBottom: "4px" }}>Productos Disponibles</div>
+<div style={{ ...S.filterBar, gap: "14px" }}>
+<button style={S.filterBtnCategory(filter === "todos")} onClick={() => setFilter("todos")}>Todos</button>
+<button style={S.filterBtnCategory(filter === "perfumes")} onClick={() => setFilter("perfumes")}>Perfumes</button>
+<button style={S.filterBtnCategory(filter === "decants")} onClick={() => setFilter("decants")}>Decant</button>
+<button style={S.filterBtnCategory(filter === "cosmeticos")} onClick={() => setFilter("cosmeticos")}>Cosméticos</button>
+</div>
 <div style={S.filterBar}>
-<button style={S.filterBtnPrimary(filter === "todos")} onClick={() => setFilter("todos")}>Todos</button>
-<button style={S.filterBtnPrimary(filter === "perfumes")} onClick={() => setFilter("perfumes")}>Perfumes</button>
-<button style={S.filterBtnPrimary(filter === "stock")} onClick={() => setFilter("stock")}>En Stock</button>
-<button style={S.filterBtnPrimary(filter === "pedido")} onClick={() => setFilter("pedido")}>Por Pedido</button>
-<button style={S.filterBtnPrimary(filter === "decants")} onClick={() => setFilter("decants")}>Decant</button>
-  <button style={S.filterBtnPrimary(filter === "cosmeticos")} onClick={() => setFilter("cosmeticos")}>Cosméticos</button>
-<button style={S.filterBtnPrimary(filter === "favoritos")} onClick={() => setFilter("favoritos")}>♥ Favoritos{favorites.length > 0 ? ` (${favorites.length})` : ""}</button>
+<button style={S.filterBtn(filter === "stock")} onClick={() => setFilter("stock")}>En Stock</button>
+<button style={S.filterBtn(filter === "pedido")} onClick={() => setFilter("pedido")}>Por Pedido</button>
+<button style={S.filterBtn(filter === "favoritos")} onClick={() => setFilter("favoritos")}>♥ Favoritos{favorites.length > 0 ? ` (${favorites.length})` : ""}</button>
 </div>
 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center", maxWidth: "620px", margin: "0 auto 8px" }}>
 <div style={{ ...S.searchWrap, flex: "1 1 240px", maxWidth: "420px", margin: 0 }}>
