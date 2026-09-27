@@ -12,6 +12,16 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#0b0b0b" />
+    <style>
+      /* Red de seguridad: si algun elemento (carruseles horizontales, grids
+         con contenido muy ancho, etc) se pasa del ancho de pantalla, esto
+         evita que arrastre a toda la pagina con el (bug clasico de "grid
+         blowout" en CSS Grid: un item sin ancho minimo fuerza el ancho de
+         toda la grilla). El contenido interno sigue scrolleando bien si lo
+         necesita (los carruseles ya usan overflow-x: auto en su propio
+         contenedor), esto solo corta el desborde a nivel de pagina. */
+      html, body { overflow-x: hidden; max-width: 100%; }
+    </style>
     <meta property="og:title" content="Perfumes en Bahía Blanca | Esencia Perfumeria" />
     <meta property="og:description" content="Perfumes arabes y de disenador 100% originales en Bahia Blanca, con envio gratis en la ciudad y envios a todo el pais." />
     <meta property="og:type" content="website" />
