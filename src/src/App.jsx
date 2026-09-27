@@ -2992,7 +2992,7 @@ filterBtnPrimary: (a) => ({ background: a ? "linear-gradient(135deg, #d4af37, #a
 // que toma alguien al entrar (que tipo de producto busca), asi que tienen
 // que verse mas grandes y notorios que los filtros de stock (que son un
 // refinamiento secundario, no la categoria en si).
-filterBtnCategory: (a) => ({ background: a ? "linear-gradient(135deg, #d4af37, #a8842c)" : "#2b2210", color: a ? "#000000" : "#d4af37", border: a ? "none" : "2px solid #d4af37", padding: "13px 26px", borderRadius: "26px", cursor: "pointer", fontWeight: "800", fontSize: "16.5px", boxShadow: a ? "0 4px 16px rgba(212,175,55,0.4)" : "none" }),
+filterBtnCategory: (a) => ({ background: a ? "linear-gradient(135deg, #d4af37, #a8842c)" : "#2b2210", color: a ? "#000000" : "#d4af37", border: a ? "none" : "2px solid #d4af37", padding: "13px 26px", borderRadius: "26px", cursor: "pointer", fontWeight: "800", fontSize: "16.5px", textTransform: "uppercase", letterSpacing: "0.5px", boxShadow: a ? "0 4px 16px rgba(212,175,55,0.4)" : "none" }),
 filterBtn: (a) => ({ background: a ? "linear-gradient(135deg, #d4af37, #a8842c)" : "#1a1a1a", color: a ? "#000000" : "#9a9a9a", border: a ? "none" : "1px solid #2b2b2b", padding: "6px 14px", borderRadius: "16px", cursor: "pointer", fontWeight: "500", fontSize: "12px" }),
 grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "26px" },
 card: { background: "#1a1a1a", borderRadius: "14px", overflow: "hidden", border: "1px solid #2b2b2b", cursor: "pointer", display: "flex", flexDirection: "column" },
