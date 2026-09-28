@@ -45,6 +45,16 @@ const BANK_TRANSFER_INFO = { banco: "Banco Galicia", titular: "Alejo Francisco C
 const FREE_SHIPPING_THRESHOLD = 150000;
 const DECANT_COMBO_MIN = 3;
 const DECANT_COMBO_DISCOUNT_PCT = 0.10;
+// Mientras probamos la integracion con Nave (Banco Galicia) en el ambiente de
+// pruebas (Sandbox), dejamos la opcion de pago oculta para los clientes
+// reales. Cuando ya este todo probado y tengamos las credenciales de
+// produccion cargadas en Vercel, esto se cambia a "true" para que aparezca
+// en el checkout.
+const NAVE_ENABLED = false;
+// Cuando probemos en Sandbox antes de salir en vivo, se pone en "true" para
+// que la pagina use las credenciales y URLs de prueba de Nave en vez de las
+// de produccion.
+const NAVE_SANDBOX_MODE = false;
 // Fotos viejas de productos, subidas antes de migrar a Cloudinary: pueden estar
 // guardadas en cualquiera de estos campos (imageUrl es el principal; foto/image/img
 // son nombres viejos de la misma foto principal; foto2/foto3/fotoMano/fotoCaja son
@@ -1040,6 +1050,83 @@ showToast("Tu pago con Mercado Pago quedo pendiente de acreditacion. Te contacta
 } else if (mpReturn === "failure") {
 showToast("El pago no se pudo procesar. Proba de nuevo o elegi otro medio de pago.");
 }
+}, []);
+// Mismo mecanismo que con Mercado Pago (arriba) pero para Nave (Banco
+// Galicia): retomamos el pedido guardado en localStorage y recien mandamos
+// el pedido por WhatsApp despues de confirmar el estado del pago consultando
+// directamente a la API de Nave (nunca confiamos solo en que el navegador
+// haya vuelto de pagar, para no avisar de un pedido que en realidad no se
+// termino de pagar).
+useEffect(() => {
+const naveParams = new URLSearchParams(window.location.search);
+const naveOrderId = naveParams.get("nave_return");
+if (!naveOrderId) return;
+const naveEnv = naveParams.get("nave_env") === "sandbox" ? "sandbox" : "production";
+try {
+const url = new URL(window.location.href);
+url.searchParams.delete("nave_return");
+url.searchParams.delete("nave_env");
+window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+} catch {}
+(async () => {
+try {
+const pending = JSON.parse(localStorage.getItem("navePedidoPendiente") || "null");
+if (!pending || pending.orderId !== naveOrderId || !pending.paymentRequestId) return;
+showToast("Confirmando tu pago con Nave...");
+// El pago puede demorar unos segundos en acreditarse del lado de Nave,
+// asi que reintentamos la consulta unas pocas veces antes de avisar
+// que quedo pendiente.
+let statusName = "PENDING";
+for (let attempt = 0; attempt < 6; attempt++) {
+try {
+const resp = await fetch("/api/nave-payment-status?paymentRequestId=" + encodeURIComponent(pending.paymentRequestId) + "&env=" + naveEnv);
+const data = await resp.json().catch(() => ({}));
+statusName = data.status || statusName;
+} catch (e) {}
+if (statusName === "SUCCESS_PROCESSED" || statusName === "FAILURE_PROCESSED" || statusName === "EXPIRED" || statusName === "BLOCKED") break;
+await new Promise(r => setTimeout(r, 2500));
+}
+if (statusName === "SUCCESS_PROCESSED") {
+let msg = "Hola! Quiero confirmar mi pedido (ya pague con Nave ✅): " + pending.cartUsed.map(i => getProductName(i) + " x" + i.qty).join(", ");
+msg += " - Nombre: " + pending.customerName;
+msg += " - Direccion de envio: " + pending.customerAddress;
+if (pending.promoCode) msg += " - Codigo promocional: " + pending.promoCode;
+if (pending.customerPhone) msg += " - Mi telefono: " + pending.customerPhone;
+if (pending.isGift) msg += " - Es un regalo" + (pending.giftMessage ? (": \"" + pending.giftMessage + "\"") : "") + (pending.hideGiftPrice ? " (IMPORTANTE: no mostrar el precio en el paquete)" : "") + (pending.giftWrap ? " - Con envoltorio de regalo (sin costo)" : "");
+msg += " - Pago realizado con Nave - Total: " + formatPrice(pending.totalAEnviar);
+// Registro del pedido: a esta pantalla solo se llega cuando confirmamos
+// contra la API de Nave que el pago esta aprobado (SUCCESS_PROCESSED).
+addDoc(collection(db, "pedidos"), {
+items: (pending.cartUsed || []).map(i => ({ id: i.id, nombre: getProductName(i), qty: i.qty, precio: Number(i.precio) || 0 })),
+total: pending.totalAEnviar,
+medioPago: "nave",
+origen: "nave",
+estado: "pagado",
+nombre: pending.customerName,
+direccion: pending.customerAddress,
+telefono: pending.customerPhone || null,
+esRegalo: !!pending.isGift,
+cuponCodigo: pending.promoCode || null,
+orderId: pending.orderId || null,
+createdAt: serverTimestamp(),
+}).catch(e => console.error("PEDIDO_LOG_NAVE_ERROR", e));
+try {
+if (window.fbq) window.fbq("track", "Purchase", { value: pending.totalAEnviar, currency: "ARS", content_type: "product", contents: (pending.cartUsed || []).map(i => ({ id: i.id, quantity: i.qty })) });
+if (window.gtag) window.gtag("event", "purchase", { transaction_id: pending.orderId || ("nave_" + Date.now()), value: pending.totalAEnviar, currency: "ARS", items: (pending.cartUsed || []).map(i => ({ item_id: i.id, item_name: getProductName(i), quantity: i.qty, price: Number(i.precio) || 0 })) });
+} catch (e) {}
+const waUrl = "https://wa.me/2914261941?text=" + encodeURIComponent(msg);
+window.open(waUrl, "_blank");
+localStorage.removeItem("navePedidoPendiente");
+showToast("Pago acreditado! Te abrimos WhatsApp para coordinar el envio 💛");
+} else if (statusName === "FAILURE_PROCESSED") {
+showToast("El pago con Nave no se pudo procesar. Proba de nuevo o elegi otro medio de pago.");
+} else if (statusName === "EXPIRED" || statusName === "BLOCKED") {
+showToast("El link de pago con Nave vencio o se bloqueo. Proba de nuevo.");
+} else {
+showToast("Tu pago con Nave quedo pendiente de confirmacion. Te contactamos por WhatsApp apenas se acredite.");
+}
+} catch (e) { console.error("NAVE_RETURN_ERROR", e); }
+})();
 }, []);
 // Datos estructurados (JSON-LD) para que Google pueda mostrar precio y
 // disponibilidad de los perfumes en los resultados de busqueda. Se arma
@@ -2325,6 +2412,55 @@ if (!resp.ok || !data.init_point) throw new Error((data && data.error) || "No pu
 return data.init_point;
 };
 
+// Arma el pedido y lo manda a pagar de verdad a Nave (Banco Galicia): tarjeta,
+// QR o en CUOTAS, todo eso lo resuelve el checkout de Nave solo. Por ahora el
+// descuento por puntos y por codigo de referido no se aplican en este medio
+// de pago (si el cliente quiere usarlos, elige transferencia o efectivo) -
+// igual que con Mercado Pago.
+const handleNaveCheckout = async (cartUsed, totalCartUsed) => {
+let usedDiscount = 0;
+const decantLinesUsed = cartUsed.filter(i => i.isDecant);
+const decantComboCountUsed = new Set(decantLinesUsed.map(i => i.id.split("_decant")[0])).size;
+if (decantComboCountUsed >= DECANT_COMBO_MIN) {
+const decantComboSubtotalUsed = decantLinesUsed.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
+const decantComboDiscountUsed = Math.round(decantComboSubtotalUsed * DECANT_COMBO_DISCOUNT_PCT);
+if (decantComboDiscountUsed > 0) usedDiscount += decantComboDiscountUsed;
+}
+const perfumeLinesUsed = cartUsed.filter(i => !i.isDecant && !i.isCombo);
+const perfumeQtyUsed = perfumeLinesUsed.reduce((acc, i) => acc + i.qty, 0);
+const perfumeMinUsed = (perfumeComboConfig && Number(perfumeComboConfig.minCantidad)) || 2;
+const perfumePctUsed = (perfumeComboConfig && Number(perfumeComboConfig.descuentoPct)) || 0;
+if (perfumeComboConfig && perfumeComboConfig.activo && perfumeQtyUsed >= perfumeMinUsed && perfumePctUsed > 0) {
+const perfumeSubtotalUsed = perfumeLinesUsed.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
+const perfumeComboDiscountUsed = Math.round(perfumeSubtotalUsed * perfumePctUsed / 100);
+if (perfumeComboDiscountUsed > 0) usedDiscount += perfumeComboDiscountUsed;
+}
+const cuponUsadoNave = evalCupon(promoCode, totalCartUsed);
+if (cuponUsadoNave.discount > 0) usedDiscount += cuponUsadoNave.discount;
+const totalAEnviar = Math.max(totalCartUsed - usedDiscount, 0);
+const orderId = "EP" + Date.now().toString(36).toUpperCase();
+const resp = await fetch("/api/create-nave-payment", {
+method: "POST",
+headers: { "Content-Type": "application/json" },
+body: JSON.stringify({
+total: totalAEnviar,
+orderId,
+env: NAVE_SANDBOX_MODE ? "sandbox" : "production",
+items: cartUsed.map(i => ({ name: getProductName(i), quantity: i.qty, unit_price: Number(i.precio) || 0 })),
+buyer: { name: customerName.trim(), phone: customerPhone.trim(), address: composeAddress() },
+}),
+});
+const data = await resp.json().catch(() => ({}));
+if (!resp.ok || !data.checkout_url) throw new Error((data && data.error) || "No pudimos iniciar el pago con Nave.");
+try {
+localStorage.setItem("navePedidoPendiente", JSON.stringify({
+orderId, paymentRequestId: data.payment_request_id, cartUsed, customerName: customerName.trim(), customerAddress: composeAddress(),
+promoCode, customerPhone: customerPhone.trim(), isGift, giftMessage, hideGiftPrice, giftWrap, totalAEnviar,
+}));
+} catch (e) {}
+return data.checkout_url;
+};
+
 const handleCheckout = async (cartOverride) => {
 if (!customerName.trim() || !customerStreet.trim() || !customerLocality.trim() || !paymentMethod) {
 setCheckoutError("Completa tu nombre, direccion (calle y localidad) y forma de pago (transferencia, Mercado Pago o efectivo) para poder enviar el pedido.");
@@ -2369,6 +2505,18 @@ if (waWindow) { waWindow.location.href = initPoint; } else { window.location.hre
 console.error("MP_CHECKOUT_ERROR", e);
 if (waWindow) { try { waWindow.close(); } catch (er) {} }
 setCheckoutError("No pudimos iniciar el pago con Mercado Pago. Proba de nuevo en un momento o elegi otro medio de pago.");
+setShowCart(true);
+}
+return;
+}
+if (paymentMethod === "nave") {
+try {
+const checkoutUrl = await handleNaveCheckout(cartUsed, totalCartUsed);
+if (waWindow) { waWindow.location.href = checkoutUrl; } else { window.location.href = checkoutUrl; }
+} catch (e) {
+console.error("NAVE_CHECKOUT_ERROR", e);
+if (waWindow) { try { waWindow.close(); } catch (er) {} }
+setCheckoutError("No pudimos iniciar el pago con Nave. Proba de nuevo en un momento o elegi otro medio de pago.");
 setShowCart(true);
 }
 return;
@@ -5042,11 +5190,23 @@ return pdpPhotos.length > 1 && (
 <input type="radio" name="paymentMethod" checked={paymentMethod === "mercadopago"} onChange={() => { setPaymentMethod("mercadopago"); if (checkoutError) setCheckoutError(""); }} />
 💙 Mercado Pago
 </label>
+{NAVE_ENABLED && (
+<label style={{ display: "flex", alignItems: "center", gap: "6px", color: "#fff", fontSize: "14px", cursor: "pointer", border: "1px solid " + (paymentMethod === "nave" ? "#d4af37" : "#2b2b2b"), borderRadius: "6px", padding: "8px 10px", flex: "1 1 140px" }}>
+<input type="radio" name="paymentMethod" checked={paymentMethod === "nave"} onChange={() => { setPaymentMethod("nave"); if (checkoutError) setCheckoutError(""); }} />
+🏦 Tarjeta / Cuotas (Nave)
+</label>
+)}
 </div>
 {paymentMethod === "mercadopago" && (
 <div style={{ marginTop: "10px", fontSize: "13px", color: "#e8ddc0", lineHeight: "1.7" }}>
 <p style={{ margin: 0 }}>💳 Te llevamos al checkout seguro de Mercado Pago para pagar con tarjeta, debito, dinero en cuenta o en cuotas. Apenas se acredite el pago te abrimos WhatsApp para coordinar el envio.</p>
 <p style={{ marginTop: "8px", marginBottom: 0, color: "#bdbdbd" }}>Por ahora los puntos y los codigos de referido no se descuentan pagando con Mercado Pago — para usarlos, elegi transferencia o efectivo.</p>
+</div>
+)}
+{paymentMethod === "nave" && (
+<div style={{ marginTop: "10px", fontSize: "13px", color: "#e8ddc0", lineHeight: "1.7" }}>
+<p style={{ margin: 0 }}>💳 Te llevamos al checkout seguro de Nave (Banco Galicia) para pagar con tarjeta, QR o en cuotas. Apenas se acredite el pago te abrimos WhatsApp para coordinar el envio.</p>
+<p style={{ marginTop: "8px", marginBottom: 0, color: "#bdbdbd" }}>Por ahora los puntos y los codigos de referido no se descuentan pagando con Nave — para usarlos, elegi transferencia o efectivo.</p>
 </div>
 )}
 {paymentMethod === "transferencia" && (
@@ -5070,7 +5230,7 @@ return pdpPhotos.length > 1 && (
 {getOrderCutoffMessage(cart) && (<div style={{ display: "flex", alignItems: "flex-start", gap: "8px", fontSize: "12.5px", color: "#d4af37", fontWeight: 600 }}><span>{getOrderCutoffMessage(cart)}</span></div>)}
 </div>
 <button onClick={() => handleCheckout()} style={{ ...S.btn, display: "block", width: "100%", border: "none", textAlign: "center", padding: "12px", cursor: "pointer" }}>
-{paymentMethod === "mercadopago" ? "Pagar con Mercado Pago" : "Pedir por WhatsApp"}
+{paymentMethod === "mercadopago" ? "Pagar con Mercado Pago" : paymentMethod === "nave" ? "Pagar con Nave" : "Pedir por WhatsApp"}
 </button>
 <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #2b2b2b" }}>
 <div style={{ flex: 1, textAlign: "center", fontSize: "10px", color: "#bdbdbd" }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d4af37" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block", margin: "0 auto 4px" }}><path d="M20 6L9 17l-5-5"></path></svg>100% Original</div>
