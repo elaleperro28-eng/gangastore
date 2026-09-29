@@ -2463,7 +2463,7 @@ return data.checkout_url;
 
 const handleCheckout = async (cartOverride) => {
 if (!customerName.trim() || !customerStreet.trim() || !customerLocality.trim() || !paymentMethod) {
-setCheckoutError("Completa tu nombre, direccion (calle y localidad) y forma de pago (transferencia, Mercado Pago o efectivo) para poder enviar el pedido.");
+setCheckoutError("Completa tu nombre, direccion (calle y localidad) y forma de pago (transferencia o efectivo) para poder enviar el pedido.");
 setShowCart(true);
 return;
 }
@@ -2497,18 +2497,6 @@ try {
 if (window.fbq) window.fbq("track", "InitiateCheckout", { value: totalCartUsed, currency: "ARS", num_items: cartUsed.reduce((a, i) => a + i.qty, 0), content_type: "product", contents: cartUsed.map(i => ({ id: i.id, quantity: i.qty })) });
 if (window.gtag) window.gtag("event", "begin_checkout", { currency: "ARS", value: totalCartUsed, items: cartUsed.map(i => ({ item_id: i.id, item_name: getProductName(i), quantity: i.qty, price: Number(i.precio) || 0 })) });
 } catch (e) {}
-if (paymentMethod === "mercadopago") {
-try {
-const initPoint = await handleMercadoPagoCheckout(cartUsed, totalCartUsed);
-if (waWindow) { waWindow.location.href = initPoint; } else { window.location.href = initPoint; }
-} catch (e) {
-console.error("MP_CHECKOUT_ERROR", e);
-if (waWindow) { try { waWindow.close(); } catch (er) {} }
-setCheckoutError("No pudimos iniciar el pago con Mercado Pago. Proba de nuevo en un momento o elegi otro medio de pago.");
-setShowCart(true);
-}
-return;
-}
 if (paymentMethod === "nave") {
 try {
 const checkoutUrl = await handleNaveCheckout(cartUsed, totalCartUsed);
@@ -5186,10 +5174,6 @@ return pdpPhotos.length > 1 && (
 <input type="radio" name="paymentMethod" checked={paymentMethod === "efectivo"} onChange={() => { setPaymentMethod("efectivo"); if (checkoutError) setCheckoutError(""); }} />
 💵 Efectivo (al momento de la entrega)
 </label>
-<label style={{ display: "flex", alignItems: "center", gap: "6px", color: "#fff", fontSize: "14px", cursor: "pointer", border: "1px solid " + (paymentMethod === "mercadopago" ? "#d4af37" : "#2b2b2b"), borderRadius: "6px", padding: "8px 10px", flex: "1 1 140px" }}>
-<input type="radio" name="paymentMethod" checked={paymentMethod === "mercadopago"} onChange={() => { setPaymentMethod("mercadopago"); if (checkoutError) setCheckoutError(""); }} />
-💙 Mercado Pago
-</label>
 {NAVE_ENABLED && (
 <label style={{ display: "flex", alignItems: "center", gap: "6px", color: "#fff", fontSize: "14px", cursor: "pointer", border: "1px solid " + (paymentMethod === "nave" ? "#d4af37" : "#2b2b2b"), borderRadius: "6px", padding: "8px 10px", flex: "1 1 140px" }}>
 <input type="radio" name="paymentMethod" checked={paymentMethod === "nave"} onChange={() => { setPaymentMethod("nave"); if (checkoutError) setCheckoutError(""); }} />
@@ -5197,12 +5181,6 @@ return pdpPhotos.length > 1 && (
 </label>
 )}
 </div>
-{paymentMethod === "mercadopago" && (
-<div style={{ marginTop: "10px", fontSize: "13px", color: "#e8ddc0", lineHeight: "1.7" }}>
-<p style={{ margin: 0 }}>💳 Te llevamos al checkout seguro de Mercado Pago para pagar con tarjeta, debito, dinero en cuenta o en cuotas. Apenas se acredite el pago te abrimos WhatsApp para coordinar el envio.</p>
-<p style={{ marginTop: "8px", marginBottom: 0, color: "#bdbdbd" }}>Por ahora los puntos y los codigos de referido no se descuentan pagando con Mercado Pago — para usarlos, elegi transferencia o efectivo.</p>
-</div>
-)}
 {paymentMethod === "nave" && (
 <div style={{ marginTop: "10px", fontSize: "13px", color: "#e8ddc0", lineHeight: "1.7" }}>
 <p style={{ margin: 0 }}>💳 Te llevamos al checkout seguro de Nave (Banco Galicia) para pagar con tarjeta, QR o en cuotas. Apenas se acredite el pago te abrimos WhatsApp para coordinar el envio.</p>
@@ -5230,7 +5208,7 @@ return pdpPhotos.length > 1 && (
 {getOrderCutoffMessage(cart) && (<div style={{ display: "flex", alignItems: "flex-start", gap: "8px", fontSize: "12.5px", color: "#d4af37", fontWeight: 600 }}><span>{getOrderCutoffMessage(cart)}</span></div>)}
 </div>
 <button onClick={() => handleCheckout()} style={{ ...S.btn, display: "block", width: "100%", border: "none", textAlign: "center", padding: "12px", cursor: "pointer" }}>
-{paymentMethod === "mercadopago" ? "Pagar con Mercado Pago" : paymentMethod === "nave" ? "Pagar con Nave" : "Pedir por WhatsApp"}
+{paymentMethod === "nave" ? "Pagar con Nave" : "Pedir por WhatsApp"}
 </button>
 <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #2b2b2b" }}>
 <div style={{ flex: 1, textAlign: "center", fontSize: "10px", color: "#bdbdbd" }}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d4af37" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "block", margin: "0 auto 4px" }}><path d="M20 6L9 17l-5-5"></path></svg>100% Original</div>
@@ -5358,7 +5336,7 @@ return (
 </div>
 <div>
 <div style={S.footerHeading}>Compras</div>
-<span style={S.footerLink}>Pago: coordinado por WhatsApp (efectivo, transferencia, Mercado Pago)</span>
+<span style={S.footerLink}>Pago: coordinado por WhatsApp (efectivo, transferencia)</span>
 <span style={S.footerLink}>Envio gratis dentro de Bahia Blanca</span>
 <span style={S.footerLink}>Envios a todo el pais a coordinar</span>
 </div>
