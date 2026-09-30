@@ -44,7 +44,7 @@ const ADMIN_EMAIL = "elaleperro28@gmail.com";
 const BANK_TRANSFER_INFO = { banco: "Banco Galicia", titular: "Alejo Francisco Ciulo", cuil: "20-46743275-4", cbu: "0070082530004087084624", alias: "Teatro.ale" };
 const FREE_SHIPPING_THRESHOLD = 150000;
 const DECANT_COMBO_MIN = 3;
-const DECANT_COMBO_DISCOUNT_PCT = 0.10;
+const DECANT_COMBO_DISCOUNT_PCT = 0.05;
 // Integracion con Nave (Banco Galicia) probada en Sandbox y en Produccion:
 // autenticacion, creacion de pago y consulta de estado funcionando en los
 // dos ambientes. Activada para que los clientes reales vean la opcion.
