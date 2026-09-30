@@ -45,12 +45,10 @@ const BANK_TRANSFER_INFO = { banco: "Banco Galicia", titular: "Alejo Francisco C
 const FREE_SHIPPING_THRESHOLD = 150000;
 const DECANT_COMBO_MIN = 3;
 const DECANT_COMBO_DISCOUNT_PCT = 0.10;
-// Mientras probamos la integracion con Nave (Banco Galicia) en el ambiente de
-// pruebas (Sandbox), dejamos la opcion de pago oculta para los clientes
-// reales. Cuando ya este todo probado y tengamos las credenciales de
-// produccion cargadas en Vercel, esto se cambia a "true" para que aparezca
-// en el checkout.
-const NAVE_ENABLED = false;
+// Integracion con Nave (Banco Galicia) probada en Sandbox y en Produccion:
+// autenticacion, creacion de pago y consulta de estado funcionando en los
+// dos ambientes. Activada para que los clientes reales vean la opcion.
+const NAVE_ENABLED = true;
 // Cuando probemos en Sandbox antes de salir en vivo, se pone en "true" para
 // que la pagina use las credenciales y URLs de prueba de Nave en vez de las
 // de produccion.
