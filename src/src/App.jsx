@@ -4386,10 +4386,10 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 .gs-hero{min-height:88vh;}
 }
 `}</style>
-<img className="gs-hero-video" src="https://images.pexels.com/videos/10537262/adolescent-afro-beautiful-bridal-10537262.jpeg?auto=compress&cs=tinysrgb&w=1920" alt="" />
+<img className="gs-hero-video" src="/hero-video-poster.jpg" alt="" />
 {!isMobileHero && (
-<video className="gs-hero-video" autoPlay muted loop playsInline preload="auto">
-<source src="https://videos.pexels.com/video-files/10537262/10537262-sd_960_506_25fps.mp4" type="video/mp4" />
+<video className="gs-hero-video" autoPlay muted loop playsInline preload="auto" poster="/hero-video-poster.jpg">
+<source src="/hero-video.mp4" type="video/mp4" />
 </video>
 )}
 <div style={S.heroOverlay}></div>
