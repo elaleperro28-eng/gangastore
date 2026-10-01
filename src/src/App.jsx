@@ -3146,7 +3146,7 @@ resenaFoto: { width: "48px", height: "48px", borderRadius: "50%", objectFit: "co
 resenaAvatar: { width: "48px", height: "48px", borderRadius: "50%", background: "#d4af37", color: "#000000", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", fontSize: "18px" },
 badgePedido: { display: "inline-flex", alignItems: "center", gap: "5px", color: "#bdbdbd", fontSize: "12px", fontWeight: "600" },
 badgeAgotado: { display: "inline-flex", alignItems: "center", gap: "5px", color: "#e08a8a", fontSize: "12px", fontWeight: "600" },
-loadMoreBtn: { display: "block", margin: "36px auto 0", background: "transparent", color: "#d4af37", border: "2px solid #d4af37", padding: "13px 36px", borderRadius: "10px", cursor: "pointer", fontWeight: "700", fontSize: "14px", letterSpacing: "0.3px" },
+loadMoreBtn: { display: "block", margin: "40px auto 0", background: "#0b0b0b", color: "#ffffff", border: "2px solid #0b0b0b", padding: "18px 50px", borderRadius: "10px", cursor: "pointer", fontWeight: "800", fontSize: "17px", letterSpacing: "0.3px" },
 modal: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 100 },
 modalBox: { background: "#1a1a1a", borderRadius: "16px", maxWidth: "500px", width: "100%", padding: "24px", position: "relative", maxHeight: "90vh", overflowY: "auto", border: "1px solid #2b2b2b" },
 modalImg: { width: "100%", maxHeight: "360px", objectFit: "contain", background: "#fff", borderRadius: "10px", marginBottom: "16px", display: "block" },
