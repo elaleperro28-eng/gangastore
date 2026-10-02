@@ -5175,7 +5175,7 @@ return pdpPhotos.length > 1 && (
 {NAVE_ENABLED && (
 <label style={{ display: "flex", alignItems: "center", gap: "6px", color: "#fff", fontSize: "14px", cursor: "pointer", border: "1px solid " + (paymentMethod === "nave" ? "#d4af37" : "#2b2b2b"), borderRadius: "6px", padding: "8px 10px", flex: "1 1 140px" }}>
 <input type="radio" name="paymentMethod" checked={paymentMethod === "nave"} onChange={() => { setPaymentMethod("nave"); if (checkoutError) setCheckoutError(""); }} />
-🏦 Tarjeta / Cuotas / QR (Nave)
+🏦 Cuotas (Nave)
 </label>
 )}
 </div>
