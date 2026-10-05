@@ -41,7 +41,7 @@ return authModPromise;
 //    para que solo ese correo pueda escribir en la base de datos. Sin ese paso, el
 //    panel se ve mas seguro pero la base de datos todavia queda abierta por detras.
 const ADMIN_EMAIL = "elaleperro28@gmail.com";
-const BANK_TRANSFER_INFO = { banco: "Banco Galicia", titular: "Alejo Francisco Ciulo", cuil: "20-46743275-4", cbu: "0070082530004087084624", alias: "Teatro.ale" };
+const BANK_TRANSFER_INFO = { banco: "Banco Galicia", titular: "Alejo Francisco Ciulo", cuil: "20-46743275-4", cbu: "0070082530004087084624", alias: "esencia.bahia" };
 const FREE_SHIPPING_THRESHOLD = 150000;
 const DECANT_COMBO_MIN = 3;
 const DECANT_COMBO_DISCOUNT_PCT = 0.05;
