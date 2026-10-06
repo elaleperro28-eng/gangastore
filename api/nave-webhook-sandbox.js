@@ -7,7 +7,7 @@
 // ambiente de pruebas de Nave, para poder probar el flujo completo antes de
 // salir en vivo con clientes reales.
 
-import { getNavePaymentDetails } from "../lib/nave.js";
+import { handleNaveNotification } from "../lib/nave-orders.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -17,20 +17,7 @@ export default async function handler(req, res) {
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
-    console.log("NAVE_WEBHOOK_SANDBOX", JSON.stringify(body));
-
-    if (body && body.payment_check_url) {
-      try {
-        const details = await getNavePaymentDetails("sandbox", body.payment_check_url);
-        console.log(
-          "NAVE_WEBHOOK_SANDBOX_STATUS",
-          body.external_payment_id,
-          details && details.status
-        );
-      } catch (e) {
-        console.error("NAVE_WEBHOOK_SANDBOX_STATUS_ERROR", e);
-      }
-    }
+    await handleNaveNotification("sandbox", body, "NAVE_WEBHOOK_SANDBOX");
   } catch (e) {
     console.error("NAVE_WEBHOOK_SANDBOX_EXCEPTION", e);
   }
