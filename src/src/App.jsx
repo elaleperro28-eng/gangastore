@@ -548,9 +548,26 @@ if (qty > 0) showToast("Tenes " + qty + (qty === 1 ? " producto guardado en tu c
 // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []);
 
+// Catalogo rapido: copia cacheada (/api/catalog) que llega en paralelo con el
+// codigo de la pagina. Se usa solo si Firestore todavia no respondio; apenas
+// responde Firestore, la lista en vivo la reemplaza.
+const catalogLiveRef = useRef(false);
+useEffect(() => {
+let cancelled = false;
+fetch("/api/catalog")
+.then(r => (r.ok ? r.json() : null))
+.then(list => {
+if (cancelled || catalogLiveRef.current || !Array.isArray(list) || list.length === 0) return;
+setProducts(list.map(p => ({ ...p, createdAt: p.createdAt ? { toDate: () => new Date(p.createdAt) } : null })));
+setProductsLoading(false);
+})
+.catch(() => {});
+return () => { cancelled = true; };
+}, []);
 useEffect(() => {
 const q = query(collection(db, "productos"), orderBy("createdAt", "desc"));
 const unsub = onSnapshot(q, (snap) => {
+catalogLiveRef.current = true;
 setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setProductsLoading(false);
 });
 return () => unsub();
@@ -2448,7 +2465,8 @@ body: JSON.stringify({
 total: totalAEnviar,
 orderId,
 env: NAVE_SANDBOX_MODE ? "sandbox" : "production",
-items: cartUsed.map(i => ({ name: getProductName(i), quantity: i.qty, unit_price: Number(i.precio) || 0 })),
+items: cartUsed.map(i => ({ id: i.id, name: getProductName(i), quantity: i.qty, unit_price: Number(i.precio) || 0 })),
+promoCode: promoCode || "",
 buyer: { name: customerName.trim(), phone: customerPhone.trim(), address: composeAddress() },
 }),
 });
