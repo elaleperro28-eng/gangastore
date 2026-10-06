@@ -15,7 +15,7 @@
 // Igual hay que responder 200 siempre: si no, Nave reintenta la notificacion
 // varias veces con una tabla de espera creciente.
 
-import { getNavePaymentDetails } from "../lib/nave.js";
+import { handleNaveNotification } from "../lib/nave-orders.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -25,20 +25,7 @@ export default async function handler(req, res) {
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
-    console.log("NAVE_WEBHOOK_PRODUCTION", JSON.stringify(body));
-
-    if (body && body.payment_check_url) {
-      try {
-        const details = await getNavePaymentDetails("production", body.payment_check_url);
-        console.log(
-          "NAVE_WEBHOOK_PRODUCTION_STATUS",
-          body.external_payment_id,
-          details && details.status
-        );
-      } catch (e) {
-        console.error("NAVE_WEBHOOK_PRODUCTION_STATUS_ERROR", e);
-      }
-    }
+    await handleNaveNotification("production", body, "NAVE_WEBHOOK_PRODUCTION");
   } catch (e) {
     console.error("NAVE_WEBHOOK_PRODUCTION_EXCEPTION", e);
   }
