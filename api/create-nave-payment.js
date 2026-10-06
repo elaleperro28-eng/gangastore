@@ -10,6 +10,7 @@
 // URL una vez desplegado: https://www.esenciaperfumeria.com.ar/api/create-nave-payment
 
 import { createNavePaymentRequest } from "../lib/nave.js";
+import { createDocIfAbsent, isFirestoreAdminConfigured } from "../lib/firestore-admin.js";
 
 const SITE_URL = "https://www.esenciaperfumeria.com.ar";
 
@@ -59,6 +60,30 @@ export default async function handler(req, res) {
       buyer,
       callbackUrl: SITE_URL + "/?nave_return=" + encodeURIComponent(orderId) + (env === "sandbox" ? "&nave_env=sandbox" : ""),
     });
+
+    // Guardamos el pedido pendiente en el servidor: cuando Nave avise por
+    // webhook que se acredito el pago, lo registramos aunque el cliente no
+    // vuelva a la pagina.
+    if (isFirestoreAdminConfigured()) {
+      try {
+        await createDocIfAbsent("navePedidosPendientes", orderId, {
+          items: items.map((i) => ({
+            nombre: String(i.name || "Producto").slice(0, 120),
+            qty: Math.max(1, Number(i.quantity) || 1),
+            precio: Number(i.unit_price) || 0,
+          })),
+          total,
+          nombre: buyerName,
+          telefono: body.buyer && body.buyer.phone ? String(body.buyer.phone).slice(0, 30) : null,
+          direccion: body.buyer && body.buyer.address ? String(body.buyer.address).slice(0, 150) : "",
+          env,
+          paymentRequestId: data.id || null,
+          createdAt: new Date(),
+        });
+      } catch (e) {
+        console.error("NAVE_PENDING_SAVE_ERROR", e);
+      }
+    }
 
     res.status(200).json({
       checkout_url: data.checkout_url,
