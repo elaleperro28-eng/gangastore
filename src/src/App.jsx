@@ -321,7 +321,9 @@ const [hoverVentaMes, setHoverVentaMes] = useState(null);
 // orderBy("createdAt"), y Firestore excluye de un orderBy cualquier documento
 // que no tenga ese campo (estos documentos de configuracion no lo tienen), asi
 // que nunca aparecian ahi aunque se hubieran guardado bien.
-const [bannerConfig, setBannerConfig] = useState(null);
+const [bannerConfig, setBannerConfig] = useState(() => {
+try { const c = localStorage.getItem("esencia_banner_cache"); return c ? JSON.parse(c) : null; } catch (e) { return null; }
+});
 const [catalogOrderConfig, setCatalogOrderConfig] = useState(null);
 // Combos y ofertas: dos mecanismos independientes.
 // 1) Descuento automatico por cantidad de perfumes (config en "_site_perfume_combo",
@@ -796,7 +798,9 @@ URL.revokeObjectURL(url);
 // "products" (ver comentario junto a bannerConfig/catalogOrderConfig).
 useEffect(() => {
 const unsubBanner = onSnapshot(doc(db, "productos", "_site_banner"), (snap) => {
-setBannerConfig(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+const bc = snap.exists() ? { id: snap.id, ...snap.data() } : null;
+setBannerConfig(bc);
+try { if (bc) localStorage.setItem("esencia_banner_cache", JSON.stringify(bc)); else localStorage.removeItem("esencia_banner_cache"); } catch (e) {}
 }, (e) => console.error("BANNER_LOAD_ERROR", e));
 const unsubCatalogOrder = onSnapshot(doc(db, "productos", "_site_catalog_order"), (snap) => {
 setCatalogOrderConfig(snap.exists() ? { id: snap.id, ...snap.data() } : null);
@@ -1015,7 +1019,7 @@ msg += " - Pago realizado con Mercado Pago - Total: " + formatPrice(pending.tota
 // Registro del pedido: a esta pantalla solo se llega cuando Mercado Pago
 // aprobo el pago (auto_return: "approved" en la preferencia), asi que el
 // pedido se guarda como pagado.
-addDoc(collection(db, "pedidos"), {
+setDoc(doc(db, "pedidos", pending.orderId), {
 items: (pending.cartUsed || []).map(i => ({ id: i.id, nombre: getProductName(i), qty: i.qty, precio: Number(i.precio) || 0 })),
 total: pending.totalAEnviar,
 medioPago: "mercadopago",
@@ -4242,6 +4246,7 @@ return (
 <div style={{ maxWidth: "760px", margin: "0 auto", padding: "36px 20px 60px", color: "#e8ddc0", lineHeight: "1.7" }}>
 <h1 style={{ color: "#d4af37", fontFamily: "'Playfair Display', serif", fontSize: "clamp(24px, 4vw, 34px)", marginBottom: "6px" }}>Política de Cambios y Devoluciones</h1>
 <p style={{ color: "#9a9a9a", fontSize: "13px", marginBottom: "28px" }}>Última actualización: agosto 2026</p>
+<a id="arrepentimiento" href={"https://wa.me/2914261941?text=" + encodeURIComponent("Hola! Quiero ejercer mi derecho de arrepentimiento (Botón de Arrepentimiento).\nNombre y apellido: \nN° de pedido / fecha de compra: \nProducto: ")} target="_blank" rel="noreferrer" style={{ display: "block", textAlign: "center", background: "#d4af37", color: "#0b0b0b", fontWeight: 800, padding: "14px 18px", borderRadius: "8px", textDecoration: "none", marginBottom: "28px", fontSize: "15px" }}>Botón de Arrepentimiento · Cancelar mi compra</a>
 
 <h2 style={{ color: "#fff", fontSize: "19px", marginTop: "28px", marginBottom: "10px" }}>1. Derecho de arrepentimiento (compras a distancia)</h2>
 <p>Como tu compra en Esencia Perfumeria se realiza a distancia (por WhatsApp, sin trato presencial previo), la Ley de Defensa del Consumidor (Ley 24.240) te reconoce el derecho de arrepentirte de tu compra dentro de los <strong style={{ color: "#d4af37" }}>10 días corridos</strong> desde que recibís el producto, sin necesidad de indicar ningún motivo.</p>
@@ -5324,6 +5329,7 @@ return (
 <a href="#advFilterSection" style={S.footerLink}>Encontra tu perfume ideal</a>
 <a href="/blog" onClick={(e) => { e.preventDefault(); setPage("blog"); window.history.pushState({}, "", "/blog"); window.scrollTo(0, 0); }} style={S.footerLink}>Blog</a>
 <a href="/devoluciones" onClick={(e) => { e.preventDefault(); setPage("devoluciones"); window.history.pushState({}, "", "/devoluciones"); window.scrollTo(0, 0); }} style={S.footerLink}>Política de Cambios y Devoluciones</a>
+<a href="/devoluciones#arrepentimiento" onClick={(e) => { e.preventDefault(); setPage("devoluciones"); window.history.pushState({}, "", "/devoluciones"); window.scrollTo(0, 0); }} style={S.footerLink}>Botón de Arrepentimiento</a>
 <a href="/opinar" onClick={(e) => { e.preventDefault(); setPage("opinar"); window.history.pushState({}, "", "/opinar"); window.scrollTo(0, 0); }} style={S.footerLink}>Dejar mi opinión</a>
 </div>
 <div>
