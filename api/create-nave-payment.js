@@ -11,6 +11,7 @@
 
 import { createNavePaymentRequest } from "../lib/nave.js";
 import { createDocIfAbsent, isFirestoreAdminConfigured } from "../lib/firestore-admin.js";
+import { computeServerTotal } from "../lib/pricing.js";
 
 const SITE_URL = "https://www.esenciaperfumeria.com.ar";
 
@@ -23,7 +24,7 @@ export default async function handler(req, res) {
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
     const env = body.env === "sandbox" ? "sandbox" : "production";
-    const total = Number(body.total);
+    let total = Number(body.total);
     const orderId = String(body.orderId || "").slice(0, 36);
     const items = Array.isArray(body.items) ? body.items : [];
 
@@ -36,8 +37,40 @@ export default async function handler(req, res) {
       return;
     }
 
-    const products = items.length
-      ? items.map((i) => ({
+    // Recalculo de precios en el servidor: el total que cobramos sale de los
+    // precios reales de Firestore, no del que manda el navegador. Si el cliente
+    // intenta pagar MENOS de lo que corresponde, se rechaza. Si Firestore no
+    // esta disponible no frenamos la venta (queda registrado en los logs).
+    let verifiedItems = null;
+    if (isFirestoreAdminConfigured() && items.length && items.every((i) => i && i.id)) {
+      try {
+        const calc = await computeServerTotal(
+          items.map((i) => ({ id: i.id, qty: i.quantity })),
+          body.promoCode
+        );
+        if (!calc.ok) {
+          console.error("NAVE_PRICE_CHECK_REJECTED", orderId, calc.reason);
+          res.status(409).json({ error: "Alguno de los productos del carrito ya no esta disponible o cambio. Actualiza la pagina y volve a intentar." });
+          return;
+        }
+        if (total < calc.total - 1) {
+          console.error("NAVE_PRICE_MISMATCH", orderId, "cliente:", total, "servidor:", calc.total);
+          res.status(409).json({ error: "Los precios del carrito cambiaron. Actualiza la pagina y volve a intentar." });
+          return;
+        }
+        total = calc.total;
+        verifiedItems = items.map((i) => {
+          const l = calc.lines.find((x) => x.id === String(i.id).slice(0, 120));
+          return { name: i.name, quantity: l ? l.qty : Math.max(1, Number(i.quantity) || 1), unit_price: l ? l.price : Number(i.unit_price) || 0 };
+        });
+      } catch (e) {
+        console.error("NAVE_PRICE_CHECK_ERROR", orderId, e);
+      }
+    }
+
+    const lineItems = verifiedItems || items;
+    const products = lineItems.length
+      ? lineItems.map((i) => ({
           name: String(i.name || "Producto").slice(0, 120),
           quantity: Math.max(1, Number(i.quantity) || 1),
           unit_price: Number(i.unit_price) || 0,
@@ -67,7 +100,7 @@ export default async function handler(req, res) {
     if (isFirestoreAdminConfigured()) {
       try {
         await createDocIfAbsent("navePedidosPendientes", orderId, {
-          items: items.map((i) => ({
+          items: lineItems.map((i) => ({
             nombre: String(i.name || "Producto").slice(0, 120),
             qty: Math.max(1, Number(i.quantity) || 1),
             precio: Number(i.unit_price) || 0,
