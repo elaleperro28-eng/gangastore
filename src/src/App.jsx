@@ -1091,6 +1091,11 @@ if (statusName === "SUCCESS_PROCESSED" || statusName === "FAILURE_PROCESSED" || 
 await new Promise(r => setTimeout(r, 2500));
 }
 if (statusName === "SUCCESS_PROCESSED") {
+// Aviso al servidor (registra el pedido y manda el Telegram al dueno).
+// Es un respaldo del webhook de Nave y es seguro repetirlo.
+try {
+fetch("/api/nave-confirm", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderId: pending.orderId, paymentRequestId: pending.paymentRequestId, env: naveEnv }) }).catch(() => {});
+} catch (e) {}
 let msg = "Hola! Quiero confirmar mi pedido (ya pague con Nave ✅): " + pending.cartUsed.map(i => getProductName(i) + " x" + i.qty).join(", ");
 msg += " - Nombre: " + pending.customerName;
 msg += " - Direccion de envio: " + pending.customerAddress;
@@ -2452,6 +2457,7 @@ orderId,
 env: NAVE_SANDBOX_MODE ? "sandbox" : "production",
 items: cartUsed.map(i => ({ id: i.id, name: getProductName(i), quantity: i.qty, unit_price: Number(i.precio) || 0 })),
 promoCode: promoCode || "",
+extra: { isGift: !!isGift, giftMessage: giftMessage || "", hideGiftPrice: !!hideGiftPrice, giftWrap: !!giftWrap },
 buyer: { name: customerName.trim(), phone: customerPhone.trim(), address: composeAddress() },
 }),
 });
