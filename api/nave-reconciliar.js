@@ -10,11 +10,12 @@
 // URL: https://www.esenciaperfumeria.com.ar/api/nave-reconciliar
 
 import { getNaveAccessToken, getNaveConfig, getNavePaymentRequestStatus } from "../lib/nave.js";
-import { getDocData, isFirestoreAdminConfigured, listDocs } from "../lib/firestore-admin.js";
+import { deleteDocIfExists, getDocData, isFirestoreAdminConfigured, listRecentDocs } from "../lib/firestore-admin.js";
 import { isPaidStatus, registerPaidOrder } from "../lib/nave-orders.js";
 
 const DIAS = 3;
 const MAX = 30;
+const FINALES = /FAIL|REJECT|EXPIRED|BLOCKED|CANCEL/i;
 let lastRun = 0;
 let lastResult = null;
 
@@ -25,9 +26,9 @@ async function check(fn) {
 
 export default async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
-  // Evita que se dispare mil veces seguidas: si corrio hace menos de 15 s,
-  // devuelve el ultimo resultado.
-  if (lastResult && Date.now() - lastRun < 15000) {
+  // Evita que se dispare mil veces seguidas: si corrio hace menos de 2 minutos,
+  // devuelve el ultimo resultado (asi no gasta lecturas de Firebase de mas).
+  if (lastResult && Date.now() - lastRun < 120000) {
     res.status(200).json({ ...lastResult, cache: true });
     return;
   }
@@ -48,7 +49,7 @@ export default async function handler(req, res) {
       return;
     }
     let pendientes = [];
-    config.firebaseConecta = await check(async () => { pendientes = await listDocs("navePedidosPendientes", 60); });
+    config.firebaseConecta = await check(async () => { pendientes = await listRecentDocs("navePedidosPendientes", Date.now() - DIAS * 86400000, MAX); });
     if (!config.firebaseConecta) {
       out.error = "No se pudo conectar a Firebase con la clave cargada. Revisa que sea la clave completa del proyecto gangastore.";
       out.detalleTecnico = lastCheckError;
@@ -69,6 +70,11 @@ export default async function handler(req, res) {
         if (ya) {
           item.accion = "ya_registrado";
           resumen.yaRegistrados++;
+          // Limpieza: el pendiente ya cumplio su funcion; borrarlo evita seguir
+          // gastando lecturas en el. (Se espera 1 hora por si Nave todavia avisa.)
+          if (p.createdAt && Date.now() - new Date(p.createdAt).getTime() > 3600000) {
+            await deleteDocIfExists("navePedidosPendientes", p.id).catch(() => {});
+          }
         } else if (!p.paymentRequestId) {
           item.accion = "sin_id_de_nave";
           resumen.errores++;
@@ -84,6 +90,10 @@ export default async function handler(req, res) {
           } else {
             item.accion = "no_pagado";
             resumen.noPagados++;
+            // Intentos que Nave ya cerro (rechazados, vencidos): no hay nada que esperar.
+            if (FINALES.test(String(st)) && p.createdAt && Date.now() - new Date(p.createdAt).getTime() > 3600000) {
+              await deleteDocIfExists("navePedidosPendientes", p.id).catch(() => {});
+            }
           }
         }
       } catch (e) {
