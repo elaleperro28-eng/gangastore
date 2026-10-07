@@ -321,6 +321,7 @@ const [hoverVentaMes, setHoverVentaMes] = useState(null);
 // orderBy("createdAt"), y Firestore excluye de un orderBy cualquier documento
 // que no tenga ese campo (estos documentos de configuracion no lo tienen), asi
 // que nunca aparecian ahi aunque se hubieran guardado bien.
+const [bannerLoaded, setBannerLoaded] = useState(false);
 const [bannerConfig, setBannerConfig] = useState(() => {
 try { const c = localStorage.getItem("esencia_banner_cache"); return c ? JSON.parse(c) : null; } catch (e) { return null; }
 });
@@ -548,26 +549,9 @@ if (qty > 0) showToast("Tenes " + qty + (qty === 1 ? " producto guardado en tu c
 // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []);
 
-// Catalogo rapido: copia cacheada (/api/catalog) que llega en paralelo con el
-// codigo de la pagina. Se usa solo si Firestore todavia no respondio; apenas
-// responde Firestore, la lista en vivo la reemplaza.
-const catalogLiveRef = useRef(false);
-useEffect(() => {
-let cancelled = false;
-fetch("/api/catalog")
-.then(r => (r.ok ? r.json() : null))
-.then(list => {
-if (cancelled || catalogLiveRef.current || !Array.isArray(list) || list.length === 0) return;
-setProducts(list.map(p => ({ ...p, createdAt: p.createdAt ? { toDate: () => new Date(p.createdAt) } : null })));
-setProductsLoading(false);
-})
-.catch(() => {});
-return () => { cancelled = true; };
-}, []);
 useEffect(() => {
 const q = query(collection(db, "productos"), orderBy("createdAt", "desc"));
 const unsub = onSnapshot(q, (snap) => {
-catalogLiveRef.current = true;
 setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setProductsLoading(false);
 });
 return () => unsub();
@@ -817,6 +801,7 @@ useEffect(() => {
 const unsubBanner = onSnapshot(doc(db, "productos", "_site_banner"), (snap) => {
 const bc = snap.exists() ? { id: snap.id, ...snap.data() } : null;
 setBannerConfig(bc);
+setBannerLoaded(true);
 try { if (bc) localStorage.setItem("esencia_banner_cache", JSON.stringify(bc)); else localStorage.removeItem("esencia_banner_cache"); } catch (e) {}
 }, (e) => console.error("BANNER_LOAD_ERROR", e));
 const unsubCatalogOrder = onSnapshot(doc(db, "productos", "_site_catalog_order"), (snap) => {
@@ -4361,6 +4346,9 @@ return (
 
 return (
 <div style={S.body}>
+{!bannerLoaded && !bannerConfig && !bannerDismissed && (
+<div aria-hidden="true" style={{ background: "#d4af37", height: (typeof window !== "undefined" && window.innerWidth <= 700) ? "70px" : "43px" }} />
+)}
 {bannerConfig && bannerConfig.bannerEnabled && bannerConfig.bannerTexto && !bannerDismissed && (
 <div style={{ position: "relative", background: "#d4af37", color: "#0b0b0b", padding: "10px 40px", display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", flexWrap: "wrap", fontSize: "13.5px", fontWeight: 700, textAlign: "center" }}>
 <span>{bannerConfig.bannerTexto}</span>
