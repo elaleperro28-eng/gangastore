@@ -745,15 +745,40 @@ return { totalFacturado, cantidadPedidos, ticketPromedio, porOrigen, ventasPorDi
 // (y para lo que se descarga con "Exportar a Excel/CSV", que respeta estos
 // mismos filtros). getPedidoMedioKey/Label reproducen la misma logica que ya
 // se usaba para mostrar la etiqueta de cada pedido, asi quedan unificadas.
-const getPedidoMedioKey = (p) => p.origen === "mercadopago" ? "mercadopago" : (p.medioPago === "transferencia" ? "transferencia" : "efectivo");
-const getPedidoMedioLabel = (p) => p.origen === "mercadopago" ? "Mercado Pago" : (p.medioPago === "transferencia" ? "Transferencia" : "Efectivo");
+const getPedidoMedioKey = (p) => p.origen === "nave" ? "nave" : (p.origen === "mercadopago" ? "mercadopago" : (p.medioPago === "transferencia" ? "transferencia" : "efectivo"));
+const getPedidoMedioLabel = (p) => p.origen === "nave" ? "Nave (tarjeta/QR/cuotas)" : (p.origen === "mercadopago" ? "Mercado Pago" : (p.medioPago === "transferencia" ? "Transferencia" : "Efectivo"));
+// Pedidos pagados que todavia no marcaste como gestionados (contactado /
+// preparado). Alimenta el aviso de arriba del panel y el filtro de la lista.
+const pedidoSinGestionar = (p) => p.estado === "pagado" && !p.gestionado;
+const [pedidoAbierto, setPedidoAbierto] = useState({});
+const togglePedidoAbierto = (id, abiertoPorDefecto) => setPedidoAbierto(m => ({ ...m, [id]: !(id in m ? m[id] : abiertoPorDefecto) }));
+const setPedidoGestionado = async (id, valor) => {
+try { await updateDoc(doc(db, "pedidos", id), { gestionado: !!valor, gestionadoAt: valor ? serverTimestamp() : null }); }
+catch (e) { console.error("PEDIDO_GESTION_ERROR", e); alert("No se pudo actualizar el pedido. Proba de nuevo."); }
+};
+const marcarTodosGestionados = async () => {
+const lista = pedidos.filter(pedidoSinGestionar);
+if (lista.length === 0) return;
+if (!window.confirm("Marcar " + lista.length + " pedido(s) pagado(s) como gestionados?")) return;
+await Promise.all(lista.map(p => updateDoc(doc(db, "pedidos", p.id), { gestionado: true, gestionadoAt: serverTimestamp() }).catch(e => console.error("PEDIDO_GESTION_ERROR", e))));
+};
+const waLinkCliente = (p) => {
+let d = String(p.telefono || "").replace(/\D/g, "");
+if (!d) return null;
+if (d.startsWith("00")) d = d.slice(2);
+if (d.startsWith("54")) { if (!d.startsWith("549") && d.length === 12) d = "549" + d.slice(2); }
+else { d = d.replace(/^0/, ""); if (d.length === 10) d = "549" + d; else return null; }
+const msg = "Hola" + (p.nombre ? " " + p.nombre : "") + "! 💛 Te escribimos de Esencia Perfumeria por tu pedido" + (p.orderId ? " " + p.orderId : "") + ". Ya lo tenemos y queremos coordinar el envio. Gracias por tu compra!";
+return "https://wa.me/" + d + "?text=" + encodeURIComponent(msg);
+};
 const [pedidosSearch, setPedidosSearch] = useState("");
 const [pedidosFilterMedio, setPedidosFilterMedio] = useState("todos");
 const pedidosFiltrados = useMemo(() => {
 const normalizar = (s) => (s || "").toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const q = normalizar(pedidosSearch.trim());
 return pedidos.filter(p => {
-if (pedidosFilterMedio !== "todos" && getPedidoMedioKey(p) !== pedidosFilterMedio) return false;
+if (pedidosFilterMedio === "sin_gestionar") { if (!pedidoSinGestionar(p)) return false; }
+else if (pedidosFilterMedio !== "todos" && getPedidoMedioKey(p) !== pedidosFilterMedio) return false;
 if (q && !normalizar(p.nombre || "").includes(q)) return false;
 return true;
 });
@@ -1115,6 +1140,9 @@ nombre: pending.customerName,
 direccion: pending.customerAddress,
 telefono: pending.customerPhone || null,
 esRegalo: !!pending.isGift,
+giftMensaje: pending.isGift ? (pending.giftMessage || "") : "",
+ocultarPrecioRegalo: !!(pending.isGift && pending.hideGiftPrice),
+envoltorio: !!(pending.isGift && pending.giftWrap),
 cuponCodigo: pending.promoCode || null,
 orderId: pending.orderId || null,
 createdAt: serverTimestamp(),
@@ -3237,6 +3265,21 @@ return (
 <div style={S.adminWrap}>
 <h2 style={{ color: "#d4af37", marginBottom: "24px", fontFamily: "'Playfair Display', serif" }}>Panel de Administracion</h2>
 {(() => {
+const sinGestionar = pedidos.filter(pedidoSinGestionar);
+if (sinGestionar.length === 0) return null;
+return (
+<div style={{ background: "#2a2210", border: "1px solid #d4af37", borderRadius: "10px", padding: "14px 18px", marginBottom: "24px", display: "flex", gap: "14px", alignItems: "center", flexWrap: "wrap" }}>
+<div style={{ flex: 1, minWidth: "220px", color: "#fff" }}>
+<strong style={{ color: "#d4af37" }}>🔔 {sinGestionar.length} pedido{sinGestionar.length > 1 ? "s" : ""} pagado{sinGestionar.length > 1 ? "s" : ""} sin gestionar</strong>
+<div style={{ fontSize: "13px", color: "#bdbdbd" }}>Última compra: {sinGestionar[0].nombre || "Sin nombre"} · {formatPrice(sinGestionar[0].total)}</div>
+</div>
+<button onClick={() => { setPedidosFilterMedio("sin_gestionar"); const el = document.getElementById("pedidos-recientes"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }} style={{ ...S.btn, padding: "10px 16px" }}>Ver pedidos</button>
+<button onClick={marcarTodosGestionados} style={{ ...S.btnOutline, padding: "10px 16px" }}>Marcar todos como gestionados</button>
+</div>
+);
+})()}
+
+{(() => {
 const bf = bannerForm || { bannerEnabled: (bannerConfig && bannerConfig.bannerEnabled) || false, bannerTexto: (bannerConfig && bannerConfig.bannerTexto) || "", bannerLink: (bannerConfig && bannerConfig.bannerLink) || "", bannerCtaLabel: (bannerConfig && bannerConfig.bannerCtaLabel) || "", bannerFechaObjetivo: (bannerConfig && bannerConfig.bannerFechaObjetivo) || "" };
 return (
 <div style={{ ...S.adminCard, marginBottom: "24px" }}>
@@ -4008,8 +4051,8 @@ return ventasStats.ventasPorMes.map((m, i) => (
 )}
 </div>
 <div style={{ marginTop: "40px" }}>
-<h2 style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>📋 Pedidos recientes</h2>
-<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Se registran los pedidos pagados y confirmados con Mercado Pago, y los que se mandaron por WhatsApp para pagar con transferencia o efectivo (estos ultimos quedan como "enviado": todavia no confirman que el pago se haya recibido de verdad, eso lo coordinas vos por WhatsApp).</p>
+<h2 id="pedidos-recientes" style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>📋 Pedidos recientes</h2>
+<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Se registran los pedidos pagados y confirmados con Nave o Mercado Pago, y los que se mandaron por WhatsApp para pagar con transferencia o efectivo (estos ultimos quedan como "enviado": todavia no confirman que el pago se haya recibido de verdad, eso lo coordinas vos por WhatsApp).</p>
 {pedidos.length > 0 && (
 <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "16px" }}>
 <div style={{ ...S.adminCard, flex: "1 1 160px" }}>
@@ -4027,6 +4070,8 @@ return ventasStats.ventasPorMes.map((m, i) => (
 <input type="text" value={pedidosSearch} onChange={e => setPedidosSearch(e.target.value)} placeholder="Buscar por nombre de cliente..." style={{ ...S.input, flex: "1 1 220px" }} />
 <select value={pedidosFilterMedio} onChange={e => setPedidosFilterMedio(e.target.value)} style={{ ...S.input, flex: "0 1 180px" }}>
 <option value="todos">Todos los medios</option>
+<option value="sin_gestionar">🔔 Pagados sin gestionar</option>
+<option value="nave">Nave (tarjeta/QR/cuotas)</option>
 <option value="mercadopago">Mercado Pago</option>
 <option value="transferencia">Transferencia</option>
 <option value="efectivo">Efectivo</option>
@@ -4040,16 +4085,69 @@ return ventasStats.ventasPorMes.map((m, i) => (
 <p style={{ color: "#9a9a9a" }}>Ningun pedido coincide con la busqueda/filtro.</p>
 ) : (
 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-{pedidosFiltrados.map(p => (
-<div key={p.id} style={{ ...S.adminCard, padding: "14px 18px", display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
+{pedidosFiltrados.map(p => {
+const nuevo = pedidoSinGestionar(p);
+const abierto = p.id in pedidoAbierto ? pedidoAbierto[p.id] : nuevo;
+const wa = waLinkCliente(p);
+const items = p.items || [];
+const subtotalItems = items.reduce((a, it) => a + (Number(it.precio) || 0) * (Number(it.qty) || 0), 0);
+const fecha = p.createdAt && p.createdAt.toDate ? p.createdAt.toDate().toLocaleString("es-AR") : "";
+const fila = (label, valor) => valor ? (<div style={{ display: "flex", gap: "8px", fontSize: "13.5px", marginBottom: "4px", flexWrap: "wrap" }}><span style={{ color: "#9a9a9a", minWidth: "92px" }}>{label}</span><span style={{ color: "#fff", flex: 1, wordBreak: "break-word" }}>{valor}</span></div>) : null;
+return (
+<div key={p.id} style={{ ...S.adminCard, padding: "14px 18px", border: nuevo ? "1px solid #d4af37" : S.adminCard.border }}>
+<div onClick={() => togglePedidoAbierto(p.id, nuevo)} style={{ display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap", cursor: "pointer" }}>
 <div style={{ flex: 1, minWidth: "180px" }}>
-<strong>{p.nombre || "Sin nombre"}</strong>
-<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{(p.items || []).length} producto(s) · {p.createdAt && p.createdAt.toDate ? p.createdAt.toDate().toLocaleString("es-AR") : ""}</div>
+<strong>{nuevo && <span style={{ background: "#d4af37", color: "#0b0b0b", fontSize: "11px", fontWeight: 800, borderRadius: "10px", padding: "2px 8px", marginRight: "8px" }}>NUEVO</span>}{p.nombre || "Sin nombre"}</strong>
+<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{items.length} producto(s) · {fecha}</div>
 </div>
-<span style={{ fontSize: "12px", fontWeight: "700", color: p.origen === "mercadopago" ? "#9ddb9d" : "#e0b84a", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "4px 10px" }}>{getPedidoMedioLabel(p)}</span>
+<span style={{ fontSize: "12px", fontWeight: "700", color: p.estado === "pagado" ? "#9ddb9d" : "#e0b84a", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "4px 10px" }}>{p.estado === "pagado" ? "✅ Pagado" : "📨 Enviado"}</span>
+<span style={{ fontSize: "12px", fontWeight: "700", color: p.origen === "mercadopago" || p.origen === "nave" ? "#9ddb9d" : "#e0b84a", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "4px 10px" }}>{getPedidoMedioLabel(p)}</span>
 <strong style={{ color: "#d4af37" }}>{formatPrice(p.total)}</strong>
+<span style={{ color: "#9a9a9a", fontSize: "13px" }}>{abierto ? "▲" : "▼ Ver detalle"}</span>
+</div>
+{abierto && (
+<div style={{ marginTop: "14px", paddingTop: "14px", borderTop: "1px solid #2b2b2b", display: "flex", gap: "24px", flexWrap: "wrap" }}>
+<div style={{ flex: "1 1 260px" }}>
+<div style={{ color: "#d4af37", fontWeight: 700, fontSize: "13px", marginBottom: "8px" }}>👤 DATOS DEL CLIENTE</div>
+{fila("Nombre", p.nombre)}
+{fila("Teléfono", p.telefono)}
+{fila("Dirección", p.direccion)}
+{fila("Referencia", p.referencia)}
+{fila("Pedido N°", p.orderId || p.id)}
+{wa && <a href={wa} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: "8px", background: "#25D366", color: "#fff", padding: "9px 14px", borderRadius: "6px", textDecoration: "none", fontSize: "13px", fontWeight: 700 }}>💬 Escribirle por WhatsApp</a>}
+{!wa && p.telefono && <div style={{ color: "#bdbdbd", fontSize: "12px", marginTop: "6px" }}>Revisá el formato del teléfono para abrir WhatsApp.</div>}
+{p.esRegalo && (
+<div style={{ marginTop: "10px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px 12px", fontSize: "13px" }}>
+<div style={{ color: "#d4af37", fontWeight: 700, marginBottom: "4px" }}>🎁 Es un regalo</div>
+{p.giftMensaje && <div style={{ color: "#fff" }}>Mensaje: "{p.giftMensaje}"</div>}
+{p.ocultarPrecioRegalo && <div style={{ color: "#e0b84a" }}>No mostrar el precio en el paquete</div>}
+{p.envoltorio && <div style={{ color: "#fff" }}>Con envoltorio de regalo</div>}
+</div>
+)}
+</div>
+<div style={{ flex: "1 1 300px" }}>
+<div style={{ color: "#d4af37", fontWeight: 700, fontSize: "13px", marginBottom: "8px" }}>🛍️ PEDIDO</div>
+{items.map((it, i) => (
+<div key={i} style={{ display: "flex", justifyContent: "space-between", gap: "12px", fontSize: "13.5px", padding: "5px 0", borderBottom: "1px dashed #2b2b2b" }}>
+<span style={{ color: "#fff" }}>{it.qty} × {it.nombre}</span>
+<span style={{ color: "#bdbdbd", whiteSpace: "nowrap" }}>{formatPrice((Number(it.precio) || 0) * (Number(it.qty) || 0))}</span>
 </div>
 ))}
+<div style={{ marginTop: "10px", fontSize: "13.5px" }}>
+{subtotalItems > 0 && Math.round(subtotalItems) !== Math.round(Number(p.total) || 0) && (<div style={{ display: "flex", justifyContent: "space-between", color: "#bdbdbd" }}><span>Subtotal</span><span>{formatPrice(subtotalItems)}</span></div>)}
+{p.cuponCodigo && (<div style={{ display: "flex", justifyContent: "space-between", color: "#bdbdbd" }}><span>Cupón</span><span>{p.cuponCodigo}</span></div>)}
+{subtotalItems > 0 && Math.round(subtotalItems) > Math.round(Number(p.total) || 0) && (<div style={{ display: "flex", justifyContent: "space-between", color: "#9ddb9d" }}><span>Descuentos</span><span>-{formatPrice(subtotalItems - (Number(p.total) || 0))}</span></div>)}
+<div style={{ display: "flex", justifyContent: "space-between", color: "#d4af37", fontWeight: 800, fontSize: "16px", marginTop: "6px" }}><span>Total</span><span>{formatPrice(p.total)}</span></div>
+</div>
+{p.estado === "pagado" && (
+<button onClick={() => setPedidoGestionado(p.id, !p.gestionado)} style={{ ...(p.gestionado ? S.btnOutline : S.btn), marginTop: "14px", width: "100%", padding: "10px" }}>{p.gestionado ? "↩️ Volver a marcar como sin gestionar" : "✓ Marcar como gestionado (ya lo contacté)"}</button>
+)}
+</div>
+</div>
+)}
+</div>
+);
+})}
 </div>
 )}
 </div>
