@@ -109,6 +109,13 @@ export default async function handler(req, res) {
           nombre: buyerName,
           telefono: body.buyer && body.buyer.phone ? String(body.buyer.phone).slice(0, 30) : null,
           direccion: body.buyer && body.buyer.address ? String(body.buyer.address).slice(0, 150) : "",
+          extra: {
+            promoCode: body.promoCode ? String(body.promoCode).slice(0, 40) : "",
+            isGift: !!(body.extra && body.extra.isGift),
+            giftMessage: body.extra && body.extra.giftMessage ? String(body.extra.giftMessage).slice(0, 300) : "",
+            hideGiftPrice: !!(body.extra && body.extra.hideGiftPrice),
+            giftWrap: !!(body.extra && body.extra.giftWrap),
+          },
           env,
           paymentRequestId: data.id || null,
           createdAt: new Date(),
