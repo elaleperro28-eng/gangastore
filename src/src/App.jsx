@@ -27,6 +27,55 @@ if (!authModPromise) authModPromise = import("firebase/auth");
 return authModPromise;
 };
 
+// Lecturas baratas para los visitantes: el catalogo, las resenas, las notas, los
+// cupones y los combos se piden a /api/catalog (copia cacheada en la red de
+// Vercel). Asi miles de visitas no gastan el cupo diario de lecturas de Firebase.
+// Solo el admin usa los listeners en vivo (onSnapshot). Si el pedido falla, la
+// pagina cae al listener en vivo como siempre.
+const hidratarFila = (row) => {
+const out = { ...row };
+["createdAt", "updatedAt"].forEach((k) => {
+const v = out[k];
+if (typeof v === "string") { const d = new Date(v); out[k] = { seconds: Math.floor(d.getTime() / 1000), toDate: () => d, toMillis: () => d.getTime() }; }
+});
+return out;
+};
+const pedirColeccionPublica = async (col) => {
+const r = await fetch("/api/catalog?col=" + col);
+if (!r.ok) throw new Error("catalog " + r.status);
+const rows = await r.json();
+if (!Array.isArray(rows)) throw new Error("catalog formato");
+return rows.map(hidratarFila);
+};
+// Efecto reutilizable: publico = fetch cacheado (se refresca cada 10 min), admin = en vivo.
+const suscribirColeccion = (col, isAdmin, onRows, onDone) => {
+let cancelado = false;
+let unsub = null;
+let timer = null;
+const vivo = () => {
+if (unsub) return;
+unsub = onSnapshot(query(collection(db, col), orderBy("createdAt", "desc")), (snap) => {
+if (cancelado) return;
+onRows(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+if (onDone) onDone();
+}, (e) => console.error("LISTENER_ERROR", col, e));
+};
+if (isAdmin) { vivo(); return () => { cancelado = true; if (unsub) unsub(); }; }
+const cargar = async () => {
+try {
+const rows = await pedirColeccionPublica(col);
+if (cancelado) return;
+onRows(rows);
+if (onDone) onDone();
+} catch (e) {
+if (!cancelado) { console.error("CATALOG_FETCH_ERROR", col, e); if (timer) { clearInterval(timer); timer = null; } vivo(); }
+}
+};
+cargar();
+timer = setInterval(cargar, 600000);
+return () => { cancelado = true; if (timer) clearInterval(timer); if (unsub) unsub(); };
+};
+
 // SEGURIDAD: el panel de administracion ahora se protege con Firebase Authentication
 // (el mismo sistema de cuentas que ya usan los clientes para sumar puntos), en vez de
 // una contrasena fija escrita en el codigo. Eso evita que cualquiera que abra el codigo
@@ -550,41 +599,25 @@ if (qty > 0) showToast("Tenes " + qty + (qty === 1 ? " producto guardado en tu c
 }, []);
 
 useEffect(() => {
-const q = query(collection(db, "productos"), orderBy("createdAt", "desc"));
-const unsub = onSnapshot(q, (snap) => {
-setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setProductsLoading(false);
-});
-return () => unsub();
-}, []);
+return suscribirColeccion("productos", isAdmin, setProducts, () => setProductsLoading(false));
+}, [isAdmin]);
 
 useEffect(() => {
-const q2 = query(collection(db, "resenas"), orderBy("createdAt", "desc"));
-const unsub2 = onSnapshot(q2, (snap) => {
-setResenas(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-});
-return () => unsub2();
-}, []);
+return suscribirColeccion("resenas", isAdmin, setResenas);
+}, [isAdmin]);
 
 // Se cargan todas las notas (publicadas y borradores): el panel admin
 // necesita ver los borradores, y las vistas publicas filtran por
 // "publicado" al mostrarlas (mismo criterio que resenas con su "estado").
 useEffect(() => {
-const qBlog = query(collection(db, "blogPosts"), orderBy("createdAt", "desc"));
-const unsubBlog = onSnapshot(qBlog, (snap) => {
-setBlogPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-}, (e) => console.error("BLOG_LIST_ERROR", e));
-return () => unsubBlog();
-}, []);
+return suscribirColeccion("blogPosts", isAdmin, setBlogPosts);
+}, [isAdmin]);
 
 // Cupones de descuento: se cargan para todos (no solo el admin) porque el
 // carrito del cliente los necesita para validar el codigo que ingresa.
 useEffect(() => {
-const qCupones = query(collection(db, "cupones"), orderBy("createdAt", "desc"));
-const unsubCupones = onSnapshot(qCupones, (snap) => {
-setCupones(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-}, (e) => console.error("CUPONES_LOAD_ERROR", e));
-return () => unsubCupones();
-}, []);
+return suscribirColeccion("cupones", isAdmin, setCupones);
+}, [isAdmin]);
 
 // Los avisos de stock incluyen el WhatsApp del cliente, asi que solo se cargan
 // cuando el admin esta logueado (evita exponer telefonos ajenos al resto de las visitas).
@@ -645,14 +678,14 @@ return () => unsubPedidos();
 }, [isAdmin]);
 const [nuevoPedidoAviso, setNuevoPedidoAviso] = useState("");
 
-// Mientras el panel esta abierto, revisa con Nave cada minuto si hay pagos
+// Mientras el panel esta abierto, revisa con Nave cada 5 minutos si hay pagos
 // acreditados que todavia no se registraron (red de seguridad por si Nave no
 // llega a avisar). Es seguro repetirlo: nunca duplica pedidos.
 useEffect(() => {
 if (!(isAdmin && page === "admin")) return;
 const correr = () => { fetch("/api/nave-reconciliar").catch(() => {}); };
 correr();
-const t = setInterval(correr, 60000);
+const t = setInterval(correr, 300000);
 return () => clearInterval(t);
 }, [isAdmin, page]);
 
@@ -868,12 +901,8 @@ return () => { unsubBanner(); unsubCatalogOrder(); unsubPerfumeCombo(); };
 // Combos armados a mano (packs de productos con precio especial): publicos,
 // cualquiera los puede ver en el catalogo, solo el admin los crea/edita.
 useEffect(() => {
-const qCombos = query(collection(db, "combos"), orderBy("createdAt", "desc"));
-const unsubCombos = onSnapshot(qCombos, (snap) => {
-setCombos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-}, (e) => console.error("COMBOS_LOAD_ERROR", e));
-return () => unsubCombos();
-}, []);
+return suscribirColeccion("combos", isAdmin, setCombos);
+}, [isAdmin]);
 
 useEffect(() => {
 if (products.length > 0) {
