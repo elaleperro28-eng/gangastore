@@ -623,11 +623,38 @@ const popupContacts = newsletterSubs.filter(s => s.telefono);
 useEffect(() => {
 if (!isAdmin) { setPedidos([]); return; }
 const qPedidos = query(collection(db, "pedidos"), orderBy("createdAt", "desc"), limit(500));
+let primeraCarga = true;
+const conocidos = new Set();
 const unsubPedidos = onSnapshot(qPedidos, (snap) => {
 setPedidos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+// Aviso en vivo: cuando entra un pedido nuevo con el panel abierto suena un
+// aviso y aparece el cartel. (La primera carga no avisa: son los de antes.)
+const nuevos = snap.docs.filter(d => !conocidos.has(d.id));
+snap.docs.forEach(d => conocidos.add(d.id));
+if (primeraCarga) { primeraCarga = false; return; }
+const recien = nuevos.filter(d => !d.metadata.hasPendingWrites).map(d => d.data()).filter(p => p.estado === "pagado");
+if (recien.length === 0) return;
+try {
+const Ctx = window.AudioContext || window.webkitAudioContext;
+if (Ctx) { const ac = new Ctx(); [0, 0.22].forEach((t, i) => { const o = ac.createOscillator(); const g = ac.createGain(); o.frequency.value = i ? 1175 : 880; g.gain.value = 0.15; o.connect(g); g.connect(ac.destination); o.start(ac.currentTime + t); o.stop(ac.currentTime + t + 0.18); }); }
+} catch (e) {}
+setNuevoPedidoAviso(recien[0].nombre ? "🔔 Nuevo pedido pagado: " + recien[0].nombre : "🔔 Nuevo pedido pagado");
+setTimeout(() => setNuevoPedidoAviso(""), 15000);
 }, (e) => console.error("PEDIDOS_LOAD_ERROR", e));
 return () => unsubPedidos();
 }, [isAdmin]);
+const [nuevoPedidoAviso, setNuevoPedidoAviso] = useState("");
+
+// Mientras el panel esta abierto, revisa con Nave cada minuto si hay pagos
+// acreditados que todavia no se registraron (red de seguridad por si Nave no
+// llega a avisar). Es seguro repetirlo: nunca duplica pedidos.
+useEffect(() => {
+if (!(isAdmin && page === "admin")) return;
+const correr = () => { fetch("/api/nave-reconciliar").catch(() => {}); };
+correr();
+const t = setInterval(correr, 60000);
+return () => clearInterval(t);
+}, [isAdmin, page]);
 
 // Rango de fechas elegido para el Dashboard de ventas (botones Hoy/7 dias/30
 // dias/Todo). Afecta las tarjetas de totales, el % de variacion contra el
@@ -3264,6 +3291,9 @@ return (
 </div>
 <div style={S.adminWrap}>
 <h2 style={{ color: "#d4af37", marginBottom: "24px", fontFamily: "'Playfair Display', serif" }}>Panel de Administracion</h2>
+{nuevoPedidoAviso && (
+<div style={{ background: "#d4af37", color: "#0b0b0b", fontWeight: 800, borderRadius: "10px", padding: "14px 18px", marginBottom: "16px" }}>{nuevoPedidoAviso}</div>
+)}
 {(() => {
 const sinGestionar = pedidos.filter(pedidoSinGestionar);
 if (sinGestionar.length === 0) return null;
