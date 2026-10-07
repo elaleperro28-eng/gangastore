@@ -18,8 +18,9 @@ const MAX = 30;
 let lastRun = 0;
 let lastResult = null;
 
+let lastCheckError = "";
 async function check(fn) {
-  try { await fn(); return true; } catch (e) { return false; }
+  try { await fn(); return true; } catch (e) { lastCheckError = String((e && e.message) || e).slice(0, 400); return false; }
 }
 
 export default async function handler(req, res) {
@@ -50,6 +51,7 @@ export default async function handler(req, res) {
     config.firebaseConecta = await check(async () => { pendientes = await listDocs("navePedidosPendientes", 60); });
     if (!config.firebaseConecta) {
       out.error = "No se pudo conectar a Firebase con la clave cargada. Revisa que sea la clave completa del proyecto gangastore.";
+      out.detalleTecnico = lastCheckError;
       res.status(200).json(out);
       return;
     }
