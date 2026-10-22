@@ -1049,6 +1049,27 @@ return () => unsub6();
 // selectedProduct -> "?p=", lo borre al ver selectedProduct en null al montar).
 const deepLinkTriedRef = useRef(false);
 const initialDeepLinkPidRef = useRef(new URLSearchParams(window.location.search).get("p"));
+// Links tipo "/?filtro=tendenciasverano2027" (por ejemplo desde el banner):
+// abren la tienda con ese filtro aplicado y bajan hasta los productos.
+const irAFiltroTienda = (f) => {
+if (!/^[a-z0-9_]{1,40}$/.test(String(f || ""))) return false;
+setPage("home");
+setSelectedProduct(null);
+setFilter(f);
+setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 500);
+return true;
+};
+useEffect(() => {
+try {
+const url = new URL(window.location.href);
+const f = url.searchParams.get("filtro");
+if (!f) return;
+url.searchParams.delete("filtro");
+window.history.replaceState({}, "", url.pathname + (url.search || "") + url.hash);
+irAFiltroTienda(f);
+} catch {}
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 useEffect(() => {
 if (deepLinkTriedRef.current || products.length === 0) return;
 deepLinkTriedRef.current = true;
@@ -4525,7 +4546,7 @@ const mins = Math.floor((diff % 3600000) / 60000);
 return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10px", borderRadius: "6px", fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>{days > 0 ? days + "d " : ""}{hours}h {mins}m</span>;
 })()}
 {bannerConfig.bannerLink && (
-<a href={bannerConfig.bannerLink} target="_blank" rel="noreferrer" style={{ color: "#0b0b0b", textDecoration: "underline", fontWeight: 800 }}>{bannerConfig.bannerCtaLabel || "Ver mas"}</a>
+<a href={bannerConfig.bannerLink} target={/^(https?:)?\/\//i.test(bannerConfig.bannerLink) && !/esenciaperfumeria\.com\.ar/i.test(bannerConfig.bannerLink) ? "_blank" : undefined} rel="noreferrer" onClick={(e) => { try { const u = new URL(bannerConfig.bannerLink, window.location.origin); if (u.origin === window.location.origin || /(^|\.)esenciaperfumeria\.com\.ar$/i.test(u.hostname)) { const f = u.searchParams.get("filtro"); if (f && irAFiltroTienda(f)) e.preventDefault(); } } catch {} }} style={{ color: "#0b0b0b", textDecoration: "underline", fontWeight: 800 }}>{bannerConfig.bannerCtaLabel || "Ver mas"}</a>
 )}
 <button onClick={() => { setBannerDismissed(true); try { sessionStorage.setItem("esenciaBannerDismissed", "1"); } catch {} }} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: "#0b0b0b", fontSize: "17px", cursor: "pointer", padding: "4px", lineHeight: 1 }} aria-label="Cerrar banner">✕</button>
 </div>
