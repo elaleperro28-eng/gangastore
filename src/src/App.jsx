@@ -4597,12 +4597,14 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <span style={S.heroTrustBadge}>✔ 100% Originales</span>
 <span style={S.heroTrustBadge}>🚚 Envío gratis en Bahía Blanca</span>
 <span style={S.heroTrustBadge}>📦 Envíos a todo el país</span>
+<span style={S.heroTrustBadge}>💳 Tarjetas de crédito y débito</span>
 {avgRating && <span style={S.heroTrustBadge}>★ {avgRating} · {reviewCount} {reviewCount === 1 ? "opinión verificada" : "opiniones verificadas"}</span>}
 </div>
 <div style={S.heroBtnRow} className="gs-hero-btn-row">
 <button className="gs-hero-btn-primary" style={S.heroBtnPrimary} onClick={() => { setFilter("perfumes"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }}>Ver Perfumes</button>
 <button className="gs-hero-btn-secondary" style={S.heroBtnSecondary} onClick={() => { setQuizStep(0); setQuizAnswers({ genero: "", ocasion: "", aroma: "", tipo: "" }); setShowQuiz(true); }}>🧭 Elegí según tu personalidad</button>
 </div>
+<a href="https://g.page/r/CScG6muOuscUEBM/review" target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: "18px", color: "#d4af37", fontSize: "13.5px", fontWeight: 700, textDecoration: "underline", textUnderlineOffset: "3px", letterSpacing: "0.2px" }}>⭐ ¿Ya compraste con nosotros? Dejá tu reseña en Google</a>
 </div>
 <div className="gs-hero-scroll" style={S.heroScrollCue}>↓</div>
 </div>
