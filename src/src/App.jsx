@@ -91,7 +91,8 @@ return () => { cancelado = true; if (timer) clearInterval(timer); if (unsub) uns
 //    panel se ve mas seguro pero la base de datos todavia queda abierta por detras.
 const ADMIN_EMAIL = "elaleperro28@gmail.com";
 const BANK_TRANSFER_INFO = { banco: "Banco Galicia", titular: "Alejo Francisco Ciulo", cuil: "20-46743275-4", cbu: "0070082530004087084624", alias: "esencia.bahia" };
-const FREE_SHIPPING_THRESHOLD = 150000;
+// Compras desde este monto en productos: neceser de regalo (el envio gratis queda solo para Bahia Blanca).
+const NECESER_THRESHOLD = 150000;
 const DECANT_COMBO_MIN = 3;
 const DECANT_COMBO_DISCOUNT_PCT = 0.05;
 // Integracion con Nave (Banco Galicia) probada en Sandbox y en Produccion:
@@ -1205,6 +1206,7 @@ nombre: pending.customerName,
 direccion: pending.customerAddress,
 telefono: pending.customerPhone || null,
 esRegalo: !!pending.isGift,
+neceserRegalo: !!pending.neceserRegalo,
 cuponCodigo: pending.promoCode || null,
 orderId: pending.orderId || null,
 createdAt: serverTimestamp(),
@@ -1289,6 +1291,7 @@ nombre: pending.customerName,
 direccion: pending.customerAddress,
 telefono: pending.customerPhone || null,
 esRegalo: !!pending.isGift,
+neceserRegalo: !!pending.neceserRegalo,
 giftMensaje: pending.isGift ? (pending.giftMessage || "") : "",
 ocultarPrecioRegalo: !!(pending.isGift && pending.hideGiftPrice),
 envoltorio: !!(pending.isGift && pending.giftWrap),
@@ -2485,8 +2488,8 @@ const perfumeComboMin = (perfumeComboConfig && Number(perfumeComboConfig.minCant
 const perfumeComboPct = (perfumeComboConfig && Number(perfumeComboConfig.descuentoPct)) || 0;
 const perfumeComboActive = !!(perfumeComboConfig && perfumeComboConfig.activo) && perfumeComboQty >= perfumeComboMin && perfumeComboPct > 0;
 const perfumeComboDiscount = perfumeComboActive ? Math.round(perfumeComboSubtotal * perfumeComboPct / 100) : 0;
-const freeShippingRemaining = Math.max(FREE_SHIPPING_THRESHOLD - totalCart, 0);
-const freeShippingReached = freeShippingRemaining <= 0 && totalCart > 0;
+const neceserRemaining = Math.max(NECESER_THRESHOLD - totalCart, 0);
+const neceserReached = neceserRemaining <= 0 && totalCart > 0;
 // Cupones de descuento reales: se buscan por codigo (coleccion "cupones", id = el
 // codigo en mayusculas) y se valida que esten activos, no vencidos y que la compra
 // llegue al minimo exigido. motivo describe por que NO se aplico (o null si se aplico).
@@ -2582,7 +2585,7 @@ const orderId = "EP" + Date.now().toString(36).toUpperCase();
 try {
 localStorage.setItem("mpPedidoPendiente", JSON.stringify({
 orderId, cartUsed, customerName: customerName.trim(), customerAddress: composeAddress(),
-promoCode, customerPhone: customerPhone.trim(), isGift, giftMessage, hideGiftPrice, giftWrap, totalAEnviar,
+promoCode, customerPhone: customerPhone.trim(), isGift, giftMessage, hideGiftPrice, giftWrap, totalAEnviar, neceserRegalo: totalCartUsed >= NECESER_THRESHOLD,
 }));
 } catch (e) {}
 const resp = await fetch("/api/create-preference", {
@@ -2644,7 +2647,7 @@ if (!resp.ok || !data.checkout_url) throw new Error((data && data.error) || "No 
 try {
 localStorage.setItem("navePedidoPendiente", JSON.stringify({
 orderId, paymentRequestId: data.payment_request_id, cartUsed, customerName: customerName.trim(), customerAddress: composeAddress(),
-promoCode, customerPhone: customerPhone.trim(), isGift, giftMessage, hideGiftPrice, giftWrap, totalAEnviar,
+promoCode, customerPhone: customerPhone.trim(), isGift, giftMessage, hideGiftPrice, giftWrap, totalAEnviar, neceserRegalo: totalCartUsed >= NECESER_THRESHOLD,
 }));
 } catch (e) {}
 return data.checkout_url;
@@ -2707,7 +2710,7 @@ msg += " - Mi telefono: " + customerPhone.trim();
 if (isGift) msg += " - Es un regalo" + (giftMessage.trim() ? (": \"" + giftMessage.trim() + "\"") : "") + (hideGiftPrice ? " (IMPORTANTE: no mostrar el precio en el paquete)" : "") + (giftWrap ? " - Con envoltorio de regalo (sin costo)" : "");
 if (paymentMethod === "transferencia") msg += " - Pago por transferencia bancaria (ya envio el comprobante por este chat)";
 else if (paymentMethod === "efectivo") msg += " - Pago en efectivo al momento de la entrega";
-if (totalCartUsed >= FREE_SHIPPING_THRESHOLD) msg += " - Envio gratis a todo el pais (el pedido supera $" + FREE_SHIPPING_THRESHOLD.toLocaleString("es-CL") + ")";
+if (totalCartUsed >= NECESER_THRESHOLD) msg += " - 🎁 Corresponde neceser de regalo (el pedido supera $" + NECESER_THRESHOLD.toLocaleString("es-CL") + ")";
 let usedDiscount = 0;
 const decantLinesUsed = cartUsed.filter(i => i.isDecant);
 const decantComboCountUsed = new Set(decantLinesUsed.map(i => i.id.split("_decant")[0])).size;
@@ -2819,6 +2822,7 @@ localidad: customerLocality.trim(),
 referencia: customerReference.trim() || null,
 telefono: customerPhone.trim(),
 esRegalo: !!isGift,
+neceserRegalo: totalCartUsed >= NECESER_THRESHOLD,
 uid: user ? user.uid : null,
 orderId,
 createdAt: serverTimestamp(),
@@ -3061,7 +3065,7 @@ const SkeletonCard = () => (
 
 const assistantFaqs = [
 { q: "Como comprar", a: "Elegi el producto que te guste, toca 'Agregar al Carrito' y despues 'Pedir por WhatsApp' para confirmar el pedido. Asi de facil!" },
-{ q: "Envios", a: "Hacemos envio gratis dentro de Bahia Blanca. Tambien enviamos a todo el pais, coordinando el costo por WhatsApp." },
+{ q: "Envios", a: "Hacemos envio gratis dentro de Bahia Blanca. Tambien enviamos a todo el pais, coordinando el costo por WhatsApp. En compras desde $150.000 en productos te llevas un neceser de regalo." },
 { q: "Formas de pago", a: "Coordinamos la forma de pago (efectivo, transferencia, etc.) directamente por WhatsApp para confirmarte todas las opciones disponibles." },
 { q: "Stock y por pedido", a: "Los productos 'En Stock' se entregan de inmediato. Los que dicen 'Por Pedido' muestran en su tarjeta cuantos dias habiles tardan en llegar." },
 { q: "No encuentro lo que busco", a: "No hay problema! Si no encontras la fragancia que buscas, escribinos por WhatsApp contandonos que necesitas y te ayudamos a conseguirla o pedirla especialmente para vos." },
@@ -3834,6 +3838,9 @@ return (
 {fila("Pedido N°", p.orderId || p.id)}
 {wa && <a href={wa} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: "8px", background: "#25D366", color: "#fff", padding: "9px 14px", borderRadius: "6px", textDecoration: "none", fontSize: "13px", fontWeight: 700 }}>💬 Escribirle por WhatsApp</a>}
 {!wa && p.telefono && <div style={{ color: "#bdbdbd", fontSize: "12px", marginTop: "6px" }}>Revisá el formato del teléfono para abrir WhatsApp.</div>}
+{p.neceserRegalo && (
+<div style={{ marginTop: "10px", background: "#2a2210", border: "1px solid #d4af37", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#d4af37", fontWeight: 700 }}>🎁 Incluir neceser de regalo (compra desde {formatPrice(NECESER_THRESHOLD)})</div>
+)}
 {p.esRegalo && (
 <div style={{ marginTop: "10px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px 12px", fontSize: "13px" }}>
 <div style={{ color: "#d4af37", fontWeight: 700, marginBottom: "4px" }}>🎁 Es un regalo</div>
@@ -4950,6 +4957,7 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <span style={S.heroTrustBadge}>✔ 100% Originales</span>
 <span style={S.heroTrustBadge}>🚚 Envío gratis en Bahía Blanca</span>
 <span style={S.heroTrustBadge}>📦 Envíos a todo el país</span>
+<span style={S.heroTrustBadge}>🎁 Neceser de regalo desde $150.000</span>
 <span style={S.heroTrustBadge}>💳 Tarjetas de crédito y débito</span>
 {avgRating && <span style={S.heroTrustBadge}>★ {avgRating} · {reviewCount} {reviewCount === 1 ? "opinión verificada" : "opiniones verificadas"}</span>}
 </div>
@@ -5665,15 +5673,15 @@ return pdpPhotos.length > 1 && (
 ) : (
 <>
 <div style={{ background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "12px 14px", marginBottom: "16px" }}>
-<div style={{ fontSize: "13px", color: freeShippingReached ? "#7ea87a" : "#e8ddc0", marginBottom: "8px" }}>
-{freeShippingReached
-? "✅ Tenes envio gratis a todo el pais en este pedido"
-: <>🚚 Te faltan <strong style={{ color: "#d4af37" }}>{formatPrice(freeShippingRemaining)}</strong> para envio gratis a todo el pais</>}
+<div style={{ fontSize: "13px", color: neceserReached ? "#7ea87a" : "#e8ddc0", marginBottom: "8px" }}>
+{neceserReached
+? "🎁 ¡Listo! Te llevás un neceser de regalo con este pedido"
+: <>🎁 Te faltan <strong style={{ color: "#d4af37" }}>{formatPrice(neceserRemaining)}</strong> para llevarte un neceser de regalo</>}
 </div>
 <div style={{ height: "6px", background: "#2b2b2b", borderRadius: "3px", overflow: "hidden" }}>
-<div style={{ height: "100%", width: Math.min(100, (totalCart / FREE_SHIPPING_THRESHOLD) * 100) + "%", background: freeShippingReached ? "#7ea87a" : "linear-gradient(135deg, #d4af37, #a8842c)", transition: "width .3s" }} />
+<div style={{ height: "100%", width: Math.min(100, (totalCart / NECESER_THRESHOLD) * 100) + "%", background: neceserReached ? "#7ea87a" : "linear-gradient(135deg, #d4af37, #a8842c)", transition: "width .3s" }} />
 </div>
-<div style={{ fontSize: "11px", color: "#8a8a8a", marginTop: "6px" }}>En Bahia Blanca el envio ya es gratis siempre.</div>
+<div style={{ fontSize: "11px", color: "#8a8a8a", marginTop: "6px" }}>Neceser de regalo en compras desde {formatPrice(NECESER_THRESHOLD)}. En Bahia Blanca el envio es gratis siempre.</div>
 </div>
 {decantComboCount > 0 && decantComboCount < DECANT_COMBO_MIN && (
 <div style={{ background: "rgba(212,175,55,0.18)", border: "1px solid #d4af37", borderRadius: "8px", padding: "10px 14px", marginBottom: "16px", fontSize: "13px", color: "#fff3d6", fontWeight: "700" }}>
