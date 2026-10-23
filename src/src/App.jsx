@@ -258,6 +258,11 @@ const [cart, setCart] = useState(() => {
   } catch { return []; }
 });
 const [showCart, setShowCart] = useState(false);
+const [consultaModal, setConsultaModal] = useState(null);
+const [consultaNombre, setConsultaNombre] = useState("");
+const [consultaTelefono, setConsultaTelefono] = useState("");
+const [consultaError, setConsultaError] = useState("");
+const [consultaEnviando, setConsultaEnviando] = useState(false);
 const [adminPass, setAdminPass] = useState("");
 const [adminError, setAdminError] = useState("");
 const [isAdmin, setIsAdmin] = useState(false);
@@ -719,13 +724,13 @@ setPedidos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
 const nuevos = snap.docs.filter(d => !conocidos.has(d.id));
 snap.docs.forEach(d => conocidos.add(d.id));
 if (primeraCarga) { primeraCarga = false; return; }
-const recien = nuevos.filter(d => !d.metadata.hasPendingWrites).map(d => d.data()).filter(p => p.estado === "pagado");
+const recien = nuevos.filter(d => !d.metadata.hasPendingWrites).map(d => d.data()).filter(p => p.estado === "pagado" || p.origen === "consulta_whatsapp");
 if (recien.length === 0) return;
 try {
 const Ctx = window.AudioContext || window.webkitAudioContext;
 if (Ctx) { const ac = new Ctx(); [0, 0.22].forEach((t, i) => { const o = ac.createOscillator(); const g = ac.createGain(); o.frequency.value = i ? 1175 : 880; g.gain.value = 0.15; o.connect(g); g.connect(ac.destination); o.start(ac.currentTime + t); o.stop(ac.currentTime + t + 0.18); }); }
 } catch (e) {}
-setNuevoPedidoAviso(recien[0].nombre ? "🔔 Nuevo pedido pagado: " + recien[0].nombre : "🔔 Nuevo pedido pagado");
+setNuevoPedidoAviso(recien[0].origen === "consulta_whatsapp" ? "💬 Nueva consulta por WhatsApp: " + (recien[0].nombre || "sin nombre") : (recien[0].nombre ? "🔔 Nuevo pedido pagado: " + recien[0].nombre : "🔔 Nuevo pedido pagado"));
 setTimeout(() => setNuevoPedidoAviso(""), 15000);
 }, (e) => console.error("PEDIDOS_LOAD_ERROR", e));
 return () => unsubPedidos();
@@ -760,8 +765,11 @@ const [dashboardRange, setDashboardRange] = useState("30d");
 // a Firestore). Alcanza para un negocio de este tamano; si en el futuro hace
 // falta mas historial, conviene guardar agregados aparte en vez de traer mas
 // pedidos al cliente.
+// Las consultas por WhatsApp no son ventas hasta que las marcas como "Vendido".
+const cuentaComoVenta = (p) => p.origen !== "consulta_whatsapp" || p.estado === "vendido";
+const pedidosVenta = useMemo(() => pedidos.filter(cuentaComoVenta), [pedidos]);
 const ventasStats = useMemo(() => {
-if (!pedidos.length) return null;
+if (!pedidosVenta.length) return null;
 const getFecha = (p) => (p.createdAt && p.createdAt.toDate) ? p.createdAt.toDate() : null;
 const sumTotal = (arr) => arr.reduce((a, p) => a + (Number(p.total) || 0), 0);
 
@@ -770,11 +778,11 @@ const inicioHoy = new Date(ahora);
 inicioHoy.setHours(0, 0, 0, 0);
 const diasDelRango = { today: 1, "7d": 7, "30d": 30, all: null };
 const cantDias = diasDelRango[dashboardRange];
-// "all" no tiene inicio de rango (usa todos los pedidos cargados) ni periodo
+// "all" no tiene inicio de rango (usa todos los pedidosVenta cargados) ni periodo
 // anterior con el que compararse.
 const inicioRango = cantDias ? (() => { const d = new Date(inicioHoy); d.setDate(d.getDate() - (cantDias - 1)); return d; })() : null;
 
-const pedidosEnRango = inicioRango ? pedidos.filter(p => { const f = getFecha(p); return f && f >= inicioRango; }) : pedidos;
+const pedidosEnRango = inicioRango ? pedidosVenta.filter(p => { const f = getFecha(p); return f && f >= inicioRango; }) : pedidosVenta;
 const totalFacturado = sumTotal(pedidosEnRango);
 const cantidadPedidos = pedidosEnRango.length;
 const ticketPromedio = cantidadPedidos ? totalFacturado / cantidadPedidos : 0;
@@ -786,7 +794,7 @@ if (inicioRango) {
 const finRangoAnterior = new Date(inicioRango.getTime() - 1);
 const inicioRangoAnterior = new Date(inicioRango);
 inicioRangoAnterior.setDate(inicioRangoAnterior.getDate() - cantDias);
-const pedidosPeriodoAnterior = pedidos.filter(p => { const f = getFecha(p); return f && f >= inicioRangoAnterior && f <= finRangoAnterior; });
+const pedidosPeriodoAnterior = pedidosVenta.filter(p => { const f = getFecha(p); return f && f >= inicioRangoAnterior && f <= finRangoAnterior; });
 const totalAnterior = sumTotal(pedidosPeriodoAnterior);
 const cantidadAnterior = pedidosPeriodoAnterior.length;
 const ticketAnterior = cantidadAnterior ? totalAnterior / cantidadAnterior : 0;
@@ -817,7 +825,7 @@ dias.push(d);
 const ventasPorDia = dias.map(d => {
 const siguienteDia = new Date(d);
 siguienteDia.setDate(siguienteDia.getDate() + 1);
-const total = pedidos.reduce((a, p) => {
+const total = pedidosVenta.reduce((a, p) => {
 const fecha = getFecha(p);
 if (fecha && fecha >= d && fecha < siguienteDia) return a + (Number(p.total) || 0);
 return a;
@@ -825,7 +833,7 @@ return a;
 return { fecha: d, total };
 });
 
-// Tendencia mensual (ultimos 6 meses): siempre sobre todos los pedidos
+// Tendencia mensual (ultimos 6 meses): siempre sobre todos los pedidosVenta
 // cargados, sin importar el rango elegido arriba, para ver la evolucion de
 // mas largo plazo de un vistazo.
 const meses = [];
@@ -834,7 +842,7 @@ meses.push(new Date(ahora.getFullYear(), ahora.getMonth() - i, 1));
 }
 const ventasPorMes = meses.map(m => {
 const siguienteMes = new Date(m.getFullYear(), m.getMonth() + 1, 1);
-const total = pedidos.reduce((a, p) => {
+const total = pedidosVenta.reduce((a, p) => {
 const fecha = getFecha(p);
 if (fecha && fecha >= m && fecha < siguienteMes) return a + (Number(p.total) || 0);
 return a;
@@ -853,17 +861,23 @@ productosMap[key].cantidad += Number(it.qty) || 0;
 const topProductos = Object.values(productosMap).sort((a, b) => b.cantidad - a.cantidad).slice(0, 5);
 
 return { totalFacturado, cantidadPedidos, ticketPromedio, porOrigen, ventasPorDia, ventasPorMes, topProductos, comparativa, cantidadEnRango: pedidosEnRango.length };
-}, [pedidos, dashboardRange]);
+}, [pedidosVenta, dashboardRange]);
 
 // Busqueda y filtro por medio de pago para la lista de "Pedidos recientes"
 // (y para lo que se descarga con "Exportar a Excel/CSV", que respeta estos
 // mismos filtros). getPedidoMedioKey/Label reproducen la misma logica que ya
 // se usaba para mostrar la etiqueta de cada pedido, asi quedan unificadas.
-const getPedidoMedioKey = (p) => p.origen === "nave" ? "nave" : (p.origen === "mercadopago" ? "mercadopago" : (p.medioPago === "transferencia" ? "transferencia" : "efectivo"));
-const getPedidoMedioLabel = (p) => p.origen === "nave" ? "Nave (tarjeta/QR/cuotas)" : (p.origen === "mercadopago" ? "Mercado Pago" : (p.medioPago === "transferencia" ? "Transferencia" : "Efectivo"));
+const getPedidoMedioKey = (p) => p.origen === "consulta_whatsapp" ? "consulta" : p.origen === "nave" ? "nave" : (p.origen === "mercadopago" ? "mercadopago" : (p.medioPago === "transferencia" ? "transferencia" : "efectivo"));
+const getPedidoMedioLabel = (p) => p.origen === "consulta_whatsapp" ? "Consulta por WhatsApp" : p.origen === "nave" ? "Nave (tarjeta/QR/cuotas)" : (p.origen === "mercadopago" ? "Mercado Pago" : (p.medioPago === "transferencia" ? "Transferencia" : "Efectivo"));
 // Pedidos pagados que todavia no marcaste como gestionados (contactado /
 // preparado). Alimenta el aviso de arriba del panel y el filtro de la lista.
 const pedidoSinGestionar = (p) => p.estado === "pagado" && !p.gestionado;
+// Consultas por WhatsApp que todavia no marcaste como vendidas / no concretadas.
+const consultaPendiente = (p) => p.origen === "consulta_whatsapp" && p.estado === "pendiente";
+const setPedidoEstado = async (id, estado) => {
+try { await updateDoc(doc(db, "pedidos", id), { estado, estadoAt: serverTimestamp() }); }
+catch (e) { console.error("PEDIDO_ESTADO_ERROR", e); alert("No se pudo actualizar la consulta. Proba de nuevo."); }
+};
 const [pedidoAbierto, setPedidoAbierto] = useState({});
 const togglePedidoAbierto = (id, abiertoPorDefecto) => setPedidoAbierto(m => ({ ...m, [id]: !(id in m ? m[id] : abiertoPorDefecto) }));
 const setPedidoGestionado = async (id, valor) => {
@@ -882,7 +896,7 @@ if (!d) return null;
 if (d.startsWith("00")) d = d.slice(2);
 if (d.startsWith("54")) { if (!d.startsWith("549") && d.length === 12) d = "549" + d.slice(2); }
 else { d = d.replace(/^0/, ""); if (d.length === 10) d = "549" + d; else return null; }
-const msg = "Hola" + (p.nombre ? " " + p.nombre : "") + "! 💛 Te escribimos de Esencia Perfumeria por tu pedido" + (p.orderId ? " " + p.orderId : "") + ". Ya lo tenemos y queremos coordinar el envio. Gracias por tu compra!";
+const msg = p.origen === "consulta_whatsapp" ? "Hola" + (p.nombre ? " " + p.nombre : "") + "! 💛 Te escribimos de Esencia Perfumeria. Vimos tu consulta y queremos ayudarte a concretar tu compra." : "Hola" + (p.nombre ? " " + p.nombre : "") + "! 💛 Te escribimos de Esencia Perfumeria por tu pedido" + (p.orderId ? " " + p.orderId : "") + ". Ya lo tenemos y queremos coordinar el envio. Gracias por tu compra!";
 return "https://wa.me/" + d + "?text=" + encodeURIComponent(msg);
 };
 const [pedidosSearch, setPedidosSearch] = useState("");
@@ -892,6 +906,7 @@ const normalizar = (s) => (s || "").toString().toLowerCase().normalize("NFD").re
 const q = normalizar(pedidosSearch.trim());
 return pedidos.filter(p => {
 if (pedidosFilterMedio === "sin_gestionar") { if (!pedidoSinGestionar(p)) return false; }
+else if (pedidosFilterMedio === "consulta_pendiente") { if (!consultaPendiente(p)) return false; }
 else if (pedidosFilterMedio !== "todos" && getPedidoMedioKey(p) !== pedidosFilterMedio) return false;
 if (q && !normalizar(p.nombre || "").includes(q)) return false;
 return true;
@@ -2852,10 +2867,60 @@ const getProductPrice = (p) => p.precio || p.price || 0;
 // reemplaza el "Pedir por WhatsApp" del checkout (ese ya manda el pedido
 // armado con todos los datos); este es un atajo mas informal, disponible
 // apenas hay productos en el carrito.
-const buildCartWhatsAppUrl = () => {
+const buildCartWhatsAppUrl = (nombre) => {
   const lineas = cart.map(i => `- ${i.qty}x ${getProductName(i)} (${formatPrice(getProductPrice(i))})`).join("\n");
-  const msg = `Hola! Te consulto por estos productos de mi carrito:\n${lineas}\nTotal: ${formatPrice(totalCart)}`;
+  const msg = `Hola! Soy ${nombre || "un cliente"}. Te consulto por estos productos de mi carrito:\n${lineas}\nTotal: ${formatPrice(totalCart)}`;
   return "https://wa.me/2914261941?text=" + encodeURIComponent(msg);
+};
+// Consultas por WhatsApp: antes de abrir el chat pedimos al menos el nombre y dejamos
+// el registro en "Pedidos recientes" del panel (estado "pendiente") para que no se pierda
+// ningun interesado. Despues el admin la marca como vendida o no concretada.
+const abrirConsulta = (tipo, producto) => {
+  setConsultaError("");
+  setConsultaNombre(customerName || "");
+  setConsultaTelefono(customerPhone || "");
+  setConsultaModal({ tipo, producto: producto || null });
+};
+const enviarConsulta = async () => {
+  if (!consultaModal || consultaEnviando) return;
+  const nombre = consultaNombre.trim();
+  if (nombre.length < 2) { setConsultaError("Escribi tu nombre para que sepamos con quien hablamos."); return; }
+  setConsultaError("");
+  setConsultaEnviando(true);
+  const esCarrito = consultaModal.tipo === "carrito";
+  const prod = consultaModal.producto;
+  const waWindow = window.open("", "_blank");
+  let items, total, msg;
+  if (esCarrito) {
+    items = cart.map(i => ({ id: i.id, nombre: getProductName(i), qty: i.qty, precio: Number(getProductPrice(i)) || 0 }));
+    total = totalCart;
+    const lineas = cart.map(i => `- ${i.qty}x ${getProductName(i)} (${formatPrice(getProductPrice(i))})`).join("\n");
+    msg = `Hola! Soy ${nombre}. Te consulto por estos productos de mi carrito:\n${lineas}\nTotal: ${formatPrice(totalCart)}`;
+  } else {
+    items = [{ id: prod.id, nombre: getProductName(prod), qty: 1, precio: Number(getProductPrice(prod)) || 0 }];
+    total = Number(getProductPrice(prod)) || 0;
+    msg = `Hola! Soy ${nombre}. Quiero consultar sobre: ${getProductName(prod)}`;
+  }
+  const tel = consultaTelefono.trim();
+  try { localStorage.setItem("nombreEsencia", nombre); if (tel) localStorage.setItem("telefonoEsencia", tel); } catch {}
+  if (!customerName) setCustomerName(nombre);
+  if (!customerPhone && tel) setCustomerPhone(tel);
+  const orderId = "EP" + Date.now().toString(36).toUpperCase();
+  try {
+    await Promise.race([
+      addDoc(collection(db, "pedidos"), {
+        items, subtotal: total, descuento: 0, total,
+        medioPago: "consulta", origen: "consulta_whatsapp", tipoConsulta: esCarrito ? "carrito" : "producto",
+        estado: "pendiente", nombre, telefono: tel || null, uid: user ? user.uid : null, orderId, createdAt: serverTimestamp(),
+      }),
+      new Promise((resolve) => setTimeout(resolve, 4000)),
+    ]);
+  } catch (e) { console.error("CONSULTA_LOG_ERROR", e); }
+  try { if (window.fbq) window.fbq("track", "Lead", { value: total, currency: "ARS" }); } catch (e) {}
+  const waUrl = "https://wa.me/2914261941?text=" + encodeURIComponent(msg);
+  if (waWindow) { try { waWindow.location.href = waUrl; } catch (e) { window.location.href = waUrl; } } else { window.location.href = waUrl; }
+  setConsultaEnviando(false);
+  setConsultaModal(null);
 };
 const getProductOriginalPrice = (p) => p.precioOriginal || null;
 const getDiscountPercent = (p) => {
@@ -3510,6 +3575,19 @@ return (
 {nuevoPedidoAviso && (
 <div style={{ background: "#d4af37", color: "#0b0b0b", fontWeight: 800, borderRadius: "10px", padding: "14px 18px", marginBottom: "16px" }}>{nuevoPedidoAviso}</div>
 )}
+{(() => {
+const consultasPend = pedidos.filter(consultaPendiente);
+if (consultasPend.length === 0) return null;
+return (
+<div style={{ background: "#10241a", border: "1px solid #25D366", borderRadius: "10px", padding: "14px 18px", marginBottom: "16px", display: "flex", gap: "14px", alignItems: "center", flexWrap: "wrap" }}>
+<div style={{ flex: 1, minWidth: "220px", color: "#fff" }}>
+<strong style={{ color: "#25D366" }}>💬 {consultasPend.length} consulta{consultasPend.length > 1 ? "s" : ""} por WhatsApp pendiente{consultasPend.length > 1 ? "s" : ""}</strong>
+<div style={{ fontSize: "13px", color: "#bdbdbd" }}>Última: {consultasPend[0].nombre || "Sin nombre"} · {formatPrice(consultasPend[0].total)}. Marcala como Vendido o No concretó cuando se resuelva.</div>
+</div>
+<button onClick={() => { setPedidosFilterMedio("consulta_pendiente"); const el = document.getElementById("pedidos-recientes"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }} style={{ ...S.btn, padding: "10px 16px" }}>Ver consultas</button>
+</div>
+);
+})()}
 {(() => {
 const sinGestionar = pedidos.filter(pedidoSinGestionar);
 if (sinGestionar.length === 0) return null;
@@ -4298,6 +4376,7 @@ return ventasStats.ventasPorMes.map((m, i) => (
 </div>
 <div style={{ marginTop: "40px" }}>
 <h2 id="pedidos-recientes" style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>📋 Pedidos recientes</h2>
+<p style={{ color: "#25D366", fontSize: "13px", marginTop: 0, marginBottom: "8px" }}>💬 Cuando un cliente consulta por WhatsApp (desde el carrito o un producto) deja su nombre y queda anotado acá como "Pendiente". Marcalo como "Vendido" o "No concretó": solo las vendidas suman a las estadísticas de ventas.</p>
 <p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Se registran los pedidos pagados y confirmados con Nave o Mercado Pago, y los que se mandaron por WhatsApp para pagar con transferencia o efectivo (estos ultimos quedan como "enviado": todavia no confirman que el pago se haya recibido de verdad, eso lo coordinas vos por WhatsApp).</p>
 {pedidos.length > 0 && (
 <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "16px" }}>
@@ -4306,8 +4385,8 @@ return ventasStats.ventasPorMes.map((m, i) => (
 <div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{pedidos.length}</div>
 </div>
 <div style={{ ...S.adminCard, flex: "1 1 160px" }}>
-<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Total (ultimos 500)</div>
-<div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{formatPrice(pedidos.reduce((a, p) => a + (Number(p.total) || 0), 0))}</div>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Total vendido (ultimos 500)</div>
+<div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{formatPrice(pedidosVenta.reduce((a, p) => a + (Number(p.total) || 0), 0))}</div>
 </div>
 </div>
 )}
@@ -4317,6 +4396,8 @@ return ventasStats.ventasPorMes.map((m, i) => (
 <select value={pedidosFilterMedio} onChange={e => setPedidosFilterMedio(e.target.value)} style={{ ...S.input, flex: "0 1 180px" }}>
 <option value="todos">Todos los medios</option>
 <option value="sin_gestionar">🔔 Pagados sin gestionar</option>
+<option value="consulta_pendiente">⏳ Consultas WhatsApp pendientes</option>
+<option value="consulta">💬 Todas las consultas WhatsApp</option>
 <option value="nave">Nave (tarjeta/QR/cuotas)</option>
 <option value="mercadopago">Mercado Pago</option>
 <option value="transferencia">Transferencia</option>
@@ -4332,7 +4413,8 @@ return ventasStats.ventasPorMes.map((m, i) => (
 ) : (
 <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
 {pedidosFiltrados.map(p => {
-const nuevo = pedidoSinGestionar(p);
+const esConsulta = p.origen === "consulta_whatsapp";
+const nuevo = pedidoSinGestionar(p) || consultaPendiente(p);
 const abierto = p.id in pedidoAbierto ? pedidoAbierto[p.id] : nuevo;
 const wa = waLinkCliente(p);
 const items = p.items || [];
@@ -4340,14 +4422,14 @@ const subtotalItems = items.reduce((a, it) => a + (Number(it.precio) || 0) * (Nu
 const fecha = p.createdAt && p.createdAt.toDate ? p.createdAt.toDate().toLocaleString("es-AR") : "";
 const fila = (label, valor) => valor ? (<div style={{ display: "flex", gap: "8px", fontSize: "13.5px", marginBottom: "4px", flexWrap: "wrap" }}><span style={{ color: "#9a9a9a", minWidth: "92px" }}>{label}</span><span style={{ color: "#fff", flex: 1, wordBreak: "break-word" }}>{valor}</span></div>) : null;
 return (
-<div key={p.id} style={{ ...S.adminCard, padding: "14px 18px", border: nuevo ? "1px solid #d4af37" : S.adminCard.border }}>
+<div key={p.id} style={{ ...S.adminCard, padding: "14px 18px", border: nuevo ? (esConsulta ? "1px solid #25D366" : "1px solid #d4af37") : S.adminCard.border }}>
 <div onClick={() => togglePedidoAbierto(p.id, nuevo)} style={{ display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap", cursor: "pointer" }}>
 <div style={{ flex: 1, minWidth: "180px" }}>
 <strong>{nuevo && <span style={{ background: "#d4af37", color: "#0b0b0b", fontSize: "11px", fontWeight: 800, borderRadius: "10px", padding: "2px 8px", marginRight: "8px" }}>NUEVO</span>}{p.nombre || "Sin nombre"}</strong>
-<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{items.length} producto(s) · {fecha}</div>
+<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{items.length} producto(s) · {fecha}{esConsulta ? (p.tipoConsulta === "producto" ? " · consultó un producto" : " · consultó su carrito") : ""}</div>
 </div>
-<span style={{ fontSize: "12px", fontWeight: "700", color: p.estado === "pagado" ? "#9ddb9d" : "#e0b84a", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "4px 10px" }}>{p.estado === "pagado" ? "✅ Pagado" : "📨 Enviado"}</span>
-<span style={{ fontSize: "12px", fontWeight: "700", color: p.origen === "mercadopago" || p.origen === "nave" ? "#9ddb9d" : "#e0b84a", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "4px 10px" }}>{getPedidoMedioLabel(p)}</span>
+<span style={{ fontSize: "12px", fontWeight: "700", color: p.estado === "pagado" || p.estado === "vendido" ? "#9ddb9d" : (p.estado === "no_concreto" ? "#ff9a9a" : "#e0b84a"), background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "4px 10px" }}>{p.estado === "pagado" ? "✅ Pagado" : p.estado === "vendido" ? "✅ Vendido" : p.estado === "no_concreto" ? "✖ No concretó" : p.estado === "pendiente" ? "⏳ Pendiente" : "📨 Enviado"}</span>
+<span style={{ fontSize: "12px", fontWeight: "700", color: p.origen === "mercadopago" || p.origen === "nave" ? "#9ddb9d" : (esConsulta ? "#25D366" : "#e0b84a"), background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "4px 10px" }}>{getPedidoMedioLabel(p)}</span>
 <strong style={{ color: "#d4af37" }}>{formatPrice(p.total)}</strong>
 <span style={{ color: "#9a9a9a", fontSize: "13px" }}>{abierto ? "▲" : "▼ Ver detalle"}</span>
 </div>
@@ -4385,6 +4467,16 @@ return (
 {subtotalItems > 0 && Math.round(subtotalItems) > Math.round(Number(p.total) || 0) && (<div style={{ display: "flex", justifyContent: "space-between", color: "#9ddb9d" }}><span>Descuentos</span><span>-{formatPrice(subtotalItems - (Number(p.total) || 0))}</span></div>)}
 <div style={{ display: "flex", justifyContent: "space-between", color: "#d4af37", fontWeight: 800, fontSize: "16px", marginTop: "6px" }}><span>Total</span><span>{formatPrice(p.total)}</span></div>
 </div>
+{esConsulta && (
+<div style={{ marginTop: "14px" }}>
+<div style={{ color: "#9a9a9a", fontSize: "12px", marginBottom: "6px" }}>¿Cómo terminó esta consulta?</div>
+<div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+<button onClick={() => setPedidoEstado(p.id, "vendido")} style={{ ...(p.estado === "vendido" ? S.btn : S.btnOutline), flex: "1 1 120px", padding: "10px" }}>✅ Vendido</button>
+<button onClick={() => setPedidoEstado(p.id, "no_concreto")} style={{ ...(p.estado === "no_concreto" ? S.btn : S.btnOutline), flex: "1 1 120px", padding: "10px" }}>✖ No concretó</button>
+<button onClick={() => setPedidoEstado(p.id, "pendiente")} style={{ ...(p.estado === "pendiente" ? S.btn : S.btnOutline), flex: "1 1 120px", padding: "10px" }}>⏳ Pendiente</button>
+</div>
+</div>
+)}
 {p.estado === "pagado" && (
 <button onClick={() => setPedidoGestionado(p.id, !p.gestionado)} style={{ ...(p.gestionado ? S.btnOutline : S.btn), marginTop: "14px", width: "100%", padding: "10px" }}>{p.gestionado ? "↩️ Volver a marcar como sin gestionar" : "✓ Marcar como gestionado (ya lo contacté)"}</button>
 )}
@@ -5316,7 +5408,7 @@ return pdpPhotos.length > 1 && (
 )}
 </div>
 )}
-<a href={`https://wa.me/2914261941?text=${encodeURIComponent("Hola! Quiero consultar sobre: " + getProductName(selectedProduct))}`} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "13px", marginTop: "10px", fontSize: "15px", fontWeight: "700", borderRadius: "10px", background: "#25D366", color: "#fff", textDecoration: "none" }}>💬 Consultar por WhatsApp</a>
+<button type="button" onClick={() => abrirConsulta("producto", selectedProduct)} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "13px", marginTop: "10px", fontSize: "15px", fontWeight: "700", borderRadius: "10px", background: "#25D366", color: "#fff", textDecoration: "none" , border: "none", cursor: "pointer" }}>💬 Consultar por WhatsApp</button>
 </div>
 </div>
 <div className="gs-pdp-below">
@@ -5409,6 +5501,21 @@ return pdpPhotos.length > 1 && (
 <button onClick={() => { setAccountMode(accountMode === "login" ? "signup" : "login"); setAccountError(""); }} style={{ ...S.btnOutline, width: "100%", padding: "10px", marginTop: 10 }}>{accountMode === "login" ? "No tenes cuenta? Registrate" : "Ya tenes cuenta? Ingresa"}</button>
 </div>
 )}
+</div>
+</div>
+)}
+{consultaModal && (
+<div onClick={() => { if (!consultaEnviando) setConsultaModal(null); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
+<div onClick={e => e.stopPropagation()} style={{ background: "#141414", border: "1px solid rgba(212,175,55,0.5)", borderRadius: "16px", padding: "24px 22px", width: "100%", maxWidth: "380px", boxSizing: "border-box" }}>
+<div style={{ color: "#d4af37", fontWeight: 800, fontSize: "18px", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>Antes de escribirnos</div>
+<div style={{ color: "#bdbdbd", fontSize: "13.5px", marginBottom: "16px" }}>{consultaModal.tipo === "carrito" ? "Dejanos tu nombre y te respondemos por WhatsApp con tu carrito a mano." : "Dejanos tu nombre y te respondemos por WhatsApp sobre " + getProductName(consultaModal.producto) + "."}</div>
+<label style={{ color: "#e8ddc0", fontSize: "13px", fontWeight: 600 }}>Tu nombre *</label>
+<input type="text" autoFocus value={consultaNombre} onChange={e => setConsultaNombre(e.target.value)} onKeyDown={e => { if (e.key === "Enter") enviarConsulta(); }} placeholder="Ej: Laura" style={{ ...S.input, marginTop: "6px", marginBottom: "12px" }} />
+<label style={{ color: "#e8ddc0", fontSize: "13px", fontWeight: 600 }}>Tu teléfono <span style={{ color: "#8a8a8a", fontWeight: 400 }}>(opcional)</span></label>
+<input type="tel" value={consultaTelefono} onChange={e => setConsultaTelefono(e.target.value)} onKeyDown={e => { if (e.key === "Enter") enviarConsulta(); }} placeholder="Ej: 291 555 1234" style={{ ...S.input, marginTop: "6px", marginBottom: "12px" }} />
+{consultaError && <div style={{ color: "#ff8a8a", fontSize: "13px", marginBottom: "10px" }}>{consultaError}</div>}
+<button type="button" onClick={enviarConsulta} disabled={consultaEnviando} style={{ width: "100%", padding: "13px", background: "#25D366", color: "#fff", border: "none", borderRadius: "10px", fontSize: "15px", fontWeight: 700, cursor: "pointer", opacity: consultaEnviando ? 0.6 : 1 }}>{consultaEnviando ? "Abriendo WhatsApp..." : "💬 Continuar a WhatsApp"}</button>
+<button type="button" onClick={() => setConsultaModal(null)} disabled={consultaEnviando} style={{ width: "100%", marginTop: "8px", padding: "10px", background: "transparent", color: "#9a9a9a", border: "none", fontSize: "13px", cursor: "pointer" }}>Cancelar</button>
 </div>
 </div>
 )}
@@ -5523,7 +5630,7 @@ return pdpPhotos.length > 1 && (
 </div>
 </div>
 )}
-<a href={buildCartWhatsAppUrl()} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "11px", marginBottom: "16px", fontSize: "14px", fontWeight: "700", borderRadius: "8px", border: "1px solid #25D366", background: "transparent", color: "#25D366", textDecoration: "none", boxSizing: "border-box" }}>💬 Prefiero consultar este carrito por WhatsApp</a>
+<button type="button" onClick={() => abrirConsulta("carrito")} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "11px", marginBottom: "16px", fontSize: "14px", fontWeight: "700", borderRadius: "8px", border: "1px solid #25D366", background: "transparent", color: "#25D366", textDecoration: "none", boxSizing: "border-box" , cursor: "pointer" }}>💬 Prefiero consultar este carrito por WhatsApp</button>
 <div style={{ borderTop: "1px solid #2b2b2b", paddingTop: "16px", marginTop: "16px" }}>
 <div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(finalTotal)}{discountFromPoints > 0 && <span style={{ color: "#d4af37", fontSize: 13, display: "block" }}>(incluye descuento de {formatPrice(discountFromPoints)} por puntos)</span>}{decantComboDiscount > 0 && <span style={{ color: "#7ea87a", fontSize: 13, display: "block" }}>(incluye {formatPrice(decantComboDiscount)} OFF por set de decants)</span>}{perfumeComboDiscount > 0 && <span style={{ color: "#7ea87a", fontSize: 13, display: "block" }}>(incluye {formatPrice(perfumeComboDiscount)} OFF por combo de perfumes)</span>}{cuponDiscount > 0 && <span style={{ color: "#9ddb9d", fontSize: 13, display: "block" }}>(incluye {formatPrice(cuponDiscount)} OFF por cupon {cuponEval.cupon && cuponEval.cupon.id})</span>}</div>
 <div style={S.checkoutSectionTitle}>📦 Datos de envío</div>
