@@ -32,6 +32,21 @@ function fromFields(fields) {
   return out;
 }
 
+// Version del catalogo: la actualiza el panel de admin cada vez que se crea o edita un
+// producto. Sirve para que los cambios se vean enseguida aunque la copia este cacheada.
+async function leerVersion() {
+  try {
+    const r = await fetch("https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents/productos/_site_catalog_version?key=" + API_KEY);
+    if (!r.ok) return "0";
+    const j = await r.json();
+    const f = j && j.fields && j.fields.v;
+    if (!f) return "0";
+    return String(f.integerValue || f.stringValue || f.doubleValue || "0");
+  } catch (e) {
+    return "0";
+  }
+}
+
 // Colecciones publicas que la tienda puede pedir por aca. Se cachean en la red
 // de Vercel, asi que miles de visitas cuestan UNA sola lectura de Firestore cada
 // pocos minutos (en vez de una lectura por documento por visita).
@@ -55,7 +70,9 @@ export default async function handler(req, res) {
     res.status(400).json({ error: "Coleccion no valida." });
     return;
   }
+  const vq = col === "productos" ? String((req.query && req.query.v) || "").replace(/[^0-9A-Za-z_-]/g, "").slice(0, 30) : "";
   try {
+    const version = col === "productos" ? (vq || (await leerVersion())) : "";
     const resp = await fetch(
       "https://firestore.googleapis.com/v1/projects/" + PROJECT_ID + "/databases/(default)/documents:runQuery?key=" + API_KEY,
       {
@@ -86,7 +103,12 @@ export default async function handler(req, res) {
       .filter((r) => r.document)
       .map((r) => ({ id: r.document.name.split("/").pop(), ...fromFields(r.document.fields) }));
     ultimoBueno[col] = data;
-    res.setHeader("Cache-Control", "public, s-maxage=" + cfg.ttl + ", stale-while-revalidate=3600");
+    if (col === "productos") {
+      res.setHeader("X-Catalog-Version", version);
+      res.setHeader("Access-Control-Expose-Headers", "X-Catalog-Version");
+    }
+    // Con ?v=<version> la URL es unica por cada cambio del admin: se puede cachear mas tiempo.
+    res.setHeader("Cache-Control", "public, s-maxage=" + (vq ? 3600 : cfg.ttl) + ", stale-while-revalidate=3600");
     res.status(200).json(data);
   } catch (e) {
     console.error("CATALOG_EXCEPTION", e);
