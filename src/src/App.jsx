@@ -3136,6 +3136,8 @@ const ts = scoreSearchTerm(t, idx);
 if (ts > 0) { matched++; score += ts; if (ts < minTerm) minTerm = ts; }
 });
 const coverage = parsed.must.length ? matched / parsed.must.length : 0;
+const phraseHit = (parsed.norm && idx.nameNorm.includes(parsed.norm)) || (parsed.compact.length >= 4 && idx.nameCompact.includes(parsed.compact));
+if (matched === 0 && !phraseHit) return { score: 0, coverage: 0 };
 // Bonus fuerte solo si TODAS las palabras estan en el nombre/marca/inspirado en;
 // si solo coinciden en notas o descripcion es una coincidencia "semantica" (bonus chico).
 if (coverage === 1) score += minTerm >= 6 ? 20 : 4;
