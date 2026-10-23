@@ -258,6 +258,9 @@ const [cart, setCart] = useState(() => {
   } catch { return []; }
 });
 const [showCart, setShowCart] = useState(false);
+const [adminTab, setAdminTabRaw] = useState(() => { try { return localStorage.getItem("adminTabEsencia") || "inicio"; } catch { return "inicio"; } });
+const setAdminTab = (t) => { setAdminTabRaw(t); try { localStorage.setItem("adminTabEsencia", t); } catch {} try { window.scrollTo({ top: 0 }); } catch {} };
+const [adminSub, setAdminSub] = useState({ productos: "cargar", marketing: "banner", clientes: "resenas" });
 const [consultaModal, setConsultaModal] = useState(null);
 const [consultaNombre, setConsultaNombre] = useState("");
 const [consultaTelefono, setConsultaTelefono] = useState("");
@@ -2094,6 +2097,7 @@ alert("Producto agregado exitosamente");
 };
 
 const handleEditProduct = (p) => {
+setAdminTab("productos"); setAdminSub(s => ({ ...s, productos: "cargar" }));
 setEditingId(p.id);
 setForm({
 nombre: p.nombre || "",
@@ -3561,6 +3565,10 @@ return (
 );
 }
 
+const ADMIN_TABS = [["inicio", "🏠 Inicio"], ["pedidos", "📋 Pedidos"], ["productos", "🛍️ Productos"], ["marketing", "📣 Marketing"], ["clientes", "👥 Clientes"], ["contenido", "📝 Contenido"], ["herramientas", "🧰 Herramientas"]];
+const PEDIDOS_FILTROS = [["todos", "Todos"], ["consulta_pendiente", "⏳ Consultas pendientes"], ["consulta", "💬 Consultas WhatsApp"], ["sin_gestionar", "🔔 Sin gestionar"], ["nave", "💳 Nave"], ["mercadopago", "Mercado Pago"], ["transferencia", "Transferencia"], ["efectivo", "Efectivo"]];
+const contarFiltroPedidos = (key) => pedidos.filter(p => key === "todos" ? true : key === "sin_gestionar" ? pedidoSinGestionar(p) : key === "consulta_pendiente" ? consultaPendiente(p) : getPedidoMedioKey(p) === key).length;
+const adminBadge = (key) => key === "pedidos" ? pedidos.filter(p => consultaPendiente(p) || pedidoSinGestionar(p)).length : key === "clientes" ? (resenas.filter(r => r.estado === "pendiente").length + avisosStock.filter(a => a.estado !== "contactado").length) : 0;
 if (page === "admin" && isAdmin) {
 return (
 <div style={S.body}>
@@ -3570,11 +3578,42 @@ return (
 <button onClick={async () => { const mod = await loadAuthMod(); await mod.signOut(mod.getAuth(app)); setIsAdmin(false); setPage("adminLogin"); }} style={S.btnGray}>Cerrar Sesion</button>
 </div>
 </div>
-<div style={S.adminWrap}>
-<h2 style={{ color: "#d4af37", marginBottom: "24px", fontFamily: "'Playfair Display', serif" }}>Panel de Administracion</h2>
+<div style={{ maxWidth: "1040px", margin: "0 auto", padding: "20px 20px 60px", boxSizing: "border-box" }}>
+<h2 style={{ color: "#d4af37", margin: "0 0 14px", fontFamily: "'Playfair Display', serif" }}>Panel de Administracion</h2>
 {nuevoPedidoAviso && (
 <div style={{ background: "#d4af37", color: "#0b0b0b", fontWeight: 800, borderRadius: "10px", padding: "14px 18px", marginBottom: "16px" }}>{nuevoPedidoAviso}</div>
 )}
+<div style={{ display: "flex", gap: "6px", overflowX: "auto", borderBottom: "1px solid #2b2b2b", marginBottom: "20px", paddingBottom: "0", position: "sticky", top: 0, background: "#0f0f0f", zIndex: 20 }}>
+{ADMIN_TABS.map(([key, label]) => { const n = adminBadge(key); const on = adminTab === key; return (
+<button key={key} onClick={() => setAdminTab(key)} style={{ background: "transparent", color: on ? "#d4af37" : "#bdbdbd", border: "none", borderBottom: on ? "3px solid #d4af37" : "3px solid transparent", padding: "12px 16px", fontSize: "14px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>{label}{n > 0 ? <span style={{ marginLeft: "7px", background: "#d4af37", color: "#0b0b0b", borderRadius: "10px", padding: "1px 7px", fontSize: "11px" }}>{n}</span> : null}</button>
+); })}
+</div>
+{adminTab === "productos" && (
+<div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "20px" }}>
+<button onClick={() => setAdminSub(s => ({ ...s, productos: "cargar" }))} style={{ background: adminSub.productos === "cargar" ? "#d4af37" : "#1a1a1a", color: adminSub.productos === "cargar" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.productos === "cargar" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>➕ Cargar / editar</button>
+<button onClick={() => setAdminSub(s => ({ ...s, productos: "lista" }))} style={{ background: adminSub.productos === "lista" ? "#d4af37" : "#1a1a1a", color: adminSub.productos === "lista" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.productos === "lista" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>📋 Lista de productos</button>
+<button onClick={() => setAdminSub(s => ({ ...s, productos: "orden" }))} style={{ background: adminSub.productos === "orden" ? "#d4af37" : "#1a1a1a", color: adminSub.productos === "orden" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.productos === "orden" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>🔀 Orden del catálogo</button>
+<button onClick={() => setAdminSub(s => ({ ...s, productos: "masiva" }))} style={{ background: adminSub.productos === "masiva" ? "#d4af37" : "#1a1a1a", color: adminSub.productos === "masiva" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.productos === "masiva" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>📦 Carga masiva</button>
+</div>
+)}
+{adminTab === "marketing" && (
+<div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "20px" }}>
+<button onClick={() => setAdminSub(s => ({ ...s, marketing: "banner" }))} style={{ background: adminSub.marketing === "banner" ? "#d4af37" : "#1a1a1a", color: adminSub.marketing === "banner" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.marketing === "banner" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>📣 Banner</button>
+<button onClick={() => setAdminSub(s => ({ ...s, marketing: "cupones" }))} style={{ background: adminSub.marketing === "cupones" ? "#d4af37" : "#1a1a1a", color: adminSub.marketing === "cupones" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.marketing === "cupones" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>🏷️ Cupones</button>
+<button onClick={() => setAdminSub(s => ({ ...s, marketing: "descuentos" }))} style={{ background: adminSub.marketing === "descuentos" ? "#d4af37" : "#1a1a1a", color: adminSub.marketing === "descuentos" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.marketing === "descuentos" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>🎁 Descuentos y combos</button>
+<button onClick={() => setAdminSub(s => ({ ...s, marketing: "contactos" }))} style={{ background: adminSub.marketing === "contactos" ? "#d4af37" : "#1a1a1a", color: adminSub.marketing === "contactos" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.marketing === "contactos" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>📧 Newsletter y contactos</button>
+<button onClick={() => setAdminSub(s => ({ ...s, marketing: "puntos" }))} style={{ background: adminSub.marketing === "puntos" ? "#d4af37" : "#1a1a1a", color: adminSub.marketing === "puntos" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.marketing === "puntos" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>⭐ Puntos</button>
+<button onClick={() => setAdminSub(s => ({ ...s, marketing: "carritos" }))} style={{ background: adminSub.marketing === "carritos" ? "#d4af37" : "#1a1a1a", color: adminSub.marketing === "carritos" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.marketing === "carritos" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>🛒 Carritos abandonados</button>
+</div>
+)}
+{adminTab === "clientes" && (
+<div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "20px" }}>
+<button onClick={() => setAdminSub(s => ({ ...s, clientes: "resenas" }))} style={{ background: adminSub.clientes === "resenas" ? "#d4af37" : "#1a1a1a", color: adminSub.clientes === "resenas" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.clientes === "resenas" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>📝 Reseñas</button>
+<button onClick={() => setAdminSub(s => ({ ...s, clientes: "stock" }))} style={{ background: adminSub.clientes === "stock" ? "#d4af37" : "#1a1a1a", color: adminSub.clientes === "stock" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.clientes === "stock" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>🔔 Avisos de stock</button>
+</div>
+)}
+{adminTab === "inicio" && (
+<>
 {(() => {
 const consultasPend = pedidos.filter(consultaPendiente);
 if (consultasPend.length === 0) return null;
@@ -3584,7 +3623,7 @@ return (
 <strong style={{ color: "#25D366" }}>💬 {consultasPend.length} consulta{consultasPend.length > 1 ? "s" : ""} por WhatsApp pendiente{consultasPend.length > 1 ? "s" : ""}</strong>
 <div style={{ fontSize: "13px", color: "#bdbdbd" }}>Última: {consultasPend[0].nombre || "Sin nombre"} · {formatPrice(consultasPend[0].total)}. Marcala como Vendido o No concretó cuando se resuelva.</div>
 </div>
-<button onClick={() => { setPedidosFilterMedio("consulta_pendiente"); const el = document.getElementById("pedidos-recientes"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }} style={{ ...S.btn, padding: "10px 16px" }}>Ver consultas</button>
+<button onClick={() => { setAdminTab("pedidos"); setPedidosFilterMedio("consulta_pendiente"); const el = document.getElementById("pedidos-recientes"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }} style={{ ...S.btn, padding: "10px 16px" }}>Ver consultas</button>
 </div>
 );
 })()}
@@ -3597,392 +3636,253 @@ return (
 <strong style={{ color: "#d4af37" }}>🔔 {sinGestionar.length} pedido{sinGestionar.length > 1 ? "s" : ""} pagado{sinGestionar.length > 1 ? "s" : ""} sin gestionar</strong>
 <div style={{ fontSize: "13px", color: "#bdbdbd" }}>Última compra: {sinGestionar[0].nombre || "Sin nombre"} · {formatPrice(sinGestionar[0].total)}</div>
 </div>
-<button onClick={() => { setPedidosFilterMedio("sin_gestionar"); const el = document.getElementById("pedidos-recientes"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }} style={{ ...S.btn, padding: "10px 16px" }}>Ver pedidos</button>
+<button onClick={() => { setAdminTab("pedidos"); setPedidosFilterMedio("sin_gestionar"); const el = document.getElementById("pedidos-recientes"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }} style={{ ...S.btn, padding: "10px 16px" }}>Ver pedidos</button>
 <button onClick={marcarTodosGestionados} style={{ ...S.btnOutline, padding: "10px 16px" }}>Marcar todos como gestionados</button>
 </div>
 );
 })()}
-
-{(() => {
-const bf = bannerForm || { bannerEnabled: (bannerConfig && bannerConfig.bannerEnabled) || false, bannerTexto: (bannerConfig && bannerConfig.bannerTexto) || "", bannerLink: (bannerConfig && bannerConfig.bannerLink) || "", bannerCtaLabel: (bannerConfig && bannerConfig.bannerCtaLabel) || "", bannerFechaObjetivo: (bannerConfig && bannerConfig.bannerFechaObjetivo) || "" };
-return (
-<div style={{ ...S.adminCard, marginBottom: "24px" }}>
-<h3 style={{ margin: "0 0 6px" }}>📣 Banner del sitio (Dia de la Madre, Black Friday, Navidad...)</h3>
-<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Se muestra arriba de todo el sitio. Se puede activar y desactivar cuando quieras, sin pedirme un cambio de codigo.</p>
-<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer", marginBottom: "12px" }}>
-<input type="checkbox" checked={!!bf.bannerEnabled} onChange={e => setBannerForm({ ...bf, bannerEnabled: e.target.checked })} />
-Mostrar el banner en el sitio
-</label>
-<label style={S.label}>Texto del banner</label>
-<input type="text" value={bf.bannerTexto} onChange={e => setBannerForm({ ...bf, bannerTexto: e.target.value })} style={{ ...S.input, marginBottom: "12px" }} placeholder="Ej: Regalos para el Dia de la Madre - envios asegurados antes del 18/10" />
-<div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-<div style={{ flex: "1 1 220px" }}>
-<label style={S.label}>Link del boton (opcional)</label>
-<input type="text" value={bf.bannerLink} onChange={e => setBannerForm({ ...bf, bannerLink: e.target.value })} style={{ ...S.input, marginBottom: "12px" }} placeholder="https://wa.me/... o una seccion del sitio" />
-</div>
-<div style={{ flex: "1 1 160px" }}>
-<label style={S.label}>Texto del boton (opcional)</label>
-<input type="text" value={bf.bannerCtaLabel} onChange={e => setBannerForm({ ...bf, bannerCtaLabel: e.target.value })} style={{ ...S.input, marginBottom: "12px" }} placeholder="Ver mas" />
-</div>
-</div>
-<label style={S.label}>Cuenta regresiva hasta (opcional, ej: Black Friday)</label>
-<input type="datetime-local" value={bf.bannerFechaObjetivo} onChange={e => setBannerForm({ ...bf, bannerFechaObjetivo: e.target.value })} style={{ ...S.input, marginBottom: "14px" }} />
-<div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-<button onClick={handleSaveBanner} disabled={bannerSaving} style={{ ...S.btn, padding: "10px 20px", opacity: bannerSaving ? 0.6 : 1 }}>{bannerSaving ? "Guardando..." : "Guardar banner"}</button>
-{bannerForm && <button onClick={() => setBannerForm(null)} style={{ ...S.btnOutline, padding: "10px 20px" }}>Descartar cambios</button>}
-</div>
-</div>
-); })()}
-{(() => {
-const co = catalogOrderForm || { modo: (catalogOrderConfig && catalogOrderConfig.modo) || "novedades", categoriaClave: (catalogOrderConfig && catalogOrderConfig.categoriaClave) || "", manualIds: (catalogOrderConfig && catalogOrderConfig.manualIds) || [] };
-const manualProducts = co.manualIds.map(id => dedupedProducts.find(p => p.id === id)).filter(Boolean);
-const manualSearchResults = catalogManualSearch.trim() ? dedupedProducts.filter(p => !co.manualIds.includes(p.id) && normalizeTxt(getProductName(p)).includes(normalizeTxt(catalogManualSearch))).slice(0, 8) : [];
-const moveManual = (idx, dir) => {
-const ids = [...co.manualIds];
-const newIdx = idx + dir;
-if (newIdx < 0 || newIdx >= ids.length) return;
-[ids[idx], ids[newIdx]] = [ids[newIdx], ids[idx]];
-setCatalogOrderForm({ ...co, manualIds: ids });
-};
-const removeManual = (id) => setCatalogOrderForm({ ...co, manualIds: co.manualIds.filter(x => x !== id) });
-const addManual = (id) => { setCatalogOrderForm({ ...co, manualIds: [...co.manualIds, id] }); setCatalogManualSearch(""); };
-return (
-<div style={{ ...S.adminCard, marginBottom: "24px" }}>
-<h3 style={{ margin: "0 0 6px" }}>🔀 Orden del catálogo</h3>
-<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Elegi en que orden ven los clientes los productos al entrar a la tienda, en vez de mostrar siempre los cargados mas recientemente primero. Esto aplica cuando el cliente tiene el orden en "Novedades"; si elige "Mas vendidos" o un orden por precio, ese manda.</p>
-<div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
-<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}>
-<input type="radio" name="catalogOrderModo" checked={co.modo === "novedades"} onChange={() => setCatalogOrderForm({ ...co, modo: "novedades" })} />
-Mas nuevo primero (orden actual por defecto)
-</label>
-<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}>
-<input type="radio" name="catalogOrderModo" checked={co.modo === "categoria"} onChange={() => setCatalogOrderForm({ ...co, modo: "categoria" })} />
-Por categoria (mostrar primero una categoria elegida)
-</label>
-{co.modo === "categoria" && (
-<div style={{ marginLeft: "26px" }}>
-<select style={S.select} value={co.categoriaClave} onChange={e => setCatalogOrderForm({ ...co, categoriaClave: e.target.value })}>
-<option value="">Elegi una categoria...</option>
-{CATALOG_ORDER_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-</select>
-</div>
+{!pedidos.some(consultaPendiente) && !pedidos.some(pedidoSinGestionar) && (
+<div style={{ ...S.adminCard, marginBottom: "24px", color: "#9ddb9d", fontWeight: 700 }}>✅ Estás al día: no hay consultas ni pedidos pendientes.</div>
 )}
-<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}>
-<input type="radio" name="catalogOrderModo" checked={co.modo === "manual"} onChange={() => setCatalogOrderForm({ ...co, modo: "manual" })} />
-Manual (elijo yo cuales aparecen primero)
-</label>
-{co.modo === "manual" && (
-<div style={{ marginLeft: "26px" }}>
-<input type="text" placeholder="Buscar perfume para agregar..." value={catalogManualSearch} onChange={e => setCatalogManualSearch(e.target.value)} style={{ ...S.input, marginBottom: "8px" }} />
-{manualSearchResults.length > 0 && (
-<div style={{ background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", marginBottom: "10px", overflow: "hidden" }}>
-{manualSearchResults.map(p => (
-<div key={p.id} onClick={() => addManual(p.id)} style={{ padding: "8px 12px", cursor: "pointer", fontSize: "13px", borderBottom: "1px solid #2b2b2b" }}>+ {getProductName(p)}</div>
+<div style={{ marginTop: "40px" }}>
+<h2 style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>📊 Dashboard de ventas</h2>
+<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "14px" }}>Calculado sobre los ultimos 500 pedidos registrados (Mercado Pago aprobados + enviados por WhatsApp).</p>
+<div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "20px" }}>
+{DASHBOARD_RANGES.map(r => (
+<button key={r.key} onClick={() => setDashboardRange(r.key)} style={{ background: dashboardRange === r.key ? "#d4af37" : "transparent", color: dashboardRange === r.key ? "#0f0f0f" : "#d4af37", border: "1px solid #d4af37", borderRadius: "20px", padding: "6px 16px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>{r.label}</button>
 ))}
 </div>
-)}
-{manualProducts.length === 0 ? (
-<p style={{ color: "#8a8a8a", fontSize: "13px" }}>Todavia no elegiste productos. Los que agregues van a aparecer primero, en el orden de esta lista.</p>
-) : (
-<div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-{manualProducts.map((p, idx) => (
-<div key={p.id} style={{ display: "flex", alignItems: "center", gap: "8px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "6px 10px" }}>
-<span style={{ color: "#d4af37", fontWeight: "700", fontSize: "13px", minWidth: "20px" }}>{idx + 1}</span>
-<span style={{ flex: 1, fontSize: "13px" }}>{getProductName(p)}</span>
-<button onClick={() => moveManual(idx, -1)} disabled={idx === 0} style={{ ...S.btnGray, padding: "4px 8px", opacity: idx === 0 ? 0.4 : 1 }}>↑</button>
-<button onClick={() => moveManual(idx, 1)} disabled={idx === manualProducts.length - 1} style={{ ...S.btnGray, padding: "4px 8px", opacity: idx === manualProducts.length - 1 ? 0.4 : 1 }}>↓</button>
-<button onClick={() => removeManual(p.id)} style={{ ...S.btnGray, padding: "4px 8px" }}>✕</button>
-</div>
-))}
-</div>
-)}
-</div>
-)}
-<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}>
-<input type="radio" name="catalogOrderModo" checked={co.modo === "aleatorio"} onChange={() => setCatalogOrderForm({ ...co, modo: "aleatorio" })} />
-Aleatorio (mezclado entre todos, cambia solo)
-</label>
-</div>
-<div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-<button onClick={handleSaveCatalogOrder} disabled={catalogOrderSaving} style={{ ...S.btn, padding: "10px 20px", opacity: catalogOrderSaving ? 0.6 : 1 }}>{catalogOrderSaving ? "Guardando..." : "Guardar orden"}</button>
-{catalogOrderForm && <button onClick={() => setCatalogOrderForm(null)} style={{ ...S.btnOutline, padding: "10px 20px" }}>Descartar cambios</button>}
-</div>
-</div>
-); })()}
-<div style={{ ...S.adminCard, marginBottom: "24px" }}>
-<h3 style={{ margin: "0 0 6px" }}>🏷️ Cupones de descuento</h3>
-<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Crea codigos que el cliente ingresa en el carrito para recibir un descuento automatico, igual que el de los sets de decants.</p>
-<div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "12px" }}>
-<div style={{ flex: "1 1 140px" }}>
-<label style={S.label}>Codigo</label>
-<input type="text" value={cuponForm.codigo} onChange={e => setCuponForm(f => ({ ...f, codigo: e.target.value.toUpperCase() }))} style={S.input} placeholder="Ej: VERANO10" />
-</div>
-<div style={{ flex: "1 1 140px" }}>
-<label style={S.label}>Tipo</label>
-<select style={S.select} value={cuponForm.tipo} onChange={e => setCuponForm(f => ({ ...f, tipo: e.target.value }))}>
-<option value="porcentaje">Porcentaje (%)</option>
-<option value="monto">Monto fijo ($)</option>
-</select>
-</div>
-<div style={{ flex: "1 1 140px" }}>
-<label style={S.label}>{cuponForm.tipo === "monto" ? "Monto a descontar" : "Porcentaje a descontar"}</label>
-<input type="number" value={cuponForm.valor} onChange={e => setCuponForm(f => ({ ...f, valor: e.target.value }))} style={S.input} placeholder={cuponForm.tipo === "monto" ? "Ej: 5000" : "Ej: 10"} />
-</div>
-</div>
-<div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "16px" }}>
-<div style={{ flex: "1 1 180px" }}>
-<label style={S.label}>Compra minima (opcional)</label>
-<input type="number" value={cuponForm.minCompra} onChange={e => setCuponForm(f => ({ ...f, minCompra: e.target.value }))} style={S.input} placeholder="Ej: 20000" />
-</div>
-<div style={{ flex: "1 1 180px" }}>
-<label style={S.label}>Vence el (opcional)</label>
-<input type="date" value={cuponForm.fechaExpiracion} onChange={e => setCuponForm(f => ({ ...f, fechaExpiracion: e.target.value }))} style={S.input} />
-</div>
-</div>
-<button onClick={handleAddCupon} disabled={cuponSaving} style={{ ...S.btn, padding: "10px 20px", opacity: cuponSaving ? 0.6 : 1 }}>{cuponSaving ? "Guardando..." : "Guardar cupon"}</button>
-{cupones.length > 0 && (
-<div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "8px" }}>
-{cupones.map(c => (
-<div key={c.id} style={{ display: "flex", alignItems: "center", gap: "10px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px 12px", opacity: c.activo ? 1 : 0.5, flexWrap: "wrap" }}>
-<strong style={{ color: "#d4af37" }}>{c.id}</strong>
-<span style={{ fontSize: "13px", color: "#bdbdbd" }}>{c.tipo === "monto" ? formatPrice(c.valor) : (c.valor + "%")} OFF{c.minCompra ? (" · minimo " + formatPrice(c.minCompra)) : ""}{c.fechaExpiracion ? (" · vence " + c.fechaExpiracion) : ""}</span>
-<span style={{ fontSize: "11px", fontWeight: "700", color: c.activo ? "#9ddb9d" : "#e0b84a" }}>{c.activo ? "ACTIVO" : "PAUSADO"}</span>
-<div style={{ marginLeft: "auto", display: "flex", gap: "8px" }}>
-<button onClick={() => handleToggleCupon(c)} style={{ ...S.btnOutline, padding: "6px 12px", fontSize: "12px" }}>{c.activo ? "Pausar" : "Activar"}</button>
-<button onClick={() => handleDeleteCupon(c.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px" }}>Eliminar</button>
-</div>
-</div>
-))}
-</div>
-)}
-</div>
-{(() => {
-const pf = perfumeComboForm || { activo: (perfumeComboConfig && perfumeComboConfig.activo) || false, minCantidad: (perfumeComboConfig && perfumeComboConfig.minCantidad) || 2, descuentoPct: (perfumeComboConfig && perfumeComboConfig.descuentoPct) || 10 };
-return (
-<div style={{ ...S.adminCard, marginBottom: "24px" }}>
-<h3 style={{ margin: "0 0 6px" }}>🎁 Descuento automático por cantidad de perfumes</h3>
-<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Igual que el de los sets de decants, pero para perfumes enteros: si el cliente lleva el minimo de unidades que elijas aca, se le aplica el % de descuento solo en el carrito, sin que tengas que armar nada mas.</p>
-<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer", marginBottom: "12px" }}>
-<input type="checkbox" checked={!!pf.activo} onChange={e => setPerfumeComboForm({ ...pf, activo: e.target.checked })} />
-Activar el descuento automatico
-</label>
-<div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "14px" }}>
-<div style={{ flex: "1 1 180px" }}>
-<label style={S.label}>Minimo de perfumes</label>
-<input type="number" min="2" value={pf.minCantidad} onChange={e => setPerfumeComboForm({ ...pf, minCantidad: e.target.value })} style={S.input} placeholder="Ej: 2" />
-</div>
-<div style={{ flex: "1 1 180px" }}>
-<label style={S.label}>Porcentaje de descuento</label>
-<input type="number" min="0" max="90" value={pf.descuentoPct} onChange={e => setPerfumeComboForm({ ...pf, descuentoPct: e.target.value })} style={S.input} placeholder="Ej: 10" />
-</div>
-</div>
-<div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-<button onClick={handleSavePerfumeCombo} disabled={perfumeComboSaving} style={{ ...S.btn, padding: "10px 20px", opacity: perfumeComboSaving ? 0.6 : 1 }}>{perfumeComboSaving ? "Guardando..." : "Guardar"}</button>
-{perfumeComboForm && <button onClick={() => setPerfumeComboForm(null)} style={{ ...S.btnOutline, padding: "10px 20px" }}>Descartar cambios</button>}
-</div>
-</div>
-); })()}
-{(() => {
-const comboSearchResults = comboSearch.trim() ? adminProductsList.filter(p => !comboForm.productIds.includes(p.id) && normalizeTxt(getProductName(p)).includes(normalizeTxt(comboSearch))).slice(0, 8) : [];
-const comboSelectedProducts = comboForm.productIds.map(id => adminProductsList.find(p => p.id === id)).filter(Boolean);
-const precioOriginalCombo = comboSelectedProducts.reduce((a, p) => a + getProductPrice(p), 0);
-return (
-<div style={{ ...S.adminCard, marginBottom: "24px" }}>
-<h3 style={{ margin: "0 0 6px" }}>📦 Combos armados (packs con precio especial)</h3>
-<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Elegi 2 o mas productos que ya existen y ponele un precio especial de combo. Se muestra como una oferta armada en el catalogo, con un boton para agregar todo el pack al carrito de una.</p>
-<label style={S.label}>Nombre del combo</label>
-<input type="text" value={comboForm.nombre} onChange={e => setComboForm(f => ({ ...f, nombre: e.target.value }))} style={{ ...S.input, marginBottom: "12px" }} placeholder="Ej: Combo Regalo Dia de la Madre" />
-<label style={S.label}>Buscar y agregar productos</label>
-<input type="text" value={comboSearch} onChange={e => setComboSearch(e.target.value)} style={{ ...S.input, marginBottom: "8px" }} placeholder="Buscar perfume por nombre..." />
-{comboSearchResults.length > 0 && (
-<div style={{ background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", marginBottom: "10px", overflow: "hidden" }}>
-{comboSearchResults.map(p => (
-<div key={p.id} onClick={() => { handleToggleComboProduct(p.id); setComboSearch(""); }} style={{ padding: "8px 12px", cursor: "pointer", fontSize: "13px", borderBottom: "1px solid #2b2b2b" }}>+ {getProductName(p)} · {formatPrice(getProductPrice(p))}</div>
-))}
-</div>
-)}
-{comboSelectedProducts.length === 0 ? (
-<p style={{ color: "#8a8a8a", fontSize: "13px", marginBottom: "12px" }}>Todavia no elegiste productos para este combo.</p>
-) : (
-<div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "12px" }}>
-{comboSelectedProducts.map(p => (
-<div key={p.id} style={{ display: "flex", alignItems: "center", gap: "8px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "6px 10px" }}>
-<span style={{ flex: 1, fontSize: "13px" }}>{getProductName(p)}</span>
-<span style={{ fontSize: "12px", color: "#9a9a9a" }}>{formatPrice(getProductPrice(p))}</span>
-<button onClick={() => handleToggleComboProduct(p.id)} style={{ ...S.btnGray, padding: "4px 8px" }}>✕</button>
-</div>
-))}
-<div style={{ fontSize: "13px", color: "#bdbdbd", marginTop: "4px" }}>Precio de lista sumado: {formatPrice(precioOriginalCombo)}</div>
-</div>
-)}
-<label style={S.label}>Precio especial del combo</label>
-<input type="number" value={comboForm.precioCombo} onChange={e => setComboForm(f => ({ ...f, precioCombo: e.target.value }))} style={{ ...S.input, marginBottom: "12px" }} placeholder="Ej: 95000" />
-<label style={S.label}>Imagen del combo (opcional, si no subis ninguna se usa la foto del primer producto)</label>
-<div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "12px", flexWrap: "wrap" }}>
-<input type="file" accept="image/*" onChange={e => handleComboImageUpload(e.target.files[0])} />
-{comboUploading && <span style={{ color: "#9a9a9a", fontSize: "13px" }}>Subiendo...</span>}
-{comboForm.imagen && <img src={comboForm.imagen} alt="preview" style={{ width: "70px", height: "70px", objectFit: "cover", borderRadius: "8px" }} />}
-</div>
-<div style={{ display: "flex", gap: "10px" }}>
-<button onClick={handleSaveCombo} disabled={comboSaving} style={{ ...S.btn, padding: "10px 20px", opacity: comboSaving ? 0.6 : 1 }}>{comboSaving ? "Guardando..." : (editingComboId ? "Guardar cambios" : "Crear combo")}</button>
-{editingComboId && <button onClick={handleCancelComboEdit} style={{ ...S.btnOutline, padding: "10px 20px" }}>Cancelar edicion</button>}
-</div>
-<h3 style={{ marginTop: "24px", marginBottom: "16px" }}>Combos existentes ({combos.length})</h3>
-{combos.length === 0 ? (
-<p style={{ color: "#7a7a7a" }}>Todavia no armaste ningun combo.</p>
-) : (
-combos.map(c => (
-<div key={c.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap", opacity: c.activo ? 1 : 0.55 }}>
-{c.imagen && <img src={c.imagen} alt={c.nombre} style={{ width: "60px", height: "60px", objectFit: "cover", borderRadius: "8px" }} />}
-<div style={{ flex: 1, minWidth: "180px" }}>
-<strong>{c.nombre}</strong>
-<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{(c.productIds || []).length} productos · {formatPrice(c.precioCombo)}</div>
-<div style={{ color: c.activo ? "#9ddb9d" : "#e0b84a", fontSize: "11px", fontWeight: "700" }}>{c.activo ? "ACTIVO" : "PAUSADO"}</div>
-</div>
-<button onClick={() => handleEditCombo(c)} style={{ ...S.btnOutline, padding: "8px 14px", fontSize: "13px" }}>Editar</button>
-<button onClick={() => handleToggleCombo(c)} style={{ ...S.btnOutline, padding: "8px 14px", fontSize: "13px" }}>{c.activo ? "Pausar" : "Activar"}</button>
-<button onClick={() => handleDeleteCombo(c.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer", fontSize: "13px" }}>Eliminar</button>
-</div>
-))
-)}
-</div>
-); })()}
-<div style={{ ...S.adminCard, marginBottom: "24px" }}>
-<h3 style={{ margin: "0 0 6px" }}>📧 Suscriptores al newsletter ({emailSubs.length})</h3>
-<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Emails que dejaron en el pie del sitio, ademas de la Lista VIP de WhatsApp. Exportalos para mandarles novedades por email.</p>
-<button onClick={exportNewsletterToCSV} style={{ ...S.btnOutline, marginBottom: "16px" }}>⬇ Exportar CSV</button>
-{emailSubs.length === 0 ? (
-<p style={{ color: "#9a9a9a", fontSize: "13px" }}>Todavia no hay suscriptores.</p>
-) : (
-<div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "260px", overflowY: "auto" }}>
-{emailSubs.map(s => (
-<div key={s.id} style={{ display: "flex", alignItems: "center", gap: "10px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px 12px" }}>
-<span style={{ flex: 1, fontSize: "13px" }}>{s.email || s.id}</span>
-<button onClick={() => handleDeleteNewsletterSub(s.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px" }}>Eliminar</button>
-</div>
-))}
-</div>
-)}
-</div>
-<div style={{ ...S.adminCard, marginBottom: "24px" }}>
-<h3 style={{ margin: "0 0 6px" }}>📱 Contactos de WhatsApp del popup ({popupContacts.length})</h3>
-<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Numeros que dejaron a cambio del cupon de bienvenida. Exportalos para avisarles ofertas y eventos por WhatsApp.</p>
-<button onClick={exportPopupContactsToCSV} style={{ ...S.btnOutline, marginBottom: "16px" }}>⬇ Exportar CSV</button>
-{popupContacts.length === 0 ? (
-<p style={{ color: "#9a9a9a", fontSize: "13px" }}>Todavia no hay contactos.</p>
-) : (
-<div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "260px", overflowY: "auto" }}>
-{popupContacts.map(c => (
-<div key={c.id} style={{ display: "flex", alignItems: "center", gap: "10px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px 12px" }}>
-<span style={{ flex: 1, fontSize: "13px" }}>{c.telefono || c.id}</span>
-<button onClick={() => handleDeletePopupContact(c.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px" }}>Eliminar</button>
-</div>
-))}
-</div>
-)}
-</div>
-<div style={{ ...S.adminCard, marginBottom: "24px" }}>
-<h3 style={{ margin: "0 0 6px" }}>🖼️ Migrar fotos antiguas de Imgur a Cloudinary</h3>
-<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Las fotos nuevas ya se suben a Cloudinary automaticamente. Esto busca los productos que todavia tienen alguna foto vieja alojada en Imgur y las pasa a Cloudinary, actualizando el producto para que quede con el link nuevo (no rompe nada mientras tanto: las fotos de Imgur siguen funcionando igual hasta que se migran).</p>
-{productsWithImgur.length === 0 ? (
-<p style={{ color: "#9ddb9d", fontSize: "13px", fontWeight: "600" }}>✓ Ya no queda ninguna foto en Imgur, todo el catalogo esta en Cloudinary.</p>
+{!ventasStats ? (
+<p style={{ color: "#9a9a9a" }}>Todavia no hay pedidos registrados para mostrar estadisticas.</p>
 ) : (
 <>
-<p style={{ color: "#e0b84a", fontSize: "13px", fontWeight: "700", marginBottom: "12px" }}>{productsWithImgur.length} producto{productsWithImgur.length > 1 ? "s" : ""} con fotos todavia en Imgur.</p>
-<button onClick={handleMigrateImgurImages} disabled={imgurMigrating} style={{ ...S.btn, padding: "10px 20px", opacity: imgurMigrating ? 0.6 : 1 }}>
-{imgurMigrating ? `Migrando... ${imgurMigrationProgress.done}/${imgurMigrationProgress.total}` : `Migrar ${productsWithImgur.length} producto${productsWithImgur.length > 1 ? "s" : ""} ahora`}
-</button>
+<div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "20px" }}>
+<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Facturado</div>
+<div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{formatPrice(ventasStats.totalFacturado)}</div>
+{ventasStats.comparativa && ventasStats.comparativa.tieneDatosPrevios && (
+<div style={{ fontSize: "12px", fontWeight: "700", color: ventasStats.comparativa.totalFacturado >= 0 ? "#9ddb9d" : "#e07a7a", marginTop: "4px" }}>{ventasStats.comparativa.totalFacturado >= 0 ? "▲" : "▼"} {Math.abs(Math.round(ventasStats.comparativa.totalFacturado))}% vs. periodo anterior</div>
+)}
+</div>
+<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Pedidos</div>
+<div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{ventasStats.cantidadPedidos}</div>
+{ventasStats.comparativa && ventasStats.comparativa.tieneDatosPrevios && (
+<div style={{ fontSize: "12px", fontWeight: "700", color: ventasStats.comparativa.cantidadPedidos >= 0 ? "#9ddb9d" : "#e07a7a", marginTop: "4px" }}>{ventasStats.comparativa.cantidadPedidos >= 0 ? "▲" : "▼"} {Math.abs(Math.round(ventasStats.comparativa.cantidadPedidos))}% vs. periodo anterior</div>
+)}
+</div>
+<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Ticket promedio</div>
+<div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{formatPrice(ventasStats.ticketPromedio)}</div>
+{ventasStats.comparativa && ventasStats.comparativa.tieneDatosPrevios && (
+<div style={{ fontSize: "12px", fontWeight: "700", color: ventasStats.comparativa.ticketPromedio >= 0 ? "#9ddb9d" : "#e07a7a", marginTop: "4px" }}>{ventasStats.comparativa.ticketPromedio >= 0 ? "▲" : "▼"} {Math.abs(Math.round(ventasStats.comparativa.ticketPromedio))}% vs. periodo anterior</div>
+)}
+</div>
+<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Via Mercado Pago</div>
+<div style={{ color: "#9ddb9d", fontSize: "22px", fontWeight: "700" }}>{ventasStats.totalFacturado > 0 ? Math.round((ventasStats.porOrigen.mercadopago / ventasStats.totalFacturado) * 100) : 0}%</div>
+</div>
+<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Via WhatsApp</div>
+<div style={{ color: "#e0b84a", fontSize: "22px", fontWeight: "700" }}>{ventasStats.totalFacturado > 0 ? Math.round((ventasStats.porOrigen.whatsapp / ventasStats.totalFacturado) * 100) : 0}%</div>
+</div>
+</div>
+{dashboardRange === "all" && <p style={{ color: "#7a7a7a", fontSize: "12px", marginTop: "-12px", marginBottom: "20px" }}>"Todo" no tiene un periodo anterior con el que compararse, por eso no muestra variacion %.</p>}
+
+<div style={{ ...S.adminCard, marginBottom: "20px" }}>
+<div style={{ color: "#bdbdbd", fontSize: "13px", marginBottom: "14px" }}>Ventas por dia {dashboardRange === "all" ? "(ultimos 30 dias)" : `(${DASHBOARD_RANGES.find(r => r.key === dashboardRange).label.toLowerCase()})`}</div>
+<div style={{ overflowX: "auto" }}>
+<div style={{ display: "flex", alignItems: "flex-end", gap: "6px", height: "120px", minWidth: "380px", borderBottom: "1px solid #2b2b2b", paddingBottom: "4px" }}>
+{(() => {
+const max = Math.max(...ventasStats.ventasPorDia.map(d => d.total), 1);
+return ventasStats.ventasPorDia.map((d, i) => (
+<div key={i} onMouseEnter={() => setHoverVentaDia(i)} onMouseLeave={() => setHoverVentaDia(h => h === i ? null : h)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end", position: "relative", cursor: "default" }}>
+{hoverVentaDia === i && (
+<div style={{ position: "absolute", bottom: "100%", marginBottom: "6px", background: "#0f0f0f", border: "1px solid #d4af37", borderRadius: "6px", padding: "4px 8px", fontSize: "11px", color: "#fff", whiteSpace: "nowrap", zIndex: 5 }}>
+{d.fecha.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })} · {formatPrice(d.total)}
+</div>
+)}
+<div style={{ width: "100%", maxWidth: "22px", height: `${Math.max((d.total / max) * 100, d.total > 0 ? 3 : 0)}%`, background: d.total > 0 ? "linear-gradient(180deg, #e0c158, #d4af37)" : "transparent", borderRadius: "4px 4px 0 0" }} />
+</div>
+));
+})()}
+</div>
+<div style={{ display: "flex", gap: "6px", minWidth: "380px", marginTop: "4px" }}>
+{ventasStats.ventasPorDia.map((d, i) => (
+<div key={i} style={{ flex: 1, textAlign: "center", fontSize: "10px", color: "#898781" }}>{String(d.fecha.getDate()).padStart(2, "0")}</div>
+))}
+</div>
+</div>
+</div>
+
+<div style={S.adminCard}>
+<div style={{ color: "#bdbdbd", fontSize: "13px", marginBottom: "14px" }}>Productos mas vendidos (por unidades)</div>
+{ventasStats.topProductos.length === 0 ? (
+<p style={{ color: "#9a9a9a", margin: 0 }}>Sin datos todavia.</p>
+) : (
+<div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+{(() => {
+const maxCantidad = Math.max(...ventasStats.topProductos.map(p => p.cantidad), 1);
+return ventasStats.topProductos.map((p, i) => (
+<div key={i} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+<div style={{ width: "140px", fontSize: "13px", color: "#fff", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nombre}</div>
+<div style={{ flex: 1, background: "#0f0f0f", borderRadius: "4px", height: "18px", overflow: "hidden" }}>
+<div style={{ width: `${(p.cantidad / maxCantidad) * 100}%`, height: "100%", background: "linear-gradient(90deg, #d4af37, #e0c158)", borderRadius: "4px" }} />
+</div>
+<div style={{ width: "60px", textAlign: "right", fontSize: "13px", color: "#d4af37", fontWeight: "700", flexShrink: 0 }}>{p.cantidad} u.</div>
+</div>
+));
+})()}
+</div>
+)}
+</div>
+
+<div style={{ ...S.adminCard, marginTop: "20px" }}>
+<div style={{ color: "#bdbdbd", fontSize: "13px", marginBottom: "14px" }}>Tendencia mensual (ultimos 6 meses)</div>
+<div style={{ display: "flex", alignItems: "flex-end", gap: "10px", height: "110px", borderBottom: "1px solid #2b2b2b", paddingBottom: "4px" }}>
+{(() => {
+const max = Math.max(...ventasStats.ventasPorMes.map(m => m.total), 1);
+return ventasStats.ventasPorMes.map((m, i) => (
+<div key={i} onMouseEnter={() => setHoverVentaMes(i)} onMouseLeave={() => setHoverVentaMes(h => h === i ? null : h)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end", position: "relative", cursor: "default" }}>
+{hoverVentaMes === i && (
+<div style={{ position: "absolute", bottom: "100%", marginBottom: "6px", background: "#0f0f0f", border: "1px solid #d4af37", borderRadius: "6px", padding: "4px 8px", fontSize: "11px", color: "#fff", whiteSpace: "nowrap", zIndex: 5 }}>
+{formatPrice(m.total)}
+</div>
+)}
+<div style={{ width: "100%", maxWidth: "40px", height: `${Math.max((m.total / max) * 100, m.total > 0 ? 3 : 0)}%`, background: m.total > 0 ? "linear-gradient(180deg, #e0c158, #d4af37)" : "transparent", borderRadius: "4px 4px 0 0" }} />
+</div>
+));
+})()}
+</div>
+<div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
+{ventasStats.ventasPorMes.map((m, i) => (
+<div key={i} style={{ flex: 1, textAlign: "center", fontSize: "10px", color: "#898781", textTransform: "capitalize" }}>{m.mes.toLocaleDateString("es-AR", { month: "short" })}</div>
+))}
+</div>
+</div>
 </>
 )}
-{imgurMigrationLog.length > 0 && (
-<div style={{ marginTop: "16px", maxHeight: "260px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px" }}>
-{imgurMigrationLog.slice().reverse().map((r, i) => (
-<div key={r.id + "-" + i} style={{ background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px 12px", fontSize: "12.5px" }}>
-<span style={{ color: r.ok ? "#9ddb9d" : "#cc6666", fontWeight: "700" }}>{r.ok ? "✓" : "✗"} {r.nombre}</span>
-{r.ok ? <span style={{ color: "#9a9a9a" }}> — {r.campos} foto{r.campos > 1 ? "s" : ""} migrada{r.campos > 1 ? "s" : ""}</span> : <span style={{ color: "#cc6666" }}> — {r.error}</span>}
 </div>
-))}
+</>
+)}
+{adminTab === "pedidos" && (
+<>
+<div style={{ marginTop: "40px" }}>
+<h2 id="pedidos-recientes" style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>📋 Pedidos recientes</h2>
+<p style={{ color: "#25D366", fontSize: "13px", marginTop: 0, marginBottom: "8px" }}>💬 Cuando un cliente consulta por WhatsApp (desde el carrito o un producto) deja su nombre y queda anotado acá como "Pendiente". Marcalo como "Vendido" o "No concretó": solo las vendidas suman a las estadísticas de ventas.</p>
+<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Se registran los pedidos pagados y confirmados con Nave o Mercado Pago, y los que se mandaron por WhatsApp para pagar con transferencia o efectivo (estos ultimos quedan como "enviado": todavia no confirman que el pago se haya recibido de verdad, eso lo coordinas vos por WhatsApp).</p>
+{pedidos.length > 0 && (
+<div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "16px" }}>
+<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Pedidos (ultimos 500)</div>
+<div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{pedidos.length}</div>
+</div>
+<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
+<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Total vendido (ultimos 500)</div>
+<div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{formatPrice(pedidosVenta.reduce((a, p) => a + (Number(p.total) || 0), 0))}</div>
+</div>
+</div>
+)}
+{pedidos.length > 0 && (
+<div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "14px" }}>
+{PEDIDOS_FILTROS.map(([key, label]) => { const n = contarFiltroPedidos(key); const on = pedidosFilterMedio === key; return (
+<button key={key} onClick={() => setPedidosFilterMedio(key)} style={{ background: on ? "#d4af37" : "#1a1a1a", color: on ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (on ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "7px 14px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>{label}{key !== "todos" && n > 0 ? <span style={{ marginLeft: "8px", background: on ? "#0b0b0b" : "#d4af37", color: on ? "#d4af37" : "#0b0b0b", borderRadius: "10px", padding: "1px 7px", fontSize: "11px" }}>{n}</span> : null}</button>
+); })}
+</div>
+)}
+{pedidos.length > 0 && (
+<div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "16px", alignItems: "center" }}>
+<input type="text" value={pedidosSearch} onChange={e => setPedidosSearch(e.target.value)} placeholder="Buscar por nombre de cliente..." style={{ ...S.input, flex: "1 1 220px" }} />
+<button onClick={handleExportPedidosCSV} style={{ ...S.btnOutline, padding: "10px 16px", whiteSpace: "nowrap" }}>⬇️ Exportar a Excel/CSV</button>
+</div>
+)}
+{pedidos.length === 0 ? (
+<p style={{ color: "#9a9a9a" }}>Todavia no hay pedidos registrados.</p>
+) : pedidosFiltrados.length === 0 ? (
+<p style={{ color: "#9a9a9a" }}>Ningun pedido coincide con la busqueda/filtro.</p>
+) : (
+<div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+{pedidosFiltrados.map(p => {
+const esConsulta = p.origen === "consulta_whatsapp";
+const nuevo = pedidoSinGestionar(p) || consultaPendiente(p);
+const abierto = p.id in pedidoAbierto ? pedidoAbierto[p.id] : nuevo;
+const wa = waLinkCliente(p);
+const items = p.items || [];
+const subtotalItems = items.reduce((a, it) => a + (Number(it.precio) || 0) * (Number(it.qty) || 0), 0);
+const fecha = p.createdAt && p.createdAt.toDate ? p.createdAt.toDate().toLocaleString("es-AR") : "";
+const fila = (label, valor) => valor ? (<div style={{ display: "flex", gap: "8px", fontSize: "13.5px", marginBottom: "4px", flexWrap: "wrap" }}><span style={{ color: "#9a9a9a", minWidth: "92px" }}>{label}</span><span style={{ color: "#fff", flex: 1, wordBreak: "break-word" }}>{valor}</span></div>) : null;
+return (
+<div key={p.id} style={{ ...S.adminCard, padding: "14px 18px", border: nuevo ? (esConsulta ? "1px solid #25D366" : "1px solid #d4af37") : S.adminCard.border }}>
+<div onClick={() => togglePedidoAbierto(p.id, nuevo)} style={{ display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap", cursor: "pointer" }}>
+<div style={{ flex: 1, minWidth: "180px" }}>
+<strong>{nuevo && <span style={{ background: "#d4af37", color: "#0b0b0b", fontSize: "11px", fontWeight: 800, borderRadius: "10px", padding: "2px 8px", marginRight: "8px" }}>NUEVO</span>}{p.nombre || "Sin nombre"}</strong>
+<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{items.length} producto(s) · {fecha}{esConsulta ? (p.tipoConsulta === "producto" ? " · consultó un producto" : " · consultó su carrito") : ""}</div>
+</div>
+<span style={{ fontSize: "12px", fontWeight: "700", color: p.estado === "pagado" || p.estado === "vendido" ? "#9ddb9d" : (p.estado === "no_concreto" ? "#ff9a9a" : "#e0b84a"), background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "4px 10px" }}>{p.estado === "pagado" ? "✅ Pagado" : p.estado === "vendido" ? "✅ Vendido" : p.estado === "no_concreto" ? "✖ No concretó" : p.estado === "pendiente" ? "⏳ Pendiente" : "📨 Enviado"}</span>
+<span style={{ fontSize: "12px", fontWeight: "700", color: p.origen === "mercadopago" || p.origen === "nave" ? "#9ddb9d" : (esConsulta ? "#25D366" : "#e0b84a"), background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "4px 10px" }}>{getPedidoMedioLabel(p)}</span>
+<strong style={{ color: "#d4af37" }}>{formatPrice(p.total)}</strong>
+<span style={{ color: "#9a9a9a", fontSize: "13px" }}>{abierto ? "▲" : "▼ Ver detalle"}</span>
+</div>
+{abierto && (
+<div style={{ marginTop: "14px", paddingTop: "14px", borderTop: "1px solid #2b2b2b", display: "flex", gap: "24px", flexWrap: "wrap" }}>
+<div style={{ flex: "1 1 260px" }}>
+<div style={{ color: "#d4af37", fontWeight: 700, fontSize: "13px", marginBottom: "8px" }}>👤 DATOS DEL CLIENTE</div>
+{fila("Nombre", p.nombre)}
+{fila("Teléfono", p.telefono)}
+{fila("Dirección", p.direccion)}
+{fila("Referencia", p.referencia)}
+{fila("Pedido N°", p.orderId || p.id)}
+{wa && <a href={wa} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: "8px", background: "#25D366", color: "#fff", padding: "9px 14px", borderRadius: "6px", textDecoration: "none", fontSize: "13px", fontWeight: 700 }}>💬 Escribirle por WhatsApp</a>}
+{!wa && p.telefono && <div style={{ color: "#bdbdbd", fontSize: "12px", marginTop: "6px" }}>Revisá el formato del teléfono para abrir WhatsApp.</div>}
+{p.esRegalo && (
+<div style={{ marginTop: "10px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px 12px", fontSize: "13px" }}>
+<div style={{ color: "#d4af37", fontWeight: 700, marginBottom: "4px" }}>🎁 Es un regalo</div>
+{p.giftMensaje && <div style={{ color: "#fff" }}>Mensaje: "{p.giftMensaje}"</div>}
+{p.ocultarPrecioRegalo && <div style={{ color: "#e0b84a" }}>No mostrar el precio en el paquete</div>}
+{p.envoltorio && <div style={{ color: "#fff" }}>Con envoltorio de regalo</div>}
 </div>
 )}
 </div>
-<div style={{ ...S.adminCard, marginBottom: "24px" }}>
-<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
-<h3 style={{ margin: 0 }}>📦 Carga Masiva de Productos</h3>
-<button onClick={() => setShowBulkUpload(s => !s)} style={S.btnOutline}>{showBulkUpload ? "Ocultar" : "Cargar varios a la vez"}</button>
+<div style={{ flex: "1 1 300px" }}>
+<div style={{ color: "#d4af37", fontWeight: 700, fontSize: "13px", marginBottom: "8px" }}>🛍️ PEDIDO</div>
+{items.map((it, i) => (
+<div key={i} style={{ display: "flex", justifyContent: "space-between", gap: "12px", fontSize: "13.5px", padding: "5px 0", borderBottom: "1px dashed #2b2b2b" }}>
+<span style={{ color: "#fff" }}>{it.qty} × {it.nombre}</span>
+<span style={{ color: "#bdbdbd", whiteSpace: "nowrap" }}>{formatPrice((Number(it.precio) || 0) * (Number(it.qty) || 0))}</span>
 </div>
-{showBulkUpload && (
-<div style={{ marginTop: "18px" }}>
-<div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "16px" }}>
-<div style={{ flex: 1, minWidth: "260px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "10px", padding: "14px" }}>
-<p style={{ margin: "0 0 8px", color: "#d4af37", fontWeight: "700", fontSize: "14px" }}>➕ Para cargar perfumes nuevos</p>
-<p style={{ margin: 0, color: "#bdbdbd", fontSize: "13px", lineHeight: "1.6" }}>Descargá la plantilla vacía, completá una fila por perfume nuevo (dejando la columna "id" vacía) y subila.</p>
-<button onClick={downloadBulkTemplate} style={{ ...S.btnOutline, marginTop: "10px", width: "100%" }}>⬇ Descargar plantilla vacía</button>
+))}
+<div style={{ marginTop: "10px", fontSize: "13.5px" }}>
+{subtotalItems > 0 && Math.round(subtotalItems) !== Math.round(Number(p.total) || 0) && (<div style={{ display: "flex", justifyContent: "space-between", color: "#bdbdbd" }}><span>Subtotal</span><span>{formatPrice(subtotalItems)}</span></div>)}
+{p.cuponCodigo && (<div style={{ display: "flex", justifyContent: "space-between", color: "#bdbdbd" }}><span>Cupón</span><span>{p.cuponCodigo}</span></div>)}
+{subtotalItems > 0 && Math.round(subtotalItems) > Math.round(Number(p.total) || 0) && (<div style={{ display: "flex", justifyContent: "space-between", color: "#9ddb9d" }}><span>Descuentos</span><span>-{formatPrice(subtotalItems - (Number(p.total) || 0))}</span></div>)}
+<div style={{ display: "flex", justifyContent: "space-between", color: "#d4af37", fontWeight: 800, fontSize: "16px", marginTop: "6px" }}><span>Total</span><span>{formatPrice(p.total)}</span></div>
 </div>
-<div style={{ flex: 1, minWidth: "260px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "10px", padding: "14px" }}>
-<p style={{ margin: "0 0 8px", color: "#d4af37", fontWeight: "700", fontSize: "14px" }}>🔄 Para reponer stock / editar en masa</p>
-<p style={{ margin: 0, color: "#bdbdbd", fontSize: "13px", lineHeight: "1.6" }}>Exportá tu catálogo actual (ya trae el "id" de cada perfume), cambiá lo que necesites (precio, disponibilidad, etc.) y volvé a subir el mismo archivo: actualiza cada producto en vez de duplicarlo.</p>
-<button onClick={exportCatalogToCSV} style={{ ...S.btnOutline, marginTop: "10px", width: "100%" }}>⬇ Exportar mi catálogo actual</button>
+{esConsulta && (
+<div style={{ marginTop: "14px" }}>
+<div style={{ color: "#9a9a9a", fontSize: "12px", marginBottom: "6px" }}>¿Cómo terminó esta consulta?</div>
+<div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+<button onClick={() => setPedidoEstado(p.id, "vendido")} style={{ ...(p.estado === "vendido" ? S.btn : S.btnOutline), flex: "1 1 120px", padding: "10px" }}>✅ Vendido</button>
+<button onClick={() => setPedidoEstado(p.id, "no_concreto")} style={{ ...(p.estado === "no_concreto" ? S.btn : S.btnOutline), flex: "1 1 120px", padding: "10px" }}>✖ No concretó</button>
+<button onClick={() => setPedidoEstado(p.id, "pendiente")} style={{ ...(p.estado === "pendiente" ? S.btn : S.btnOutline), flex: "1 1 120px", padding: "10px" }}>⏳ Pendiente</button>
 </div>
 </div>
-<ol style={{ color: "#bdbdbd", fontSize: "14px", lineHeight: "1.9", paddingLeft: "20px" }}>
-<li>Abrí el CSV en Excel o Google Sheets y editalo (para reponer stock, por ejemplo, cambiá la columna <strong>disponibilidad</strong> a "stock" y/o el <strong>precio</strong> en las filas que corresponda; dejá vacías las columnas que no querés tocar).</li>
-<li>La imagen es <strong>opcional</strong>: si ya la tenés subida a algún lado, pegá el link en la columna <strong>imageUrl</strong>; para fotos nuevas del celular/compu, dejá esa columna vacía y en <strong>imagen</strong> escribí el nombre exacto del archivo (ej: perfume1.jpg) y más abajo seleccioná esas fotos. Si dejás ambas columnas vacías, el perfume se publica igual con una imagen de "Sin Imagen" y después la editás a mano desde el catálogo.</li>
-<li>En <strong>etiquetas</strong> podés escribir varias separadas por "|", por ejemplo: mas_vendidos|top_verano|tendencia_gourmand_oscuro</li>
-<li>Guardá como CSV, subilo abajo, revisá la vista previa (te va a decir qué fila es nueva y cuál actualiza un producto existente) y tocá "Publicar todos".</li>
-</ol>
-<label style={S.label}>1. Subir planilla CSV completa</label>
-<input ref={bulkCsvInputRef} type="file" accept=".csv,text/csv" onChange={e => handleBulkCsvSelect(e.target.files[0])} style={{ ...S.input, padding: "8px", marginBottom: "16px" }} />
-<label style={S.label}>2. (Opcional) Seleccionar las fotos, si usaste la columna "imagen" en vez de "imageUrl"</label>
-<input ref={bulkImagesInputRef} type="file" accept="image/*" multiple onChange={e => handleBulkImagesSelect(e.target.files)} style={{ ...S.input, padding: "8px", marginBottom: "8px" }} />
-{bulkImagesCount > 0 && <p style={{ color: "#9ddb9d", fontSize: "13px" }}>{bulkImagesCount} foto(s) seleccionada(s)</p>}
-{bulkRows.length > 0 && (
-<div style={{ marginTop: "16px" }}>
-<p style={{ color: "#d4af37", fontWeight: "700" }}>{bulkRows.length} filas listas para revisar ({bulkRows.filter(r => !bulkRowIsUpdate(r)).length} nuevas, {bulkRows.filter(bulkRowIsUpdate).length} actualizaciones)</p>
-<div style={{ overflowX: "auto", marginBottom: "16px" }}>
-<table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-<thead>
-<tr style={{ color: "#d4af37", textAlign: "left" }}>
-<th style={{ padding: "6px" }}>Nombre</th>
-<th style={{ padding: "6px" }}>Precio</th>
-<th style={{ padding: "6px" }}>Marca</th>
-<th style={{ padding: "6px" }}>Accion</th>
-<th style={{ padding: "6px" }}>Imagen</th>
-</tr>
-</thead>
-<tbody>
-{bulkRows.map((r, i) => {
-const action = bulkRowAction(r);
-return (
-<tr key={i} style={{ borderTop: "1px solid #2b2b2b" }}>
-<td style={{ padding: "6px" }}>{r.nombre || (action.type === "update" ? action.existing.nombre : <span style={{ color: "#cc6666" }}>Sin nombre</span>)}</td>
-<td style={{ padding: "6px" }}>{r.precio ? formatPrice(Number(r.precio)) : (action.type === "update" ? "(sin cambios)" : <span style={{ color: "#cc6666" }}>Sin precio</span>)}</td>
-<td style={{ padding: "6px" }}>{r.marca || "-"}</td>
-<td style={{ padding: "6px" }}>
-{action.type === "new" && <span style={{ color: "#9ddb9d" }}>➕ Nuevo</span>}
-{action.type === "update" && <span style={{ color: "#e0b84a" }}>🔄 Actualiza</span>}
-{action.type === "error" && <span style={{ color: "#cc6666" }}>✗ {action.msg}</span>}
-</td>
-<td style={{ padding: "6px" }}>{bulkRowHasImage(r) ? <span style={{ color: "#9ddb9d" }}>✓ OK</span> : <span style={{ color: "#e0b84a" }}>Sin imagen (se publica igual)</span>}</td>
-</tr>
+)}
+{p.estado === "pagado" && (
+<button onClick={() => setPedidoGestionado(p.id, !p.gestionado)} style={{ ...(p.gestionado ? S.btnOutline : S.btn), marginTop: "14px", width: "100%", padding: "10px" }}>{p.gestionado ? "↩️ Volver a marcar como sin gestionar" : "✓ Marcar como gestionado (ya lo contacté)"}</button>
+)}
+</div>
+</div>
+)}
+</div>
 );
 })}
-</tbody>
-</table>
-</div>
-<button onClick={handleBulkPublish} disabled={bulkPublishing} style={{ ...S.btn, width: "100%", padding: "12px", opacity: bulkPublishing ? 0.6 : 1 }}>{bulkPublishing ? `Publicando ${bulkProgress.done}/${bulkProgress.total}...` : `Publicar los ${bulkRows.length} productos`}</button>
-</div>
-)}
-{bulkResults.length > 0 && (
-<div style={{ marginTop: "16px" }}>
-<p style={{ fontWeight: "700", color: bulkResults.every(r => r.ok) ? "#9ddb9d" : "#e0b84a" }}>{bulkResults.filter(r => r.ok).length} de {bulkResults.length} procesados correctamente</p>
-{bulkResults.filter(r => !r.ok).map((r, i) => (
-<p key={i} style={{ color: "#cc6666", fontSize: "13px", margin: "4px 0" }}>✗ {r.nombre}: {r.error}</p>
-))}
 </div>
 )}
 </div>
+</>
 )}
-</div>
+{adminTab === "productos" && adminSub.productos === "cargar" && (
+<>
 <div style={S.adminCard}>
 <h3 style={{ marginTop: 0, marginBottom: "20px" }}>{editingId ? "Editar Producto" : "Agregar Nuevo Producto"}</h3>
 <label style={S.label}>Nombre del Producto *</label>
@@ -4103,7 +4003,11 @@ return (
 <button onClick={handleCancelEdit} style={{ ...S.btn, width: "100%", padding: "10px", marginTop: "8px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }}>Cancelar Edicion</button>
 )}
 </div>
-<h3 style={{ marginTop: "36px", marginBottom: "16px" }}>Productos Existentes ({adminProductsList.length})</h3>
+</>
+)}
+{adminTab === "productos" && adminSub.productos === "lista" && (
+<>
+<h3 style={{ marginTop: 0, marginBottom: "16px" }}>Productos Existentes ({adminProductsList.length})</h3>
 {(() => {
 const normalizarTxt = (s) => (s || "").toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const qBusqueda = normalizarTxt(adminProductSearch.trim());
@@ -4146,7 +4050,468 @@ return encontrados.length === 0 ? (
 </>
 );
 })()}
-
+</>
+)}
+{adminTab === "productos" && adminSub.productos === "orden" && (
+<>
+{(() => {
+const co = catalogOrderForm || { modo: (catalogOrderConfig && catalogOrderConfig.modo) || "novedades", categoriaClave: (catalogOrderConfig && catalogOrderConfig.categoriaClave) || "", manualIds: (catalogOrderConfig && catalogOrderConfig.manualIds) || [] };
+const manualProducts = co.manualIds.map(id => dedupedProducts.find(p => p.id === id)).filter(Boolean);
+const manualSearchResults = catalogManualSearch.trim() ? dedupedProducts.filter(p => !co.manualIds.includes(p.id) && normalizeTxt(getProductName(p)).includes(normalizeTxt(catalogManualSearch))).slice(0, 8) : [];
+const moveManual = (idx, dir) => {
+const ids = [...co.manualIds];
+const newIdx = idx + dir;
+if (newIdx < 0 || newIdx >= ids.length) return;
+[ids[idx], ids[newIdx]] = [ids[newIdx], ids[idx]];
+setCatalogOrderForm({ ...co, manualIds: ids });
+};
+const removeManual = (id) => setCatalogOrderForm({ ...co, manualIds: co.manualIds.filter(x => x !== id) });
+const addManual = (id) => { setCatalogOrderForm({ ...co, manualIds: [...co.manualIds, id] }); setCatalogManualSearch(""); };
+return (
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<h3 style={{ margin: "0 0 6px" }}>🔀 Orden del catálogo</h3>
+<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Elegi en que orden ven los clientes los productos al entrar a la tienda, en vez de mostrar siempre los cargados mas recientemente primero. Esto aplica cuando el cliente tiene el orden en "Novedades"; si elige "Mas vendidos" o un orden por precio, ese manda.</p>
+<div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
+<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}>
+<input type="radio" name="catalogOrderModo" checked={co.modo === "novedades"} onChange={() => setCatalogOrderForm({ ...co, modo: "novedades" })} />
+Mas nuevo primero (orden actual por defecto)
+</label>
+<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}>
+<input type="radio" name="catalogOrderModo" checked={co.modo === "categoria"} onChange={() => setCatalogOrderForm({ ...co, modo: "categoria" })} />
+Por categoria (mostrar primero una categoria elegida)
+</label>
+{co.modo === "categoria" && (
+<div style={{ marginLeft: "26px" }}>
+<select style={S.select} value={co.categoriaClave} onChange={e => setCatalogOrderForm({ ...co, categoriaClave: e.target.value })}>
+<option value="">Elegi una categoria...</option>
+{CATALOG_ORDER_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+</select>
+</div>
+)}
+<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}>
+<input type="radio" name="catalogOrderModo" checked={co.modo === "manual"} onChange={() => setCatalogOrderForm({ ...co, modo: "manual" })} />
+Manual (elijo yo cuales aparecen primero)
+</label>
+{co.modo === "manual" && (
+<div style={{ marginLeft: "26px" }}>
+<input type="text" placeholder="Buscar perfume para agregar..." value={catalogManualSearch} onChange={e => setCatalogManualSearch(e.target.value)} style={{ ...S.input, marginBottom: "8px" }} />
+{manualSearchResults.length > 0 && (
+<div style={{ background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", marginBottom: "10px", overflow: "hidden" }}>
+{manualSearchResults.map(p => (
+<div key={p.id} onClick={() => addManual(p.id)} style={{ padding: "8px 12px", cursor: "pointer", fontSize: "13px", borderBottom: "1px solid #2b2b2b" }}>+ {getProductName(p)}</div>
+))}
+</div>
+)}
+{manualProducts.length === 0 ? (
+<p style={{ color: "#8a8a8a", fontSize: "13px" }}>Todavia no elegiste productos. Los que agregues van a aparecer primero, en el orden de esta lista.</p>
+) : (
+<div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+{manualProducts.map((p, idx) => (
+<div key={p.id} style={{ display: "flex", alignItems: "center", gap: "8px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "6px 10px" }}>
+<span style={{ color: "#d4af37", fontWeight: "700", fontSize: "13px", minWidth: "20px" }}>{idx + 1}</span>
+<span style={{ flex: 1, fontSize: "13px" }}>{getProductName(p)}</span>
+<button onClick={() => moveManual(idx, -1)} disabled={idx === 0} style={{ ...S.btnGray, padding: "4px 8px", opacity: idx === 0 ? 0.4 : 1 }}>↑</button>
+<button onClick={() => moveManual(idx, 1)} disabled={idx === manualProducts.length - 1} style={{ ...S.btnGray, padding: "4px 8px", opacity: idx === manualProducts.length - 1 ? 0.4 : 1 }}>↓</button>
+<button onClick={() => removeManual(p.id)} style={{ ...S.btnGray, padding: "4px 8px" }}>✕</button>
+</div>
+))}
+</div>
+)}
+</div>
+)}
+<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}>
+<input type="radio" name="catalogOrderModo" checked={co.modo === "aleatorio"} onChange={() => setCatalogOrderForm({ ...co, modo: "aleatorio" })} />
+Aleatorio (mezclado entre todos, cambia solo)
+</label>
+</div>
+<div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+<button onClick={handleSaveCatalogOrder} disabled={catalogOrderSaving} style={{ ...S.btn, padding: "10px 20px", opacity: catalogOrderSaving ? 0.6 : 1 }}>{catalogOrderSaving ? "Guardando..." : "Guardar orden"}</button>
+{catalogOrderForm && <button onClick={() => setCatalogOrderForm(null)} style={{ ...S.btnOutline, padding: "10px 20px" }}>Descartar cambios</button>}
+</div>
+</div>
+); })()}
+</>
+)}
+{adminTab === "productos" && adminSub.productos === "masiva" && (
+<>
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+<h3 style={{ margin: 0 }}>📦 Carga Masiva de Productos</h3>
+<button onClick={() => setShowBulkUpload(s => !s)} style={S.btnOutline}>{showBulkUpload ? "Ocultar" : "Cargar varios a la vez"}</button>
+</div>
+{showBulkUpload && (
+<div style={{ marginTop: "18px" }}>
+<div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "16px" }}>
+<div style={{ flex: 1, minWidth: "260px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "10px", padding: "14px" }}>
+<p style={{ margin: "0 0 8px", color: "#d4af37", fontWeight: "700", fontSize: "14px" }}>➕ Para cargar perfumes nuevos</p>
+<p style={{ margin: 0, color: "#bdbdbd", fontSize: "13px", lineHeight: "1.6" }}>Descargá la plantilla vacía, completá una fila por perfume nuevo (dejando la columna "id" vacía) y subila.</p>
+<button onClick={downloadBulkTemplate} style={{ ...S.btnOutline, marginTop: "10px", width: "100%" }}>⬇ Descargar plantilla vacía</button>
+</div>
+<div style={{ flex: 1, minWidth: "260px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "10px", padding: "14px" }}>
+<p style={{ margin: "0 0 8px", color: "#d4af37", fontWeight: "700", fontSize: "14px" }}>🔄 Para reponer stock / editar en masa</p>
+<p style={{ margin: 0, color: "#bdbdbd", fontSize: "13px", lineHeight: "1.6" }}>Exportá tu catálogo actual (ya trae el "id" de cada perfume), cambiá lo que necesites (precio, disponibilidad, etc.) y volvé a subir el mismo archivo: actualiza cada producto en vez de duplicarlo.</p>
+<button onClick={exportCatalogToCSV} style={{ ...S.btnOutline, marginTop: "10px", width: "100%" }}>⬇ Exportar mi catálogo actual</button>
+</div>
+</div>
+<ol style={{ color: "#bdbdbd", fontSize: "14px", lineHeight: "1.9", paddingLeft: "20px" }}>
+<li>Abrí el CSV en Excel o Google Sheets y editalo (para reponer stock, por ejemplo, cambiá la columna <strong>disponibilidad</strong> a "stock" y/o el <strong>precio</strong> en las filas que corresponda; dejá vacías las columnas que no querés tocar).</li>
+<li>La imagen es <strong>opcional</strong>: si ya la tenés subida a algún lado, pegá el link en la columna <strong>imageUrl</strong>; para fotos nuevas del celular/compu, dejá esa columna vacía y en <strong>imagen</strong> escribí el nombre exacto del archivo (ej: perfume1.jpg) y más abajo seleccioná esas fotos. Si dejás ambas columnas vacías, el perfume se publica igual con una imagen de "Sin Imagen" y después la editás a mano desde el catálogo.</li>
+<li>En <strong>etiquetas</strong> podés escribir varias separadas por "|", por ejemplo: mas_vendidos|top_verano|tendencia_gourmand_oscuro</li>
+<li>Guardá como CSV, subilo abajo, revisá la vista previa (te va a decir qué fila es nueva y cuál actualiza un producto existente) y tocá "Publicar todos".</li>
+</ol>
+<label style={S.label}>1. Subir planilla CSV completa</label>
+<input ref={bulkCsvInputRef} type="file" accept=".csv,text/csv" onChange={e => handleBulkCsvSelect(e.target.files[0])} style={{ ...S.input, padding: "8px", marginBottom: "16px" }} />
+<label style={S.label}>2. (Opcional) Seleccionar las fotos, si usaste la columna "imagen" en vez de "imageUrl"</label>
+<input ref={bulkImagesInputRef} type="file" accept="image/*" multiple onChange={e => handleBulkImagesSelect(e.target.files)} style={{ ...S.input, padding: "8px", marginBottom: "8px" }} />
+{bulkImagesCount > 0 && <p style={{ color: "#9ddb9d", fontSize: "13px" }}>{bulkImagesCount} foto(s) seleccionada(s)</p>}
+{bulkRows.length > 0 && (
+<div style={{ marginTop: "16px" }}>
+<p style={{ color: "#d4af37", fontWeight: "700" }}>{bulkRows.length} filas listas para revisar ({bulkRows.filter(r => !bulkRowIsUpdate(r)).length} nuevas, {bulkRows.filter(bulkRowIsUpdate).length} actualizaciones)</p>
+<div style={{ overflowX: "auto", marginBottom: "16px" }}>
+<table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+<thead>
+<tr style={{ color: "#d4af37", textAlign: "left" }}>
+<th style={{ padding: "6px" }}>Nombre</th>
+<th style={{ padding: "6px" }}>Precio</th>
+<th style={{ padding: "6px" }}>Marca</th>
+<th style={{ padding: "6px" }}>Accion</th>
+<th style={{ padding: "6px" }}>Imagen</th>
+</tr>
+</thead>
+<tbody>
+{bulkRows.map((r, i) => {
+const action = bulkRowAction(r);
+return (
+<tr key={i} style={{ borderTop: "1px solid #2b2b2b" }}>
+<td style={{ padding: "6px" }}>{r.nombre || (action.type === "update" ? action.existing.nombre : <span style={{ color: "#cc6666" }}>Sin nombre</span>)}</td>
+<td style={{ padding: "6px" }}>{r.precio ? formatPrice(Number(r.precio)) : (action.type === "update" ? "(sin cambios)" : <span style={{ color: "#cc6666" }}>Sin precio</span>)}</td>
+<td style={{ padding: "6px" }}>{r.marca || "-"}</td>
+<td style={{ padding: "6px" }}>
+{action.type === "new" && <span style={{ color: "#9ddb9d" }}>➕ Nuevo</span>}
+{action.type === "update" && <span style={{ color: "#e0b84a" }}>🔄 Actualiza</span>}
+{action.type === "error" && <span style={{ color: "#cc6666" }}>✗ {action.msg}</span>}
+</td>
+<td style={{ padding: "6px" }}>{bulkRowHasImage(r) ? <span style={{ color: "#9ddb9d" }}>✓ OK</span> : <span style={{ color: "#e0b84a" }}>Sin imagen (se publica igual)</span>}</td>
+</tr>
+);
+})}
+</tbody>
+</table>
+</div>
+<button onClick={handleBulkPublish} disabled={bulkPublishing} style={{ ...S.btn, width: "100%", padding: "12px", opacity: bulkPublishing ? 0.6 : 1 }}>{bulkPublishing ? `Publicando ${bulkProgress.done}/${bulkProgress.total}...` : `Publicar los ${bulkRows.length} productos`}</button>
+</div>
+)}
+{bulkResults.length > 0 && (
+<div style={{ marginTop: "16px" }}>
+<p style={{ fontWeight: "700", color: bulkResults.every(r => r.ok) ? "#9ddb9d" : "#e0b84a" }}>{bulkResults.filter(r => r.ok).length} de {bulkResults.length} procesados correctamente</p>
+{bulkResults.filter(r => !r.ok).map((r, i) => (
+<p key={i} style={{ color: "#cc6666", fontSize: "13px", margin: "4px 0" }}>✗ {r.nombre}: {r.error}</p>
+))}
+</div>
+)}
+</div>
+)}
+</div>
+</>
+)}
+{adminTab === "marketing" && adminSub.marketing === "banner" && (
+<>
+{(() => {
+const bf = bannerForm || { bannerEnabled: (bannerConfig && bannerConfig.bannerEnabled) || false, bannerTexto: (bannerConfig && bannerConfig.bannerTexto) || "", bannerLink: (bannerConfig && bannerConfig.bannerLink) || "", bannerCtaLabel: (bannerConfig && bannerConfig.bannerCtaLabel) || "", bannerFechaObjetivo: (bannerConfig && bannerConfig.bannerFechaObjetivo) || "" };
+return (
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<h3 style={{ margin: "0 0 6px" }}>📣 Banner del sitio (Dia de la Madre, Black Friday, Navidad...)</h3>
+<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Se muestra arriba de todo el sitio. Se puede activar y desactivar cuando quieras, sin pedirme un cambio de codigo.</p>
+<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer", marginBottom: "12px" }}>
+<input type="checkbox" checked={!!bf.bannerEnabled} onChange={e => setBannerForm({ ...bf, bannerEnabled: e.target.checked })} />
+Mostrar el banner en el sitio
+</label>
+<label style={S.label}>Texto del banner</label>
+<input type="text" value={bf.bannerTexto} onChange={e => setBannerForm({ ...bf, bannerTexto: e.target.value })} style={{ ...S.input, marginBottom: "12px" }} placeholder="Ej: Regalos para el Dia de la Madre - envios asegurados antes del 18/10" />
+<div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+<div style={{ flex: "1 1 220px" }}>
+<label style={S.label}>Link del boton (opcional)</label>
+<input type="text" value={bf.bannerLink} onChange={e => setBannerForm({ ...bf, bannerLink: e.target.value })} style={{ ...S.input, marginBottom: "12px" }} placeholder="https://wa.me/... o una seccion del sitio" />
+</div>
+<div style={{ flex: "1 1 160px" }}>
+<label style={S.label}>Texto del boton (opcional)</label>
+<input type="text" value={bf.bannerCtaLabel} onChange={e => setBannerForm({ ...bf, bannerCtaLabel: e.target.value })} style={{ ...S.input, marginBottom: "12px" }} placeholder="Ver mas" />
+</div>
+</div>
+<label style={S.label}>Cuenta regresiva hasta (opcional, ej: Black Friday)</label>
+<input type="datetime-local" value={bf.bannerFechaObjetivo} onChange={e => setBannerForm({ ...bf, bannerFechaObjetivo: e.target.value })} style={{ ...S.input, marginBottom: "14px" }} />
+<div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+<button onClick={handleSaveBanner} disabled={bannerSaving} style={{ ...S.btn, padding: "10px 20px", opacity: bannerSaving ? 0.6 : 1 }}>{bannerSaving ? "Guardando..." : "Guardar banner"}</button>
+{bannerForm && <button onClick={() => setBannerForm(null)} style={{ ...S.btnOutline, padding: "10px 20px" }}>Descartar cambios</button>}
+</div>
+</div>
+); })()}
+</>
+)}
+{adminTab === "marketing" && adminSub.marketing === "cupones" && (
+<>
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<h3 style={{ margin: "0 0 6px" }}>🏷️ Cupones de descuento</h3>
+<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Crea codigos que el cliente ingresa en el carrito para recibir un descuento automatico, igual que el de los sets de decants.</p>
+<div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "12px" }}>
+<div style={{ flex: "1 1 140px" }}>
+<label style={S.label}>Codigo</label>
+<input type="text" value={cuponForm.codigo} onChange={e => setCuponForm(f => ({ ...f, codigo: e.target.value.toUpperCase() }))} style={S.input} placeholder="Ej: VERANO10" />
+</div>
+<div style={{ flex: "1 1 140px" }}>
+<label style={S.label}>Tipo</label>
+<select style={S.select} value={cuponForm.tipo} onChange={e => setCuponForm(f => ({ ...f, tipo: e.target.value }))}>
+<option value="porcentaje">Porcentaje (%)</option>
+<option value="monto">Monto fijo ($)</option>
+</select>
+</div>
+<div style={{ flex: "1 1 140px" }}>
+<label style={S.label}>{cuponForm.tipo === "monto" ? "Monto a descontar" : "Porcentaje a descontar"}</label>
+<input type="number" value={cuponForm.valor} onChange={e => setCuponForm(f => ({ ...f, valor: e.target.value }))} style={S.input} placeholder={cuponForm.tipo === "monto" ? "Ej: 5000" : "Ej: 10"} />
+</div>
+</div>
+<div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "16px" }}>
+<div style={{ flex: "1 1 180px" }}>
+<label style={S.label}>Compra minima (opcional)</label>
+<input type="number" value={cuponForm.minCompra} onChange={e => setCuponForm(f => ({ ...f, minCompra: e.target.value }))} style={S.input} placeholder="Ej: 20000" />
+</div>
+<div style={{ flex: "1 1 180px" }}>
+<label style={S.label}>Vence el (opcional)</label>
+<input type="date" value={cuponForm.fechaExpiracion} onChange={e => setCuponForm(f => ({ ...f, fechaExpiracion: e.target.value }))} style={S.input} />
+</div>
+</div>
+<button onClick={handleAddCupon} disabled={cuponSaving} style={{ ...S.btn, padding: "10px 20px", opacity: cuponSaving ? 0.6 : 1 }}>{cuponSaving ? "Guardando..." : "Guardar cupon"}</button>
+{cupones.length > 0 && (
+<div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "8px" }}>
+{cupones.map(c => (
+<div key={c.id} style={{ display: "flex", alignItems: "center", gap: "10px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px 12px", opacity: c.activo ? 1 : 0.5, flexWrap: "wrap" }}>
+<strong style={{ color: "#d4af37" }}>{c.id}</strong>
+<span style={{ fontSize: "13px", color: "#bdbdbd" }}>{c.tipo === "monto" ? formatPrice(c.valor) : (c.valor + "%")} OFF{c.minCompra ? (" · minimo " + formatPrice(c.minCompra)) : ""}{c.fechaExpiracion ? (" · vence " + c.fechaExpiracion) : ""}</span>
+<span style={{ fontSize: "11px", fontWeight: "700", color: c.activo ? "#9ddb9d" : "#e0b84a" }}>{c.activo ? "ACTIVO" : "PAUSADO"}</span>
+<div style={{ marginLeft: "auto", display: "flex", gap: "8px" }}>
+<button onClick={() => handleToggleCupon(c)} style={{ ...S.btnOutline, padding: "6px 12px", fontSize: "12px" }}>{c.activo ? "Pausar" : "Activar"}</button>
+<button onClick={() => handleDeleteCupon(c.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px" }}>Eliminar</button>
+</div>
+</div>
+))}
+</div>
+)}
+</div>
+</>
+)}
+{adminTab === "marketing" && adminSub.marketing === "descuentos" && (
+<>
+{(() => {
+const pf = perfumeComboForm || { activo: (perfumeComboConfig && perfumeComboConfig.activo) || false, minCantidad: (perfumeComboConfig && perfumeComboConfig.minCantidad) || 2, descuentoPct: (perfumeComboConfig && perfumeComboConfig.descuentoPct) || 10 };
+return (
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<h3 style={{ margin: "0 0 6px" }}>🎁 Descuento automático por cantidad de perfumes</h3>
+<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Igual que el de los sets de decants, pero para perfumes enteros: si el cliente lleva el minimo de unidades que elijas aca, se le aplica el % de descuento solo en el carrito, sin que tengas que armar nada mas.</p>
+<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer", marginBottom: "12px" }}>
+<input type="checkbox" checked={!!pf.activo} onChange={e => setPerfumeComboForm({ ...pf, activo: e.target.checked })} />
+Activar el descuento automatico
+</label>
+<div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "14px" }}>
+<div style={{ flex: "1 1 180px" }}>
+<label style={S.label}>Minimo de perfumes</label>
+<input type="number" min="2" value={pf.minCantidad} onChange={e => setPerfumeComboForm({ ...pf, minCantidad: e.target.value })} style={S.input} placeholder="Ej: 2" />
+</div>
+<div style={{ flex: "1 1 180px" }}>
+<label style={S.label}>Porcentaje de descuento</label>
+<input type="number" min="0" max="90" value={pf.descuentoPct} onChange={e => setPerfumeComboForm({ ...pf, descuentoPct: e.target.value })} style={S.input} placeholder="Ej: 10" />
+</div>
+</div>
+<div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+<button onClick={handleSavePerfumeCombo} disabled={perfumeComboSaving} style={{ ...S.btn, padding: "10px 20px", opacity: perfumeComboSaving ? 0.6 : 1 }}>{perfumeComboSaving ? "Guardando..." : "Guardar"}</button>
+{perfumeComboForm && <button onClick={() => setPerfumeComboForm(null)} style={{ ...S.btnOutline, padding: "10px 20px" }}>Descartar cambios</button>}
+</div>
+</div>
+); })()}
+{(() => {
+const comboSearchResults = comboSearch.trim() ? adminProductsList.filter(p => !comboForm.productIds.includes(p.id) && normalizeTxt(getProductName(p)).includes(normalizeTxt(comboSearch))).slice(0, 8) : [];
+const comboSelectedProducts = comboForm.productIds.map(id => adminProductsList.find(p => p.id === id)).filter(Boolean);
+const precioOriginalCombo = comboSelectedProducts.reduce((a, p) => a + getProductPrice(p), 0);
+return (
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<h3 style={{ margin: "0 0 6px" }}>📦 Combos armados (packs con precio especial)</h3>
+<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Elegi 2 o mas productos que ya existen y ponele un precio especial de combo. Se muestra como una oferta armada en el catalogo, con un boton para agregar todo el pack al carrito de una.</p>
+<label style={S.label}>Nombre del combo</label>
+<input type="text" value={comboForm.nombre} onChange={e => setComboForm(f => ({ ...f, nombre: e.target.value }))} style={{ ...S.input, marginBottom: "12px" }} placeholder="Ej: Combo Regalo Dia de la Madre" />
+<label style={S.label}>Buscar y agregar productos</label>
+<input type="text" value={comboSearch} onChange={e => setComboSearch(e.target.value)} style={{ ...S.input, marginBottom: "8px" }} placeholder="Buscar perfume por nombre..." />
+{comboSearchResults.length > 0 && (
+<div style={{ background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", marginBottom: "10px", overflow: "hidden" }}>
+{comboSearchResults.map(p => (
+<div key={p.id} onClick={() => { handleToggleComboProduct(p.id); setComboSearch(""); }} style={{ padding: "8px 12px", cursor: "pointer", fontSize: "13px", borderBottom: "1px solid #2b2b2b" }}>+ {getProductName(p)} · {formatPrice(getProductPrice(p))}</div>
+))}
+</div>
+)}
+{comboSelectedProducts.length === 0 ? (
+<p style={{ color: "#8a8a8a", fontSize: "13px", marginBottom: "12px" }}>Todavia no elegiste productos para este combo.</p>
+) : (
+<div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "12px" }}>
+{comboSelectedProducts.map(p => (
+<div key={p.id} style={{ display: "flex", alignItems: "center", gap: "8px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "6px 10px" }}>
+<span style={{ flex: 1, fontSize: "13px" }}>{getProductName(p)}</span>
+<span style={{ fontSize: "12px", color: "#9a9a9a" }}>{formatPrice(getProductPrice(p))}</span>
+<button onClick={() => handleToggleComboProduct(p.id)} style={{ ...S.btnGray, padding: "4px 8px" }}>✕</button>
+</div>
+))}
+<div style={{ fontSize: "13px", color: "#bdbdbd", marginTop: "4px" }}>Precio de lista sumado: {formatPrice(precioOriginalCombo)}</div>
+</div>
+)}
+<label style={S.label}>Precio especial del combo</label>
+<input type="number" value={comboForm.precioCombo} onChange={e => setComboForm(f => ({ ...f, precioCombo: e.target.value }))} style={{ ...S.input, marginBottom: "12px" }} placeholder="Ej: 95000" />
+<label style={S.label}>Imagen del combo (opcional, si no subis ninguna se usa la foto del primer producto)</label>
+<div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "12px", flexWrap: "wrap" }}>
+<input type="file" accept="image/*" onChange={e => handleComboImageUpload(e.target.files[0])} />
+{comboUploading && <span style={{ color: "#9a9a9a", fontSize: "13px" }}>Subiendo...</span>}
+{comboForm.imagen && <img src={comboForm.imagen} alt="preview" style={{ width: "70px", height: "70px", objectFit: "cover", borderRadius: "8px" }} />}
+</div>
+<div style={{ display: "flex", gap: "10px" }}>
+<button onClick={handleSaveCombo} disabled={comboSaving} style={{ ...S.btn, padding: "10px 20px", opacity: comboSaving ? 0.6 : 1 }}>{comboSaving ? "Guardando..." : (editingComboId ? "Guardar cambios" : "Crear combo")}</button>
+{editingComboId && <button onClick={handleCancelComboEdit} style={{ ...S.btnOutline, padding: "10px 20px" }}>Cancelar edicion</button>}
+</div>
+<h3 style={{ marginTop: "24px", marginBottom: "16px" }}>Combos existentes ({combos.length})</h3>
+{combos.length === 0 ? (
+<p style={{ color: "#7a7a7a" }}>Todavia no armaste ningun combo.</p>
+) : (
+combos.map(c => (
+<div key={c.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap", opacity: c.activo ? 1 : 0.55 }}>
+{c.imagen && <img src={c.imagen} alt={c.nombre} style={{ width: "60px", height: "60px", objectFit: "cover", borderRadius: "8px" }} />}
+<div style={{ flex: 1, minWidth: "180px" }}>
+<strong>{c.nombre}</strong>
+<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{(c.productIds || []).length} productos · {formatPrice(c.precioCombo)}</div>
+<div style={{ color: c.activo ? "#9ddb9d" : "#e0b84a", fontSize: "11px", fontWeight: "700" }}>{c.activo ? "ACTIVO" : "PAUSADO"}</div>
+</div>
+<button onClick={() => handleEditCombo(c)} style={{ ...S.btnOutline, padding: "8px 14px", fontSize: "13px" }}>Editar</button>
+<button onClick={() => handleToggleCombo(c)} style={{ ...S.btnOutline, padding: "8px 14px", fontSize: "13px" }}>{c.activo ? "Pausar" : "Activar"}</button>
+<button onClick={() => handleDeleteCombo(c.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer", fontSize: "13px" }}>Eliminar</button>
+</div>
+))
+)}
+</div>
+); })()}
+</>
+)}
+{adminTab === "marketing" && adminSub.marketing === "contactos" && (
+<>
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<h3 style={{ margin: "0 0 6px" }}>📧 Suscriptores al newsletter ({emailSubs.length})</h3>
+<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Emails que dejaron en el pie del sitio, ademas de la Lista VIP de WhatsApp. Exportalos para mandarles novedades por email.</p>
+<button onClick={exportNewsletterToCSV} style={{ ...S.btnOutline, marginBottom: "16px" }}>⬇ Exportar CSV</button>
+{emailSubs.length === 0 ? (
+<p style={{ color: "#9a9a9a", fontSize: "13px" }}>Todavia no hay suscriptores.</p>
+) : (
+<div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "260px", overflowY: "auto" }}>
+{emailSubs.map(s => (
+<div key={s.id} style={{ display: "flex", alignItems: "center", gap: "10px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px 12px" }}>
+<span style={{ flex: 1, fontSize: "13px" }}>{s.email || s.id}</span>
+<button onClick={() => handleDeleteNewsletterSub(s.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px" }}>Eliminar</button>
+</div>
+))}
+</div>
+)}
+</div>
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<h3 style={{ margin: "0 0 6px" }}>📱 Contactos de WhatsApp del popup ({popupContacts.length})</h3>
+<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Numeros que dejaron a cambio del cupon de bienvenida. Exportalos para avisarles ofertas y eventos por WhatsApp.</p>
+<button onClick={exportPopupContactsToCSV} style={{ ...S.btnOutline, marginBottom: "16px" }}>⬇ Exportar CSV</button>
+{popupContacts.length === 0 ? (
+<p style={{ color: "#9a9a9a", fontSize: "13px" }}>Todavia no hay contactos.</p>
+) : (
+<div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "260px", overflowY: "auto" }}>
+{popupContacts.map(c => (
+<div key={c.id} style={{ display: "flex", alignItems: "center", gap: "10px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px 12px" }}>
+<span style={{ flex: 1, fontSize: "13px" }}>{c.telefono || c.id}</span>
+<button onClick={() => handleDeletePopupContact(c.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "6px 12px", borderRadius: "6px", cursor: "pointer", fontSize: "12px" }}>Eliminar</button>
+</div>
+))}
+</div>
+)}
+</div>
+</>
+)}
+{adminTab === "marketing" && adminSub.marketing === "puntos" && (
+<>
+<div style={{ marginTop: "40px" }}>
+<h2 style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>🎁 Clientes con crédito de puntos sin usar</h2>
+<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Clientes logueados con 300 puntos o más ($10.000+ de descuento) sin canjear. El nombre y WhatsApp se guardan solo si el cliente compró después de este cambio; los que compraron antes van a ir apareciendo con sus datos a medida que vuelvan a comprar.</p>
+{customersWithPoints.length === 0 ? (
+<p style={{ color: "#9a9a9a" }}>Por ahora no hay clientes con credito de puntos sin usar.</p>
+) : (
+customersWithPoints.map(c => (
+<div key={c.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
+<div style={{ flex: 1, minWidth: "180px" }}>
+<strong>{c.nombre || "Cliente sin nombre guardado"}</strong>
+<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{c.telefono ? `WhatsApp: ${c.telefono}` : "Sin WhatsApp guardado"}{c.email ? ` · ${c.email}` : ""}</div>
+<div style={{ color: "#d4af37", fontSize: "13px", fontWeight: "700" }}>{c.puntos} puntos = {formatPrice(pointsToDiscount(c.puntos))} de descuento</div>
+{c.recordatorioEnviado && <div style={{ color: "#9ddb9d", fontSize: "11px" }}>Ya se le mando un recordatorio</div>}
+</div>
+{c.telefono ? (
+<button
+onClick={() => {
+const monto = pointsToDiscount(c.puntos);
+const msg = "Hola" + (c.nombre ? " " + c.nombre : "") + "! 💛 Te escribimos de Esencia Perfumeria: tenes " + formatPrice(monto) + " de descuento acumulado por tus puntos, todavia sin usar. Lo podes canjear en tu proximo pedido junto con el resto del catalogo. Te esperamos!";
+window.open("https://wa.me/" + c.telefono.replace(/\D/g, "") + "?text=" + encodeURIComponent(msg), "_blank");
+updateDoc(doc(db, "puntosClientes", c.id), { recordatorioEnviado: serverTimestamp() }).catch(e => console.error("RECORDATORIO_MARK_ERROR", e));
+}}
+style={{ background: "#25D366", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "700" }}
+>
+💬 Recordar por WhatsApp
+</button>
+) : (
+<span style={{ color: "#7a7a7a", fontSize: "12px" }}>Todavia no tiene WhatsApp guardado</span>
+)}
+</div>
+))
+)}
+</div>
+</>
+)}
+{adminTab === "marketing" && adminSub.marketing === "carritos" && (
+<>
+<div style={{ marginTop: "40px" }}>
+<h2 style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>🛒 Carritos abandonados</h2>
+<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Clientes logueados que agregaron productos al carrito hace mas de {ABANDONED_CART_HOURS} horas y todavia no compraron. El nombre y WhatsApp se guardan solo si el cliente ya compro alguna vez despues de que se guarda ese dato.</p>
+{abandonedCartsList.length === 0 ? (
+<p style={{ color: "#9a9a9a" }}>Por ahora no hay carritos abandonados.</p>
+) : (
+<>
+<p style={{ color: "#d4af37", fontWeight: "700", marginBottom: "12px" }}>{formatPrice(abandonedCartsList.reduce((a, c) => a + c.total, 0))} esperando en {abandonedCartsList.length} carrito{abandonedCartsList.length > 1 ? "s" : ""}</p>
+{abandonedCartsList.map(c => (
+<div key={c.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
+<div style={{ flex: 1, minWidth: "220px" }}>
+<strong>{c.nombre || "Cliente sin nombre guardado"}</strong>
+<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{c.telefono ? `WhatsApp: ${c.telefono}` : "Sin WhatsApp guardado"}{c.email ? ` · ${c.email}` : ""}</div>
+<div style={{ color: "#9a9a9a", fontSize: "12px", marginTop: "2px" }}>{c.carrito.length} producto{c.carrito.length > 1 ? "s" : ""} · {formatHoursAgo(c.hoursAgo)}</div>
+<div style={{ color: "#d4af37", fontSize: "13px", fontWeight: "700" }}>{formatPrice(c.total)}</div>
+{c.recordatorioEnviado && <div style={{ color: "#9ddb9d", fontSize: "11px" }}>Ya se le mando un recordatorio</div>}
+</div>
+{c.telefono ? (
+<button
+onClick={() => {
+const itemsTxt = c.carrito.slice(0, 4).map(i => (i.nombre || "Producto") + (i.qty > 1 ? " x" + i.qty : "")).join(", ") + (c.carrito.length > 4 ? "..." : "");
+const msg = "Hola" + (c.nombre ? " " + c.nombre : "") + "! 💛 Te escribimos de Esencia Perfumeria porque vimos que dejaste en tu carrito " + itemsTxt + " sin terminar la compra. Si tenes alguna duda te ayudamos a resolverla, o si queres avanzar te lo dejamos reservado.";
+window.open("https://wa.me/" + c.telefono.replace(/\D/g, "") + "?text=" + encodeURIComponent(msg), "_blank");
+updateDoc(doc(db, "carritosClientes", c.id), { recordatorioEnviado: serverTimestamp() }).catch(e => console.error("CARRITO_RECORDATORIO_ERROR", e));
+}}
+style={{ background: "#25D366", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "700" }}
+>
+💬 Recordar por WhatsApp
+</button>
+) : (
+<span style={{ color: "#7a7a7a", fontSize: "12px" }}>Todavia no tiene WhatsApp guardado</span>
+)}
+</div>
+))}
+</>
+)}
+</div>
+</>
+)}
+{adminTab === "clientes" && adminSub.clientes === "resenas" && (
+<>
 {(() => {
 const resenasPendientes = resenas.filter(r => r.estado === "pendiente");
 return (
@@ -4174,7 +4539,6 @@ resenasPendientes.map(r => (
 </div>
 );
 })()}
-
 <div style={{ marginTop: "40px" }}>
 <h3 style={{ marginBottom: "6px" }}>📮 Pedir opinión a un cliente</h3>
 <p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Genera un mensaje de WhatsApp con el link para que el cliente deje su opinión sobre la atención y la entrega (con foto de su perfume). La reseña no se publica sola: la revisas vos antes en "Reseñas pendientes de aprobación".</p>
@@ -4196,7 +4560,6 @@ style={{ ...S.btn, width: "100%", padding: "10px", background: "#25D366", color:
 </button>
 </div>
 </div>
-
 <h3 style={{ marginTop: "48px", marginBottom: "16px" }}>Todas las reseñas ({resenas.length})</h3>
 <div style={S.adminCard}>
 <label style={S.label}>Nombre del cliente *</label>
@@ -4235,7 +4598,10 @@ style={{ ...S.btn, width: "100%", padding: "10px", background: "#25D366", color:
 <button onClick={() => handleDeleteResena(r.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer" }}>Eliminar</button>
 </div>
 ))}
-</div>
+</>
+)}
+{adminTab === "clientes" && adminSub.clientes === "stock" && (
+<>
 <div style={{ marginTop: "40px" }}>
 <h2 style={{ color: "#d4af37", marginBottom: "16px", fontFamily: "'Playfair Display', serif" }}>🔔 Avisos de "Volvió el Stock"</h2>
 {avisosStock.length === 0 ? (
@@ -4255,312 +4621,10 @@ avisosStock.map(a => (
 ))
 )}
 </div>
-<div style={{ marginTop: "40px" }}>
-<h2 style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>📊 Dashboard de ventas</h2>
-<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "14px" }}>Calculado sobre los ultimos 500 pedidos registrados (Mercado Pago aprobados + enviados por WhatsApp).</p>
-<div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "20px" }}>
-{DASHBOARD_RANGES.map(r => (
-<button key={r.key} onClick={() => setDashboardRange(r.key)} style={{ background: dashboardRange === r.key ? "#d4af37" : "transparent", color: dashboardRange === r.key ? "#0f0f0f" : "#d4af37", border: "1px solid #d4af37", borderRadius: "20px", padding: "6px 16px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>{r.label}</button>
-))}
-</div>
-{!ventasStats ? (
-<p style={{ color: "#9a9a9a" }}>Todavia no hay pedidos registrados para mostrar estadisticas.</p>
-) : (
-<>
-<div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "20px" }}>
-<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
-<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Facturado</div>
-<div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{formatPrice(ventasStats.totalFacturado)}</div>
-{ventasStats.comparativa && ventasStats.comparativa.tieneDatosPrevios && (
-<div style={{ fontSize: "12px", fontWeight: "700", color: ventasStats.comparativa.totalFacturado >= 0 ? "#9ddb9d" : "#e07a7a", marginTop: "4px" }}>{ventasStats.comparativa.totalFacturado >= 0 ? "▲" : "▼"} {Math.abs(Math.round(ventasStats.comparativa.totalFacturado))}% vs. periodo anterior</div>
-)}
-</div>
-<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
-<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Pedidos</div>
-<div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{ventasStats.cantidadPedidos}</div>
-{ventasStats.comparativa && ventasStats.comparativa.tieneDatosPrevios && (
-<div style={{ fontSize: "12px", fontWeight: "700", color: ventasStats.comparativa.cantidadPedidos >= 0 ? "#9ddb9d" : "#e07a7a", marginTop: "4px" }}>{ventasStats.comparativa.cantidadPedidos >= 0 ? "▲" : "▼"} {Math.abs(Math.round(ventasStats.comparativa.cantidadPedidos))}% vs. periodo anterior</div>
-)}
-</div>
-<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
-<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Ticket promedio</div>
-<div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{formatPrice(ventasStats.ticketPromedio)}</div>
-{ventasStats.comparativa && ventasStats.comparativa.tieneDatosPrevios && (
-<div style={{ fontSize: "12px", fontWeight: "700", color: ventasStats.comparativa.ticketPromedio >= 0 ? "#9ddb9d" : "#e07a7a", marginTop: "4px" }}>{ventasStats.comparativa.ticketPromedio >= 0 ? "▲" : "▼"} {Math.abs(Math.round(ventasStats.comparativa.ticketPromedio))}% vs. periodo anterior</div>
-)}
-</div>
-<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
-<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Via Mercado Pago</div>
-<div style={{ color: "#9ddb9d", fontSize: "22px", fontWeight: "700" }}>{ventasStats.totalFacturado > 0 ? Math.round((ventasStats.porOrigen.mercadopago / ventasStats.totalFacturado) * 100) : 0}%</div>
-</div>
-<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
-<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Via WhatsApp</div>
-<div style={{ color: "#e0b84a", fontSize: "22px", fontWeight: "700" }}>{ventasStats.totalFacturado > 0 ? Math.round((ventasStats.porOrigen.whatsapp / ventasStats.totalFacturado) * 100) : 0}%</div>
-</div>
-</div>
-{dashboardRange === "all" && <p style={{ color: "#7a7a7a", fontSize: "12px", marginTop: "-12px", marginBottom: "20px" }}>"Todo" no tiene un periodo anterior con el que compararse, por eso no muestra variacion %.</p>}
-
-<div style={{ ...S.adminCard, marginBottom: "20px" }}>
-<div style={{ color: "#bdbdbd", fontSize: "13px", marginBottom: "14px" }}>Ventas por dia {dashboardRange === "all" ? "(ultimos 30 dias)" : `(${DASHBOARD_RANGES.find(r => r.key === dashboardRange).label.toLowerCase()})`}</div>
-<div style={{ overflowX: "auto" }}>
-<div style={{ display: "flex", alignItems: "flex-end", gap: "6px", height: "120px", minWidth: "380px", borderBottom: "1px solid #2b2b2b", paddingBottom: "4px" }}>
-{(() => {
-const max = Math.max(...ventasStats.ventasPorDia.map(d => d.total), 1);
-return ventasStats.ventasPorDia.map((d, i) => (
-<div key={i} onMouseEnter={() => setHoverVentaDia(i)} onMouseLeave={() => setHoverVentaDia(h => h === i ? null : h)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end", position: "relative", cursor: "default" }}>
-{hoverVentaDia === i && (
-<div style={{ position: "absolute", bottom: "100%", marginBottom: "6px", background: "#0f0f0f", border: "1px solid #d4af37", borderRadius: "6px", padding: "4px 8px", fontSize: "11px", color: "#fff", whiteSpace: "nowrap", zIndex: 5 }}>
-{d.fecha.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" })} · {formatPrice(d.total)}
-</div>
-)}
-<div style={{ width: "100%", maxWidth: "22px", height: `${Math.max((d.total / max) * 100, d.total > 0 ? 3 : 0)}%`, background: d.total > 0 ? "linear-gradient(180deg, #e0c158, #d4af37)" : "transparent", borderRadius: "4px 4px 0 0" }} />
-</div>
-));
-})()}
-</div>
-<div style={{ display: "flex", gap: "6px", minWidth: "380px", marginTop: "4px" }}>
-{ventasStats.ventasPorDia.map((d, i) => (
-<div key={i} style={{ flex: 1, textAlign: "center", fontSize: "10px", color: "#898781" }}>{String(d.fecha.getDate()).padStart(2, "0")}</div>
-))}
-</div>
-</div>
-</div>
-
-<div style={S.adminCard}>
-<div style={{ color: "#bdbdbd", fontSize: "13px", marginBottom: "14px" }}>Productos mas vendidos (por unidades)</div>
-{ventasStats.topProductos.length === 0 ? (
-<p style={{ color: "#9a9a9a", margin: 0 }}>Sin datos todavia.</p>
-) : (
-<div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-{(() => {
-const maxCantidad = Math.max(...ventasStats.topProductos.map(p => p.cantidad), 1);
-return ventasStats.topProductos.map((p, i) => (
-<div key={i} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-<div style={{ width: "140px", fontSize: "13px", color: "#fff", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.nombre}</div>
-<div style={{ flex: 1, background: "#0f0f0f", borderRadius: "4px", height: "18px", overflow: "hidden" }}>
-<div style={{ width: `${(p.cantidad / maxCantidad) * 100}%`, height: "100%", background: "linear-gradient(90deg, #d4af37, #e0c158)", borderRadius: "4px" }} />
-</div>
-<div style={{ width: "60px", textAlign: "right", fontSize: "13px", color: "#d4af37", fontWeight: "700", flexShrink: 0 }}>{p.cantidad} u.</div>
-</div>
-));
-})()}
-</div>
-)}
-</div>
-
-<div style={{ ...S.adminCard, marginTop: "20px" }}>
-<div style={{ color: "#bdbdbd", fontSize: "13px", marginBottom: "14px" }}>Tendencia mensual (ultimos 6 meses)</div>
-<div style={{ display: "flex", alignItems: "flex-end", gap: "10px", height: "110px", borderBottom: "1px solid #2b2b2b", paddingBottom: "4px" }}>
-{(() => {
-const max = Math.max(...ventasStats.ventasPorMes.map(m => m.total), 1);
-return ventasStats.ventasPorMes.map((m, i) => (
-<div key={i} onMouseEnter={() => setHoverVentaMes(i)} onMouseLeave={() => setHoverVentaMes(h => h === i ? null : h)} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", height: "100%", justifyContent: "flex-end", position: "relative", cursor: "default" }}>
-{hoverVentaMes === i && (
-<div style={{ position: "absolute", bottom: "100%", marginBottom: "6px", background: "#0f0f0f", border: "1px solid #d4af37", borderRadius: "6px", padding: "4px 8px", fontSize: "11px", color: "#fff", whiteSpace: "nowrap", zIndex: 5 }}>
-{formatPrice(m.total)}
-</div>
-)}
-<div style={{ width: "100%", maxWidth: "40px", height: `${Math.max((m.total / max) * 100, m.total > 0 ? 3 : 0)}%`, background: m.total > 0 ? "linear-gradient(180deg, #e0c158, #d4af37)" : "transparent", borderRadius: "4px 4px 0 0" }} />
-</div>
-));
-})()}
-</div>
-<div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
-{ventasStats.ventasPorMes.map((m, i) => (
-<div key={i} style={{ flex: 1, textAlign: "center", fontSize: "10px", color: "#898781", textTransform: "capitalize" }}>{m.mes.toLocaleDateString("es-AR", { month: "short" })}</div>
-))}
-</div>
-</div>
 </>
 )}
-</div>
-<div style={{ marginTop: "40px" }}>
-<h2 id="pedidos-recientes" style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>📋 Pedidos recientes</h2>
-<p style={{ color: "#25D366", fontSize: "13px", marginTop: 0, marginBottom: "8px" }}>💬 Cuando un cliente consulta por WhatsApp (desde el carrito o un producto) deja su nombre y queda anotado acá como "Pendiente". Marcalo como "Vendido" o "No concretó": solo las vendidas suman a las estadísticas de ventas.</p>
-<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Se registran los pedidos pagados y confirmados con Nave o Mercado Pago, y los que se mandaron por WhatsApp para pagar con transferencia o efectivo (estos ultimos quedan como "enviado": todavia no confirman que el pago se haya recibido de verdad, eso lo coordinas vos por WhatsApp).</p>
-{pedidos.length > 0 && (
-<div style={{ display: "flex", gap: "16px", flexWrap: "wrap", marginBottom: "16px" }}>
-<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
-<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Pedidos (ultimos 500)</div>
-<div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{pedidos.length}</div>
-</div>
-<div style={{ ...S.adminCard, flex: "1 1 160px" }}>
-<div style={{ color: "#9a9a9a", fontSize: "12px" }}>Total vendido (ultimos 500)</div>
-<div style={{ color: "#d4af37", fontSize: "22px", fontWeight: "700" }}>{formatPrice(pedidosVenta.reduce((a, p) => a + (Number(p.total) || 0), 0))}</div>
-</div>
-</div>
-)}
-{pedidos.length > 0 && (
-<div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "16px", alignItems: "center" }}>
-<input type="text" value={pedidosSearch} onChange={e => setPedidosSearch(e.target.value)} placeholder="Buscar por nombre de cliente..." style={{ ...S.input, flex: "1 1 220px" }} />
-<select value={pedidosFilterMedio} onChange={e => setPedidosFilterMedio(e.target.value)} style={{ ...S.input, flex: "0 1 180px" }}>
-<option value="todos">Todos los medios</option>
-<option value="sin_gestionar">🔔 Pagados sin gestionar</option>
-<option value="consulta_pendiente">⏳ Consultas WhatsApp pendientes</option>
-<option value="consulta">💬 Todas las consultas WhatsApp</option>
-<option value="nave">Nave (tarjeta/QR/cuotas)</option>
-<option value="mercadopago">Mercado Pago</option>
-<option value="transferencia">Transferencia</option>
-<option value="efectivo">Efectivo</option>
-</select>
-<button onClick={handleExportPedidosCSV} style={{ ...S.btnOutline, padding: "10px 16px", whiteSpace: "nowrap" }}>⬇️ Exportar a Excel/CSV</button>
-</div>
-)}
-{pedidos.length === 0 ? (
-<p style={{ color: "#9a9a9a" }}>Todavia no hay pedidos registrados.</p>
-) : pedidosFiltrados.length === 0 ? (
-<p style={{ color: "#9a9a9a" }}>Ningun pedido coincide con la busqueda/filtro.</p>
-) : (
-<div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-{pedidosFiltrados.map(p => {
-const esConsulta = p.origen === "consulta_whatsapp";
-const nuevo = pedidoSinGestionar(p) || consultaPendiente(p);
-const abierto = p.id in pedidoAbierto ? pedidoAbierto[p.id] : nuevo;
-const wa = waLinkCliente(p);
-const items = p.items || [];
-const subtotalItems = items.reduce((a, it) => a + (Number(it.precio) || 0) * (Number(it.qty) || 0), 0);
-const fecha = p.createdAt && p.createdAt.toDate ? p.createdAt.toDate().toLocaleString("es-AR") : "";
-const fila = (label, valor) => valor ? (<div style={{ display: "flex", gap: "8px", fontSize: "13.5px", marginBottom: "4px", flexWrap: "wrap" }}><span style={{ color: "#9a9a9a", minWidth: "92px" }}>{label}</span><span style={{ color: "#fff", flex: 1, wordBreak: "break-word" }}>{valor}</span></div>) : null;
-return (
-<div key={p.id} style={{ ...S.adminCard, padding: "14px 18px", border: nuevo ? (esConsulta ? "1px solid #25D366" : "1px solid #d4af37") : S.adminCard.border }}>
-<div onClick={() => togglePedidoAbierto(p.id, nuevo)} style={{ display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap", cursor: "pointer" }}>
-<div style={{ flex: 1, minWidth: "180px" }}>
-<strong>{nuevo && <span style={{ background: "#d4af37", color: "#0b0b0b", fontSize: "11px", fontWeight: 800, borderRadius: "10px", padding: "2px 8px", marginRight: "8px" }}>NUEVO</span>}{p.nombre || "Sin nombre"}</strong>
-<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{items.length} producto(s) · {fecha}{esConsulta ? (p.tipoConsulta === "producto" ? " · consultó un producto" : " · consultó su carrito") : ""}</div>
-</div>
-<span style={{ fontSize: "12px", fontWeight: "700", color: p.estado === "pagado" || p.estado === "vendido" ? "#9ddb9d" : (p.estado === "no_concreto" ? "#ff9a9a" : "#e0b84a"), background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "4px 10px" }}>{p.estado === "pagado" ? "✅ Pagado" : p.estado === "vendido" ? "✅ Vendido" : p.estado === "no_concreto" ? "✖ No concretó" : p.estado === "pendiente" ? "⏳ Pendiente" : "📨 Enviado"}</span>
-<span style={{ fontSize: "12px", fontWeight: "700", color: p.origen === "mercadopago" || p.origen === "nave" ? "#9ddb9d" : (esConsulta ? "#25D366" : "#e0b84a"), background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "4px 10px" }}>{getPedidoMedioLabel(p)}</span>
-<strong style={{ color: "#d4af37" }}>{formatPrice(p.total)}</strong>
-<span style={{ color: "#9a9a9a", fontSize: "13px" }}>{abierto ? "▲" : "▼ Ver detalle"}</span>
-</div>
-{abierto && (
-<div style={{ marginTop: "14px", paddingTop: "14px", borderTop: "1px solid #2b2b2b", display: "flex", gap: "24px", flexWrap: "wrap" }}>
-<div style={{ flex: "1 1 260px" }}>
-<div style={{ color: "#d4af37", fontWeight: 700, fontSize: "13px", marginBottom: "8px" }}>👤 DATOS DEL CLIENTE</div>
-{fila("Nombre", p.nombre)}
-{fila("Teléfono", p.telefono)}
-{fila("Dirección", p.direccion)}
-{fila("Referencia", p.referencia)}
-{fila("Pedido N°", p.orderId || p.id)}
-{wa && <a href={wa} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: "8px", background: "#25D366", color: "#fff", padding: "9px 14px", borderRadius: "6px", textDecoration: "none", fontSize: "13px", fontWeight: 700 }}>💬 Escribirle por WhatsApp</a>}
-{!wa && p.telefono && <div style={{ color: "#bdbdbd", fontSize: "12px", marginTop: "6px" }}>Revisá el formato del teléfono para abrir WhatsApp.</div>}
-{p.esRegalo && (
-<div style={{ marginTop: "10px", background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px 12px", fontSize: "13px" }}>
-<div style={{ color: "#d4af37", fontWeight: 700, marginBottom: "4px" }}>🎁 Es un regalo</div>
-{p.giftMensaje && <div style={{ color: "#fff" }}>Mensaje: "{p.giftMensaje}"</div>}
-{p.ocultarPrecioRegalo && <div style={{ color: "#e0b84a" }}>No mostrar el precio en el paquete</div>}
-{p.envoltorio && <div style={{ color: "#fff" }}>Con envoltorio de regalo</div>}
-</div>
-)}
-</div>
-<div style={{ flex: "1 1 300px" }}>
-<div style={{ color: "#d4af37", fontWeight: 700, fontSize: "13px", marginBottom: "8px" }}>🛍️ PEDIDO</div>
-{items.map((it, i) => (
-<div key={i} style={{ display: "flex", justifyContent: "space-between", gap: "12px", fontSize: "13.5px", padding: "5px 0", borderBottom: "1px dashed #2b2b2b" }}>
-<span style={{ color: "#fff" }}>{it.qty} × {it.nombre}</span>
-<span style={{ color: "#bdbdbd", whiteSpace: "nowrap" }}>{formatPrice((Number(it.precio) || 0) * (Number(it.qty) || 0))}</span>
-</div>
-))}
-<div style={{ marginTop: "10px", fontSize: "13.5px" }}>
-{subtotalItems > 0 && Math.round(subtotalItems) !== Math.round(Number(p.total) || 0) && (<div style={{ display: "flex", justifyContent: "space-between", color: "#bdbdbd" }}><span>Subtotal</span><span>{formatPrice(subtotalItems)}</span></div>)}
-{p.cuponCodigo && (<div style={{ display: "flex", justifyContent: "space-between", color: "#bdbdbd" }}><span>Cupón</span><span>{p.cuponCodigo}</span></div>)}
-{subtotalItems > 0 && Math.round(subtotalItems) > Math.round(Number(p.total) || 0) && (<div style={{ display: "flex", justifyContent: "space-between", color: "#9ddb9d" }}><span>Descuentos</span><span>-{formatPrice(subtotalItems - (Number(p.total) || 0))}</span></div>)}
-<div style={{ display: "flex", justifyContent: "space-between", color: "#d4af37", fontWeight: 800, fontSize: "16px", marginTop: "6px" }}><span>Total</span><span>{formatPrice(p.total)}</span></div>
-</div>
-{esConsulta && (
-<div style={{ marginTop: "14px" }}>
-<div style={{ color: "#9a9a9a", fontSize: "12px", marginBottom: "6px" }}>¿Cómo terminó esta consulta?</div>
-<div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-<button onClick={() => setPedidoEstado(p.id, "vendido")} style={{ ...(p.estado === "vendido" ? S.btn : S.btnOutline), flex: "1 1 120px", padding: "10px" }}>✅ Vendido</button>
-<button onClick={() => setPedidoEstado(p.id, "no_concreto")} style={{ ...(p.estado === "no_concreto" ? S.btn : S.btnOutline), flex: "1 1 120px", padding: "10px" }}>✖ No concretó</button>
-<button onClick={() => setPedidoEstado(p.id, "pendiente")} style={{ ...(p.estado === "pendiente" ? S.btn : S.btnOutline), flex: "1 1 120px", padding: "10px" }}>⏳ Pendiente</button>
-</div>
-</div>
-)}
-{p.estado === "pagado" && (
-<button onClick={() => setPedidoGestionado(p.id, !p.gestionado)} style={{ ...(p.gestionado ? S.btnOutline : S.btn), marginTop: "14px", width: "100%", padding: "10px" }}>{p.gestionado ? "↩️ Volver a marcar como sin gestionar" : "✓ Marcar como gestionado (ya lo contacté)"}</button>
-)}
-</div>
-</div>
-)}
-</div>
-);
-})}
-</div>
-)}
-</div>
-<div style={{ marginTop: "40px" }}>
-<h2 style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>🎁 Clientes con crédito de puntos sin usar</h2>
-<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Clientes logueados con 300 puntos o más ($10.000+ de descuento) sin canjear. El nombre y WhatsApp se guardan solo si el cliente compró después de este cambio; los que compraron antes van a ir apareciendo con sus datos a medida que vuelvan a comprar.</p>
-{customersWithPoints.length === 0 ? (
-<p style={{ color: "#9a9a9a" }}>Por ahora no hay clientes con credito de puntos sin usar.</p>
-) : (
-customersWithPoints.map(c => (
-<div key={c.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
-<div style={{ flex: 1, minWidth: "180px" }}>
-<strong>{c.nombre || "Cliente sin nombre guardado"}</strong>
-<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{c.telefono ? `WhatsApp: ${c.telefono}` : "Sin WhatsApp guardado"}{c.email ? ` · ${c.email}` : ""}</div>
-<div style={{ color: "#d4af37", fontSize: "13px", fontWeight: "700" }}>{c.puntos} puntos = {formatPrice(pointsToDiscount(c.puntos))} de descuento</div>
-{c.recordatorioEnviado && <div style={{ color: "#9ddb9d", fontSize: "11px" }}>Ya se le mando un recordatorio</div>}
-</div>
-{c.telefono ? (
-<button
-onClick={() => {
-const monto = pointsToDiscount(c.puntos);
-const msg = "Hola" + (c.nombre ? " " + c.nombre : "") + "! 💛 Te escribimos de Esencia Perfumeria: tenes " + formatPrice(monto) + " de descuento acumulado por tus puntos, todavia sin usar. Lo podes canjear en tu proximo pedido junto con el resto del catalogo. Te esperamos!";
-window.open("https://wa.me/" + c.telefono.replace(/\D/g, "") + "?text=" + encodeURIComponent(msg), "_blank");
-updateDoc(doc(db, "puntosClientes", c.id), { recordatorioEnviado: serverTimestamp() }).catch(e => console.error("RECORDATORIO_MARK_ERROR", e));
-}}
-style={{ background: "#25D366", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "700" }}
->
-💬 Recordar por WhatsApp
-</button>
-) : (
-<span style={{ color: "#7a7a7a", fontSize: "12px" }}>Todavia no tiene WhatsApp guardado</span>
-)}
-</div>
-))
-)}
-</div>
-
-<div style={{ marginTop: "40px" }}>
-<h2 style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>🛒 Carritos abandonados</h2>
-<p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Clientes logueados que agregaron productos al carrito hace mas de {ABANDONED_CART_HOURS} horas y todavia no compraron. El nombre y WhatsApp se guardan solo si el cliente ya compro alguna vez despues de que se guarda ese dato.</p>
-{abandonedCartsList.length === 0 ? (
-<p style={{ color: "#9a9a9a" }}>Por ahora no hay carritos abandonados.</p>
-) : (
+{adminTab === "contenido" && (
 <>
-<p style={{ color: "#d4af37", fontWeight: "700", marginBottom: "12px" }}>{formatPrice(abandonedCartsList.reduce((a, c) => a + c.total, 0))} esperando en {abandonedCartsList.length} carrito{abandonedCartsList.length > 1 ? "s" : ""}</p>
-{abandonedCartsList.map(c => (
-<div key={c.id} style={{ ...S.adminCard, marginBottom: "12px", display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
-<div style={{ flex: 1, minWidth: "220px" }}>
-<strong>{c.nombre || "Cliente sin nombre guardado"}</strong>
-<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{c.telefono ? `WhatsApp: ${c.telefono}` : "Sin WhatsApp guardado"}{c.email ? ` · ${c.email}` : ""}</div>
-<div style={{ color: "#9a9a9a", fontSize: "12px", marginTop: "2px" }}>{c.carrito.length} producto{c.carrito.length > 1 ? "s" : ""} · {formatHoursAgo(c.hoursAgo)}</div>
-<div style={{ color: "#d4af37", fontSize: "13px", fontWeight: "700" }}>{formatPrice(c.total)}</div>
-{c.recordatorioEnviado && <div style={{ color: "#9ddb9d", fontSize: "11px" }}>Ya se le mando un recordatorio</div>}
-</div>
-{c.telefono ? (
-<button
-onClick={() => {
-const itemsTxt = c.carrito.slice(0, 4).map(i => (i.nombre || "Producto") + (i.qty > 1 ? " x" + i.qty : "")).join(", ") + (c.carrito.length > 4 ? "..." : "");
-const msg = "Hola" + (c.nombre ? " " + c.nombre : "") + "! 💛 Te escribimos de Esencia Perfumeria porque vimos que dejaste en tu carrito " + itemsTxt + " sin terminar la compra. Si tenes alguna duda te ayudamos a resolverla, o si queres avanzar te lo dejamos reservado.";
-window.open("https://wa.me/" + c.telefono.replace(/\D/g, "") + "?text=" + encodeURIComponent(msg), "_blank");
-updateDoc(doc(db, "carritosClientes", c.id), { recordatorioEnviado: serverTimestamp() }).catch(e => console.error("CARRITO_RECORDATORIO_ERROR", e));
-}}
-style={{ background: "#25D366", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "700" }}
->
-💬 Recordar por WhatsApp
-</button>
-) : (
-<span style={{ color: "#7a7a7a", fontSize: "12px" }}>Todavia no tiene WhatsApp guardado</span>
-)}
-</div>
-))}
-</>
-)}
-</div>
-
 <div style={{ marginTop: "40px" }}>
 <h2 style={{ color: "#d4af37", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>📝 Blog</h2>
 <p style={{ color: "#9a9a9a", fontSize: "13px", marginTop: 0, marginBottom: "16px" }}>Notas para atraer busquedas en Google (guias de compra, notas olfativas, comparativas, etc). Una nota queda como borrador (no se ve en el sitio) hasta que la publiques.</p>
@@ -4613,6 +4677,37 @@ blogPosts.map(b => (
 <button onClick={() => handleDeleteBlogPost(b.id)} style={{ background: "#cc0000", color: "#fff", border: "none", padding: "8px 14px", borderRadius: "6px", cursor: "pointer" }}>Eliminar</button>
 </div>
 ))
+)}
+</div>
+</>
+)}
+{adminTab === "herramientas" && (
+<>
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<h3 style={{ margin: "0 0 6px" }}>🖼️ Migrar fotos antiguas de Imgur a Cloudinary</h3>
+<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Las fotos nuevas ya se suben a Cloudinary automaticamente. Esto busca los productos que todavia tienen alguna foto vieja alojada en Imgur y las pasa a Cloudinary, actualizando el producto para que quede con el link nuevo (no rompe nada mientras tanto: las fotos de Imgur siguen funcionando igual hasta que se migran).</p>
+{productsWithImgur.length === 0 ? (
+<p style={{ color: "#9ddb9d", fontSize: "13px", fontWeight: "600" }}>✓ Ya no queda ninguna foto en Imgur, todo el catalogo esta en Cloudinary.</p>
+) : (
+<>
+<p style={{ color: "#e0b84a", fontSize: "13px", fontWeight: "700", marginBottom: "12px" }}>{productsWithImgur.length} producto{productsWithImgur.length > 1 ? "s" : ""} con fotos todavia en Imgur.</p>
+<button onClick={handleMigrateImgurImages} disabled={imgurMigrating} style={{ ...S.btn, padding: "10px 20px", opacity: imgurMigrating ? 0.6 : 1 }}>
+{imgurMigrating ? `Migrando... ${imgurMigrationProgress.done}/${imgurMigrationProgress.total}` : `Migrar ${productsWithImgur.length} producto${productsWithImgur.length > 1 ? "s" : ""} ahora`}
+</button>
+</>
+)}
+{imgurMigrationLog.length > 0 && (
+<div style={{ marginTop: "16px", maxHeight: "260px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px" }}>
+{imgurMigrationLog.slice().reverse().map((r, i) => (
+<div key={r.id + "-" + i} style={{ background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px 12px", fontSize: "12.5px" }}>
+<span style={{ color: r.ok ? "#9ddb9d" : "#cc6666", fontWeight: "700" }}>{r.ok ? "✓" : "✗"} {r.nombre}</span>
+{r.ok ? <span style={{ color: "#9a9a9a" }}> — {r.campos} foto{r.campos > 1 ? "s" : ""} migrada{r.campos > 1 ? "s" : ""}</span> : <span style={{ color: "#cc6666" }}> — {r.error}</span>}
+</div>
+))}
+</div>
+)}
+</div>
+</>
 )}
 </div>
 </div>
