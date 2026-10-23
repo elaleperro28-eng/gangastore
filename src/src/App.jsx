@@ -91,6 +91,8 @@ return () => { cancelado = true; if (timer) clearInterval(timer); if (unsub) uns
 //    panel se ve mas seguro pero la base de datos todavia queda abierta por detras.
 const ADMIN_EMAIL = "elaleperro28@gmail.com";
 const BANK_TRANSFER_INFO = { banco: "Banco Galicia", titular: "Alejo Francisco Ciulo", cuil: "20-46743275-4", cbu: "0070082530004087084624", alias: "esencia.bahia" };
+// Las Gift Cards se cargan como productos comunes; se detectan por el nombre y se muestran solo en su filtro.
+const esGiftCard = (p) => /gift\s*card/i.test(String((p && (p.nombre || p.name)) || ""));
 // Compras desde este monto en productos: neceser de regalo (el envio gratis queda solo para Bahia Blanca).
 const NECESER_THRESHOLD = 150000;
 const DECANT_COMBO_MIN = 3;
@@ -2710,6 +2712,7 @@ msg += " - Mi telefono: " + customerPhone.trim();
 if (isGift) msg += " - Es un regalo" + (giftMessage.trim() ? (": \"" + giftMessage.trim() + "\"") : "") + (hideGiftPrice ? " (IMPORTANTE: no mostrar el precio en el paquete)" : "") + (giftWrap ? " - Con envoltorio de regalo (sin costo)" : "");
 if (paymentMethod === "transferencia") msg += " - Pago por transferencia bancaria (ya envio el comprobante por este chat)";
 else if (paymentMethod === "efectivo") msg += " - Pago en efectivo al momento de la entrega";
+if (cartUsed.some(esGiftCard)) msg += " - 🎁 Incluye Gift Card (coordinar la entrega de la tarjeta)";
 if (totalCartUsed >= NECESER_THRESHOLD) msg += " - 🎁 Corresponde neceser de regalo (el pedido supera $" + NECESER_THRESHOLD.toLocaleString("es-CL") + ")";
 let usedDiscount = 0;
 const decantLinesUsed = cartUsed.filter(i => i.isDecant);
@@ -3006,7 +3009,7 @@ if (getProductCategoria(p) === "perfume") return true;
 const name = getProductName(p).toLowerCase();
 return name.includes("perfum") || name.includes("edp") || name.includes("elixir") || name.includes("victoria secret") || name.includes("lattafa") || name.includes("bharara") || name.includes("phantom") || name.includes("givenchy") || name.includes("paco rabane") || name.includes("yara") || name.includes("club de nuit");
 };
-const cartSuggestions = products.filter(p => isPerfume(p) && !cart.some(c => c.id === p.id) && (recentlyViewed.includes(p.id) || (p.etiquetas || []).includes("mas_vendidos"))).sort((a, b) => (recentlyViewed.includes(b.id) ? 1 : 0) - (recentlyViewed.includes(a.id) ? 1 : 0)).slice(0, 3);
+const cartSuggestions = products.filter(p => isPerfume(p) && !esGiftCard(p) && !cart.some(c => c.id === p.id) && (recentlyViewed.includes(p.id) || (p.etiquetas || []).includes("mas_vendidos"))).sort((a, b) => (recentlyViewed.includes(b.id) ? 1 : 0) - (recentlyViewed.includes(a.id) ? 1 : 0)).slice(0, 3);
 // Productos parecidos para mostrar debajo de la ficha de un producto: primero
 // misma marca, despues mismo tipo/genero, despues misma categoria, sin repetir
 // y sin mostrar el mismo producto ni productos agotados.
@@ -3239,7 +3242,7 @@ return true;
 });
 
 const recentlyViewedProducts = recentlyViewed.map(id => dedupedProducts.find(p => p.id === id)).filter(Boolean).slice(0, 8);
-const trendProducts = dedupedProducts.filter(p => (p.temporada || "") === "verano" && getProductDisp(p) !== "agotado");
+const trendProducts = dedupedProducts.filter(p => !esGiftCard(p) && (p.temporada || "") === "verano" && getProductDisp(p) !== "agotado");
 const adminProductsList = products.filter(p => p.id !== "_site_banner" && p.id !== "_site_catalog_order" && p.id !== "_site_perfume_combo");
 const productsWithImgur = adminProductsList.filter(p => IMGUR_MIGRATION_FIELDS.some(f => isImgurUrl(p[f])));
 // Carritos que llevan mas de ABANDONED_CART_HOURS sin actualizarse (ni un
@@ -3354,7 +3357,7 @@ return list;
 
 const getQuizRecommendations = () => {
 const { genero, ocasion, aroma, tipo } = quizAnswers;
-let pool = dedupedProducts.filter(isPerfume);
+let pool = dedupedProducts.filter(p => isPerfume(p) && !esGiftCard(p));
 if (genero) pool = pool.filter(p => !p.genero || p.genero === genero || p.genero === "unisex");
 if (tipo) pool = pool.filter(p => !p.tipoPerfume || p.tipoPerfume === tipo);
 const keywords = aroma ? (AROMA_KEYWORDS[aroma] || []) : [];
@@ -3383,6 +3386,7 @@ let filteredProducts = dedupedProducts.filter(p => {
 const q = searchQuery.trim();
 if (q) { const sc = searchScores.get(p); if (!sc || sc.score < searchMin) return false; }
 const filtroCat = q ? "todos" : filter;
+if (esGiftCard(p)) { if (filtroCat === "giftcards") return true; if (!q || !/gift|tarjeta|regalo|card/i.test(q)) return false; } else if (filtroCat === "giftcards") return false;
 if (filtroCat === "stock") return getProductDisp(p) === "stock";
 if (filtroCat === "pedido") return getProductDisp(p) === "pedido";
 if (filtroCat === "perfumes") return isPerfume(p);
@@ -3838,6 +3842,9 @@ return (
 {fila("Pedido N°", p.orderId || p.id)}
 {wa && <a href={wa} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: "8px", background: "#25D366", color: "#fff", padding: "9px 14px", borderRadius: "6px", textDecoration: "none", fontSize: "13px", fontWeight: 700 }}>💬 Escribirle por WhatsApp</a>}
 {!wa && p.telefono && <div style={{ color: "#bdbdbd", fontSize: "12px", marginTop: "6px" }}>Revisá el formato del teléfono para abrir WhatsApp.</div>}
+{items.some(it => esGiftCard(it)) && (
+<div style={{ marginTop: "10px", background: "#10241a", border: "1px solid #25D366", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#25D366", fontWeight: 700 }}>🎁 Este pedido incluye una Gift Card: enviarle la tarjeta al cliente.</div>
+)}
 {p.neceserRegalo && (
 <div style={{ marginTop: "10px", background: "#2a2210", border: "1px solid #d4af37", borderRadius: "8px", padding: "10px 12px", fontSize: "13px", color: "#d4af37", fontWeight: 700 }}>🎁 Incluir neceser de regalo (compra desde {formatPrice(NECESER_THRESHOLD)})</div>
 )}
@@ -5122,6 +5129,7 @@ return (
 <button style={S.filterBtnCategory(filter === "perfumes")} onClick={() => setFilter("perfumes")}>Perfumes</button>
 <button style={S.filterBtnCategory(filter === "decants")} onClick={() => setFilter("decants")}>Decant</button>
 <button style={S.filterBtnCategory(filter === "cosmeticos")} onClick={() => setFilter("cosmeticos")}>Cosméticos</button>
+<button style={S.filterBtnCategory(filter === "giftcards")} onClick={() => setFilter("giftcards")}>🎁 Gift Cards</button>
 </div>
 <div style={S.filterBar}>
 <button style={S.filterBtn(filter === "stock")} onClick={() => setFilter("stock")}>En Stock</button>
