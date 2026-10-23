@@ -263,6 +263,7 @@ const [adminError, setAdminError] = useState("");
 const [isAdmin, setIsAdmin] = useState(false);
 const [filter, setFilter] = useState("todos");
 const [searchQuery, setSearchQuery] = useState("");
+const [searchOpen, setSearchOpen] = useState(false);
 const PAGE_SIZE = 24;
 const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 const [sortBy, setSortBy] = useState("relevancia");
@@ -598,8 +599,61 @@ if (qty > 0) showToast("Tenes " + qty + (qty === 1 ? " producto guardado en tu c
 // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []);
 
+// Catalogo de productos. Visitantes: copia cacheada de /api/catalog + un aviso en vivo
+// (documento "_site_catalog_version") que se actualiza cada vez que el admin crea o
+// edita un producto, asi los cambios se ven en segundos sin gastar lecturas de Firebase.
+// Admin: listener en vivo; y cuando detecta un cambio, actualiza esa version.
 useEffect(() => {
-return suscribirColeccion("productos", isAdmin, setProducts, () => setProductsLoading(false));
+let cancelado = false;
+let unsubVer = null;
+let unsubLive = null;
+let timer = null;
+let tAdmin = null;
+const qProd = query(collection(db, "productos"), orderBy("createdAt", "desc"));
+const filas = (snap) => snap.docs.map(d => ({ id: d.id, ...d.data() }));
+if (isAdmin) {
+let primera = true;
+unsubLive = onSnapshot(qProd, (snap) => {
+if (cancelado) return;
+setProducts(filas(snap)); setProductsLoading(false);
+if (snap.metadata.fromCache) return;
+if (primera) { primera = false; return; }
+if (snap.docChanges().length === 0) return;
+clearTimeout(tAdmin);
+tAdmin = setTimeout(() => { setDoc(doc(db, "productos", "_site_catalog_version"), { v: Date.now() }).catch(e => console.error("CATALOG_VERSION_ERROR", e)); }, 3000);
+}, (e) => console.error("PRODUCTOS_LISTENER_ERROR", e));
+return () => { cancelado = true; clearTimeout(tAdmin); if (unsubLive) unsubLive(); };
+}
+const estado = { mostrada: null, ultima: null, intentos: 0 };
+const vivo = () => {
+if (unsubLive || cancelado) return;
+unsubLive = onSnapshot(qProd, (snap) => { if (cancelado) return; setProducts(filas(snap)); setProductsLoading(false); }, (e) => console.error("PRODUCTOS_LISTENER_ERROR", e));
+};
+const cargar = async (v) => {
+if (unsubLive) return;
+try {
+const r = await fetch("/api/catalog?col=productos" + (v ? "&v=" + encodeURIComponent(v) : ""));
+if (!r.ok) throw new Error("catalog " + r.status);
+const rows = await r.json();
+if (!Array.isArray(rows)) throw new Error("catalog formato");
+if (cancelado) return;
+estado.mostrada = r.headers.get("x-catalog-version") || (v || "0");
+setProducts(rows.map(hidratarFila)); setProductsLoading(false);
+if (estado.ultima !== null && estado.ultima !== estado.mostrada && estado.intentos < 3) { estado.intentos++; cargar(estado.ultima); }
+else estado.intentos = 0;
+} catch (e) {
+if (!cancelado) { console.error("CATALOG_FETCH_ERROR", e); if (timer) { clearInterval(timer); timer = null; } vivo(); }
+}
+};
+cargar(null);
+unsubVer = onSnapshot(doc(db, "productos", "_site_catalog_version"), (snap) => {
+const d = snap.exists() ? snap.data() : null;
+const v = d && d.v != null ? String(d.v) : "0";
+estado.ultima = v;
+if (estado.mostrada !== null && v !== estado.mostrada && estado.intentos < 3) { estado.intentos++; cargar(v); }
+}, () => {});
+timer = setInterval(() => cargar(estado.ultima), 600000);
+return () => { cancelado = true; if (timer) clearInterval(timer); if (unsubVer) unsubVer(); if (unsubLive) unsubLive(); };
 }, [isAdmin]);
 
 useEffect(() => {
@@ -2974,7 +3028,9 @@ script.textContent = JSON.stringify({
 }, []);
 const normalizeTxt = (s) => (s || "").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 const SEARCH_SYNONYMS = { dulce: ["dulce","vainilla","gourmand","caramelo","azucar","goloso"], dulces: ["dulce","vainilla","gourmand","caramelo","azucar"], fresco: ["fresco","citrico","acuatico","marino","liviano"], frescos: ["fresco","citrico","acuatico","marino"], frescura: ["fresco","citrico"], citrico: ["citrico","fresco"], citricos: ["citrico","fresco"], amaderado: ["amaderado","madera"], amaderados: ["amaderado","madera"], madera: ["amaderado","madera"], maderoso: ["amaderado","madera"], floral: ["floral","flores"], florales: ["floral","flores"], flores: ["floral"], frutal: ["frutal","fruta"], frutales: ["frutal","fruta"], afrutado: ["frutal","fruta"], oriental: ["oriental","especiado","ambar"], orientales: ["oriental","especiado","ambar"], especiado: ["especiado","oriental"], intenso: ["intenso","fuerte"], fuerte: ["intenso","fuerte"], suave: ["suave","delicado"], delicado: ["suave","delicado"], elegante: ["elegante","sofisticado"], sofisticado: ["elegante","sofisticado"], verano: ["verano"], veraniego: ["verano"], invierno: ["invierno"], invernal: ["invierno"], oficina: ["oficina","trabajo"], trabajo: ["oficina"], diario: ["todo el ano","versatil"], noche: ["noche","citas"], cita: ["citas"], citas: ["citas"], romantico: ["citas"], romantica: ["citas"], regalo: ["regalar"], regalar: ["regalar"], economico: ["economico"], barato: ["economico"], baratos: ["economico"], hombre: ["masculino"], hombres: ["masculino"], masculino: ["masculino"], mujer: ["femenino"], mujeres: ["femenino"], femenino: ["femenino"], unisex: ["unisex"], nicho: ["arabe","nicho"], arabe: ["arabe"], arabes: ["arabe"], disenador: ["disenador"] };
-const SEARCH_STOPWORDS = new Set(["quiero","quisiera","busco","buscando","necesito","algo","un","una","unos","unas","el","la","los","las","de","del","para","por","que","sea","seas","con","como","me","gustaria","tipo","estilo","perfume","perfumes","fragancia","fragancias","huele","huela","parecido","parecidos","parecida","parecidas","similar","similares","a","al","o","y","es","esta","este","mas","onda"]);
+const SEARCH_STOPWORDS = new Set(["quiero","quisiera","busco","buscando","necesito","algo","un","una","unos","unas","el","la","los","las","de","del","para","por","que","sea","seas","con","como","me","gustaria","tipo","estilo","perfume","perfumes","fragancia","fragancias","huele","huela","parecido","parecidos","parecida","parecidas","similar","similares","a","al","o","y","es","esta","este","mas","onda","parfum","parfums","parfume","perfum","eau","edp","edt","ml","pour","for","le","by","the","of","en","se","mi","tu","lo","ver"]);
+const SEARCH_SYN = { ...SEARCH_SYNONYMS, homme: ["masculino","hombre"], femme: ["femenino","mujer"], men: ["masculino"], man: ["masculino"], him: ["masculino"], women: ["femenino"], woman: ["femenino"], her: ["femenino"] };
+const SEARCH_BRAND_ALIASES = { jpg: "jean paul gaultier", ck: "calvin klein", ch: "carolina herrera", ysl: "yves saint laurent", dg: "dolce gabbana", paco: "paco rabanne", lancome: "lancome", mb: "montblanc" };
 
 const buildProductHaystack = (p) => {
 const generoTxt = { masculino: "masculino hombre", femenino: "femenino mujer", unisex: "unisex" }[p.genero] || "";
@@ -2983,35 +3039,115 @@ const tipoTxt = { arabe: "arabe arabes nicho", disenador: "disenador designer" }
 const etiquetasTxt = (p.etiquetas || []).map((e) => e.replace(/_/g, " ")).join(" ");
 return normalizeTxt([getProductName(p), p.marca, p.descripcion, p.notas, p.notasSalida, p.notasCorazon, p.notasFondo, p.inspiradoEn, generoTxt, tempTxt, tipoTxt, etiquetasTxt, p.duracion].filter(Boolean).join(" "));
 };
-const expandQueryTerms = (q) => {
-const words = normalizeTxt(q).split(/[^a-z0-9]+/).filter(Boolean);
-const terms = new Set();
+
+// Distancia de edicion (tolera errores de tipeo: "scanda", "escandal", "sauvge"...).
+const editDist = (a, b, max) => {
+const la = a.length, lb = b.length;
+if (Math.abs(la - lb) > max) return max + 1;
+let pp = null;
+let pr = Array.from({ length: lb + 1 }, (_, j) => j);
+for (let i = 1; i <= la; i++) {
+const cu = [i];
+for (let j = 1; j <= lb; j++) {
+let v = Math.min(pr[j] + 1, cu[j - 1] + 1, pr[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+if (pp && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) v = Math.min(v, pp[j - 2] + 1);
+cu[j] = v;
+}
+pp = pr; pr = cu;
+}
+return pr[lb];
+};
+
+// Interpreta lo que escribio el cliente: ignora palabras de relleno (perfume, parfum,
+// eau de, le, la...), traduce siglas de marcas (JPG, CK, YSL...) y agrega sinonimos.
+const parseSearchQuery = (raw) => {
+const norm = normalizeTxt(raw).replace(/&/g, " ");
+let words = norm.split(/[^a-z0-9]+/).filter(Boolean);
+words = words.flatMap((w) => (SEARCH_BRAND_ALIASES[w] ? SEARCH_BRAND_ALIASES[w].split(" ") : [w]));
+const must = [];
+const ignored = [];
+const extra = new Set();
 words.forEach((w) => {
-if (SEARCH_STOPWORDS.has(w)) return;
-terms.add(w);
-if (SEARCH_SYNONYMS[w]) SEARCH_SYNONYMS[w].forEach((t2) => terms.add(t2));
+if (SEARCH_STOPWORDS.has(w) || w.length < 2) { if (w.length >= 2) ignored.push(w); return; }
+if (!must.includes(w)) must.push(w);
+(SEARCH_SYN[w] || []).forEach((x) => { if (x !== w) extra.add(x); });
 });
-return Array.from(terms);
+return { norm: words.join(" "), compact: words.join(""), must, ignored, extra: Array.from(extra) };
 };
-const smartProductScore = (p, rawQuery) => {
-const qNorm = normalizeTxt(rawQuery);
-const nameNorm = normalizeTxt(getProductName(p));
-const inspiradoNorm = normalizeTxt(p.inspiradoEn);
+
+const searchIndexCache = new WeakMap();
+const getSearchIndex = (p) => {
+let idx = searchIndexCache.get(p);
+if (idx) return idx;
+const nameNorm = normalizeTxt(getProductName(p) + " " + (p.marca || ""));
+const insp = normalizeTxt(p.inspiradoEn);
+const hay = buildProductHaystack(p);
+idx = {
+nameNorm,
+nameCompact: nameNorm.replace(/[^a-z0-9]/g, ""),
+nameTokens: nameNorm.split(/[^a-z0-9]+/).filter(Boolean),
+inspTokens: insp.split(/[^a-z0-9]+/).filter(Boolean),
+inspNorm: insp,
+hay,
+hayWords: new Set(hay.split(/[^a-z0-9]+/).filter(Boolean)),
+};
+searchIndexCache.set(p, idx);
+return idx;
+};
+
+const scoreSearchTerm = (t, idx) => {
+let best = 0;
+for (const tok of idx.nameTokens) {
+if (tok === t) { best = 12; break; }
+if (t.length >= 3 && tok.startsWith(t)) best = Math.max(best, 9);
+else if (t.length >= 4 && tok.includes(t)) best = Math.max(best, 6);
+else if (t.length >= 5 && best < 7) {
+const max = t.length >= 8 ? 2 : 1;
+if (editDist(t, tok, max) <= max) best = Math.max(best, 7);
+else if (tok.length > t.length && editDist(t, tok.slice(0, t.length), 1) <= 1) best = Math.max(best, 6);
+}
+}
+if (best >= 9) return best;
+for (const tok of idx.inspTokens) {
+if (tok === t) best = Math.max(best, 8);
+else if (t.length >= 3 && tok.startsWith(t)) best = Math.max(best, 6);
+}
+if (best >= 6) return best;
+if (idx.hayWords.has(t)) best = Math.max(best, 2);
+else if (t.length >= 4 && idx.hay.includes(t)) best = Math.max(best, 1);
+return best;
+};
+
+// Devuelve { score, coverage }: coverage = 1 cuando el producto cumple TODAS las palabras.
+const searchProduct = (p, parsed) => {
+if (!parsed || (parsed.must.length === 0 && !parsed.compact)) return { score: 0, coverage: 0 };
+const idx = getSearchIndex(p);
 let score = 0;
-if (qNorm && nameNorm.includes(qNorm)) score += 10;
-if (qNorm && normalizeTxt(p.descripcion).includes(qNorm)) score += 4;
-if (qNorm && inspiradoNorm && inspiradoNorm.includes(qNorm)) score += 8;
-const terms = expandQueryTerms(rawQuery);
-if (terms.length === 0) return score;
-const haystack = buildProductHaystack(p);
-terms.forEach((term) => {
-if (!term) return;
-if (nameNorm.includes(term)) score += 3;
-if (inspiradoNorm && inspiradoNorm.includes(term)) score += 5;
-if (haystack.includes(term)) score += 1;
+let matched = 0;
+let minTerm = 99;
+if (parsed.must.length === 0) {
+// Solo escribio palabras genericas ("perfume", "eau de parfum"): se muestra todo,
+// primero lo que contenga esas palabras en el nombre.
+const idx0 = getSearchIndex(p);
+return { score: 1 + (parsed.norm && idx0.nameNorm.includes(parsed.norm) ? 25 : 0), coverage: 1 };
+}
+parsed.must.forEach((t) => {
+const ts = scoreSearchTerm(t, idx);
+if (ts > 0) { matched++; score += ts; if (ts < minTerm) minTerm = ts; }
 });
-return score;
+const coverage = parsed.must.length ? matched / parsed.must.length : 0;
+// Bonus fuerte solo si TODAS las palabras estan en el nombre/marca/inspirado en;
+// si solo coinciden en notas o descripcion es una coincidencia "semantica" (bonus chico).
+if (coverage === 1) score += minTerm >= 6 ? 20 : 4;
+if (parsed.norm && idx.nameNorm.includes(parsed.norm)) score += 25;
+else if (parsed.compact.length >= 4 && idx.nameCompact.includes(parsed.compact)) score += 25;
+if (parsed.norm && idx.inspNorm && idx.inspNorm.includes(parsed.norm)) score += 10;
+parsed.ignored.forEach((w) => { if (idx.nameTokens.includes(w)) score += 1; });
+if (score > 0) parsed.extra.forEach((t) => { if (idx.hayWords.has(t)) score += 1; });
+else if (matched === 0 && parsed.must.length === 0) return { score: 0, coverage: 0 };
+return { score, coverage };
 };
+const smartProductScore = (p, rawQuery) => searchProduct(p, parseSearchQuery(rawQuery)).score;
 
 const seenProductKeys = new Set();
 const dedupedProducts = products.filter(p => {
@@ -3157,16 +3293,20 @@ scored.sort((a, b) => b.score - a.score);
 return scored.slice(0, 6).map(s => s.p);
 };
 
+const searchParsed = searchQuery.trim() ? parseSearchQuery(searchQuery) : null;
+const searchScores = searchParsed ? new Map(dedupedProducts.map((pp) => [pp, searchProduct(pp, searchParsed)])) : null;
+let searchTop = 0, searchExact = 0;
+if (searchScores) searchScores.forEach((v) => { if (v.score > searchTop) searchTop = v.score; if (v.coverage === 1 && v.score > 0) searchExact++; });
+const searchMin = searchTop >= 12 ? Math.max(5, searchTop * 0.25) : 1;
 let filteredProducts = dedupedProducts.filter(p => {
 
 const q = searchQuery.trim();
-if (q) {
-if (smartProductScore(p, q) <= 0) return false;
-}
-if (filter === "stock") return getProductDisp(p) === "stock";
-if (filter === "pedido") return getProductDisp(p) === "pedido";
-if (filter === "perfumes") return isPerfume(p);
-if (filter === "decants") return hasDecant(p); if (filter === "menos100k") return getProductPrice(p) < 100000; if (filter === "arabes") return (p.tipoPerfume || "") === "arabe"; if (filter === "disenador") return (p.tipoPerfume || "") === "disenador"; if (filter === "favoritos") return favorites.includes(p.id); if (filter === "tendenciasverano2027") return (p.temporada || "") === "verano" && getProductDisp(p) !== "agotado"; if (TAG_OPTIONS.map(t => t.key).includes(filter)) return (p.etiquetas || []).includes(filter);
+if (q) { const sc = searchScores.get(p); if (!sc || sc.score < searchMin) return false; }
+const filtroCat = q ? "todos" : filter;
+if (filtroCat === "stock") return getProductDisp(p) === "stock";
+if (filtroCat === "pedido") return getProductDisp(p) === "pedido";
+if (filtroCat === "perfumes") return isPerfume(p);
+if (filtroCat === "decants") return hasDecant(p); if (filtroCat === "menos100k") return getProductPrice(p) < 100000; if (filtroCat === "arabes") return (p.tipoPerfume || "") === "arabe"; if (filtroCat === "disenador") return (p.tipoPerfume || "") === "disenador"; if (filtroCat === "favoritos") return favorites.includes(p.id); if (filtroCat === "tendenciasverano2027") return (p.temporada || "") === "verano" && getProductDisp(p) !== "agotado"; if (TAG_OPTIONS.map(t => t.key).includes(filter)) return (p.etiquetas || []).includes(filter);
 if (filterMarca && (p.marca || "") !== filterMarca) return false;
 if (filterDuracion && getDuracionCategoria(p) !== filterDuracion) return false;
 if (filterNotas.trim() && !(p.notas || "").toLowerCase().includes(filterNotas.trim().toLowerCase())) return false;
@@ -3179,7 +3319,7 @@ return true;
 });
 
 if (searchQuery.trim()) {
-filteredProducts = [...filteredProducts].sort((a, b) => smartProductScore(b, searchQuery) - smartProductScore(a, searchQuery));
+filteredProducts = [...filteredProducts].sort((a, b) => (searchScores.get(b).score - searchScores.get(a).score) || ((getProductDisp(b) === "stock" ? 1 : 0) - (getProductDisp(a) === "stock" ? 1 : 0)));
 } else if (sortBy === "precio_asc") {
 filteredProducts = [...filteredProducts].sort((a, b) => getProductPrice(a) - getProductPrice(b));
 } else if (sortBy === "precio_desc") {
@@ -3188,6 +3328,25 @@ filteredProducts = [...filteredProducts].sort((a, b) => getProductPrice(b) - get
 filteredProducts = [...filteredProducts].sort((a, b) => ((b.etiquetas || []).includes("mas_vendidos") ? 1 : 0) - ((a.etiquetas || []).includes("mas_vendidos") ? 1 : 0));
 } else if (sortBy === "relevancia") {
 filteredProducts = applyCatalogOrder(filteredProducts, catalogOrderConfig);
+}
+
+let searchSuggest = "";
+if (searchParsed && searchParsed.must.length > 0 && (filteredProducts.length === 0 || searchExact === 0)) {
+const vocab = new Set();
+dedupedProducts.forEach((pp) => getSearchIndex(pp).nameTokens.forEach((tk) => { if (tk.length >= 4) vocab.add(tk); }));
+let changed = false;
+const fixed = searchParsed.norm.split(" ").map((w) => {
+if (w.length < 4 || SEARCH_STOPWORDS.has(w) || vocab.has(w)) return w;
+let hasPrefix = false;
+vocab.forEach((v) => { if (v.startsWith(w)) hasPrefix = true; });
+if (hasPrefix) return w;
+const max = w.length >= 7 ? 2 : 1;
+let best = null, bestD = max + 1;
+vocab.forEach((v) => { const d = editDist(w, v, max); if (d < bestD) { bestD = d; best = v; } });
+if (best) { changed = true; return best; }
+return w;
+});
+if (changed) searchSuggest = fixed.join(" ");
 }
 
 const S = {
@@ -4770,7 +4929,22 @@ return (
 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center", maxWidth: "620px", margin: "0 auto 8px" }}>
 <div style={{ ...S.searchWrap, flex: "1 1 240px", maxWidth: "420px", margin: 0 }}>
 <svg style={S.searchIconSvg} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-<input type="text" placeholder="Ej: perfume dulce, para verano, parecido a Sauvage..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ ...S.searchInput, padding: "9px 14px 9px 38px", fontSize: "13.5px" }} />
+<input type="text" placeholder="Ej: perfume dulce, para verano, parecido a Sauvage..." value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setSearchOpen(true); }} onFocus={() => setSearchOpen(true)} onBlur={() => setTimeout(() => setSearchOpen(false), 150)} onKeyDown={e => { if (e.key === "Enter") { setSearchOpen(false); e.target.blur(); document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }); } else if (e.key === "Escape") { setSearchOpen(false); } }} autoComplete="off" aria-label="Buscar perfumes" style={{ ...S.searchInput, padding: "9px 34px 9px 38px", fontSize: "13.5px" }} />
+{searchQuery && <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => { setSearchQuery(""); setSearchOpen(false); }} aria-label="Borrar búsqueda" style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: "#9a9a9a", fontSize: "16px", cursor: "pointer", padding: "4px", lineHeight: 1 }}>✕</button>}
+{searchOpen && searchQuery.trim().length >= 2 && filteredProducts.length > 0 && (
+<div role="listbox" style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, zIndex: 70, background: "#141414", border: "1px solid rgba(212,175,55,0.45)", borderRadius: "14px", boxShadow: "0 14px 34px rgba(0,0,0,0.55)", overflow: "hidden", textAlign: "left" }}>
+{filteredProducts.slice(0, 6).map(sp => (
+<div key={sp.id} role="option" onMouseDown={e => e.preventDefault()} onClick={() => { setSearchOpen(false); setSelectedProduct(sp); }} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid #232323" }}>
+<img src={optimizeImg(getProductImage(sp), "m")} alt="" width="40" height="40" loading="lazy" decoding="async" style={{ width: "40px", height: "40px", objectFit: "contain", background: "#fff", borderRadius: "8px", flexShrink: 0 }} onError={e => { e.target.style.visibility = "hidden"; }} />
+<div style={{ minWidth: 0, flex: 1 }}>
+<div style={{ color: "#fff", fontSize: "13px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{getProductName(sp)}</div>
+<div style={{ color: "#d4af37", fontSize: "12.5px", fontWeight: 700 }}>{formatPrice(getProductPrice(sp))}{getProductDisp(sp) === "agotado" ? " · Agotado" : ""}</div>
+</div>
+</div>
+))}
+<div onMouseDown={e => e.preventDefault()} onClick={() => { setSearchOpen(false); document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }); }} style={{ padding: "9px 12px", textAlign: "center", color: "#d4af37", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}>Ver los {filteredProducts.length} resultados ↓</div>
+</div>
+)}
 </div>
 <select style={{ ...S.select, flex: "0 1 190px", maxWidth: "190px", padding: "8px 12px" }} value={sortBy} onChange={e => setSortBy(e.target.value)} disabled={!!searchQuery.trim()} title={searchQuery.trim() ? "Al buscar, se ordena por relevancia" : "Ordenar por"}>
 <option value="relevancia">Ordenar: Novedades</option>
@@ -4860,6 +5034,23 @@ return (
 🎁 Llevate {perfumeComboMin} perfumes y obtené {Math.round(perfumeComboPct)}% OFF automático en el carrito
 </div>
 )}
+{searchQuery.trim() && !productsLoading && (
+<div style={{ maxWidth: "720px", margin: "0 auto 16px", textAlign: "center" }}>
+{filteredProducts.length > 0 && searchExact > 0 && <div style={{ color: "#bdbdbd", fontSize: "13px" }}>{filteredProducts.length} {filteredProducts.length === 1 ? "resultado" : "resultados"} para “{searchQuery.trim()}” en todo el catálogo</div>}
+{filteredProducts.length > 0 && searchExact === 0 && <div style={{ color: "#bdbdbd", fontSize: "13px" }}>No encontramos “{searchQuery.trim()}” exacto. Te mostramos los más parecidos:</div>}
+{searchSuggest && <div style={{ marginTop: "8px" }}><button onClick={() => setSearchQuery(searchSuggest)} style={{ background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.5)", color: "#d4af37", borderRadius: "20px", padding: "7px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>¿Quisiste decir “{searchSuggest}”?</button></div>}
+{filteredProducts.length === 0 && (
+<div style={{ background: "#171717", border: "1px solid #2b2b2b", borderRadius: "14px", padding: "20px 18px", marginTop: "6px" }}>
+<div style={{ color: "#fff", fontWeight: 700, fontSize: "15px", marginBottom: "6px" }}>No encontramos “{searchQuery.trim()}” en el catálogo</div>
+<div style={{ color: "#bdbdbd", fontSize: "13.5px", marginBottom: "14px" }}>Probá con otra palabra (la marca o parte del nombre) o escribinos: si no lo tenemos, lo conseguimos.</div>
+<div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
+<a href={"https://wa.me/2914261941?text=" + encodeURIComponent("Hola! Estoy buscando este perfume: " + searchQuery.trim())} target="_blank" rel="noopener noreferrer" style={{ ...S.btn, textDecoration: "none", display: "inline-block", padding: "10px 18px" }}>Pedirlo por WhatsApp</a>
+<button onClick={() => setSearchQuery("")} style={{ ...S.btnOutline, padding: "10px 18px" }}>Ver todo el catálogo</button>
+</div>
+</div>
+)}
+</div>
+)}
 <div style={{ textAlign: "center", color: "#8a8a8a", fontSize: "12px", marginBottom: "8px" }}>
 {!productsLoading && filteredProducts.length > 0 && `Mostrando ${Math.min(visibleCount, filteredProducts.length)} de ${filteredProducts.length} perfumes`}
 </div>
@@ -4925,7 +5116,7 @@ return (
 </div>,
 card
 ]; } return [card]; })}
-{!productsLoading && filteredProducts.length === 0 && <p style={{ color: "#bdbdbd", gridColumn: "1/-1" }}>No hay productos en esta categoria.</p>}
+{!productsLoading && filteredProducts.length === 0 && !searchQuery.trim() && <p style={{ color: "#bdbdbd", gridColumn: "1/-1" }}>No hay productos en esta categoria.</p>}
 </div>
 {visibleCount < filteredProducts.length && (
 <button style={S.loadMoreBtn} onClick={() => setVisibleCount(v => v + PAGE_SIZE)}>Ver más perfumes ({filteredProducts.length - visibleCount} más)</button>
