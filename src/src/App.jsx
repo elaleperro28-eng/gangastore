@@ -3095,7 +3095,7 @@ searchIndexCache.set(p, idx);
 return idx;
 };
 
-const scoreSearchTerm = (t, idx) => {
+const scoreSearchTerm = (t, idx, nameOnly) => {
 let best = 0;
 for (const tok of idx.nameTokens) {
 if (tok === t) { best = 12; break; }
@@ -3107,7 +3107,7 @@ if (editDist(t, tok, max) <= max) best = Math.max(best, 7);
 else if (tok.length > t.length && editDist(t, tok.slice(0, t.length), 1) <= 1) best = Math.max(best, 6);
 }
 }
-if (best >= 9) return best;
+if (best >= 9 || nameOnly) return best;
 for (const tok of idx.inspTokens) {
 if (tok === t) best = Math.max(best, 8);
 else if (t.length >= 3 && tok.startsWith(t)) best = Math.max(best, 6);
@@ -3131,9 +3131,11 @@ if (parsed.must.length === 0) {
 const idx0 = getSearchIndex(p);
 return { score: 1 + (parsed.norm && idx0.nameNorm.includes(parsed.norm) ? 25 : 0), coverage: 1 };
 }
+let nameAll = true;
 parsed.must.forEach((t) => {
 const ts = scoreSearchTerm(t, idx);
 if (ts > 0) { matched++; score += ts; if (ts < minTerm) minTerm = ts; }
+if (scoreSearchTerm(t, idx, true) < 6) nameAll = false;
 });
 const coverage = parsed.must.length ? matched / parsed.must.length : 0;
 const phraseHit = (parsed.norm && idx.nameNorm.includes(parsed.norm)) || (parsed.compact.length >= 4 && idx.nameCompact.includes(parsed.compact));
@@ -3141,6 +3143,9 @@ if (matched === 0 && !phraseHit) return { score: 0, coverage: 0 };
 // Bonus fuerte solo si TODAS las palabras estan en el nombre/marca/inspirado en;
 // si solo coinciden en notas o descripcion es una coincidencia "semantica" (bonus chico).
 if (coverage === 1) score += minTerm >= 6 ? 20 : 4;
+// Si TODAS las palabras estan en el nombre del producto, va por delante de los que
+// solo lo mencionan como "inspirado en".
+if (nameAll) score += 30;
 if (parsed.norm && idx.nameNorm.includes(parsed.norm)) score += 25;
 else if (parsed.compact.length >= 4 && idx.nameCompact.includes(parsed.compact)) score += 25;
 if (parsed.norm && idx.inspNorm && idx.inspNorm.includes(parsed.norm)) score += 10;
