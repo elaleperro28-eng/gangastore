@@ -5944,7 +5944,7 @@ return (
 <div style={S.footerHeading}>Contacto</div>
 <a href="https://wa.me/2914261941" target="_blank" rel="noreferrer" style={S.footerLink}>WhatsApp: +54 9 291 426-1941</a>
 <a href="https://www.instagram.com/esenciaperfumeria.bb/" target="_blank" rel="noreferrer" style={S.footerLink}>Instagram: @esenciaperfumeria.bb</a>
-<span style={S.footerLink}>Bahia Blanca, Argentina</span>
+<a href="https://maps.google.com/?cid=1497370521982600743" target="_blank" rel="noopener noreferrer" style={S.footerLink}>Google Maps: Esencia Perfumeria</a><a href="https://g.page/r/CScG6muOuscUEBM/review" target="_blank" rel="noopener noreferrer" style={S.footerLink}>Opiniones en Google</a><span style={S.footerLink}>Bahia Blanca, Argentina</span>
 </div>
 <div>
 <div style={S.footerHeading}>Compras</div>
