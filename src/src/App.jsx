@@ -5051,6 +5051,10 @@ return (
 </div>
 </div>
 )}
+<div style={{ textAlign: "center", marginTop: "22px" }}>
+<a href="https://g.page/r/CScG6muOuscUEBM/review" target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "#d4af37", color: "#111", fontWeight: 700, textDecoration: "none", padding: "12px 24px", borderRadius: "999px", fontSize: "15px", boxShadow: "0 4px 14px rgba(212,175,55,0.35)" }}>⭐ Dejanos tu reseña en Google</a>
+<div style={{ fontSize: "12px", color: "#8a6d1f", marginTop: "8px" }}>Tu opinión nos ayuda a crecer en Bahía Blanca 🙏</div>
+</div>
 <div style={{ textAlign: "center", marginTop: "18px" }}>
 <a href="/opinar" onClick={(e) => { e.preventDefault(); setPage("opinar"); window.history.pushState({}, "", "/opinar"); window.scrollTo(0, 0); }} style={{ color: "#8a6d1f", fontSize: "13px", textDecoration: "underline", cursor: "pointer" }}>¿Ya nos compraste? Contanos tu experiencia</a>
 </div>
