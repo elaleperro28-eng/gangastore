@@ -5948,7 +5948,7 @@ return (
 </div>
 <div>
 <div style={S.footerHeading}>Compras</div>
-<span style={S.footerLink}>Pago: coordinado por WhatsApp (efectivo, transferencia)</span>
+<span style={S.footerLink}>Pago: tarjetas de débito y crédito, transferencia, billeteras virtuales y efectivo</span>
 <span style={S.footerLink}>Envio gratis dentro de Bahia Blanca</span>
 <span style={S.footerLink}>Envios a todo el pais a coordinar</span>
 </div>
