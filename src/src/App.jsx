@@ -92,14 +92,14 @@ return () => { cancelado = true; if (timer) clearInterval(timer); if (unsub) uns
 const ADMIN_EMAIL = "elaleperro28@gmail.com";
 const BANK_TRANSFER_INFO = { banco: "Banco Galicia", titular: "Alejo Francisco Ciulo", cuil: "20-46743275-4", cbu: "0070082530004087084624", alias: "esencia.bahia" };
 // CyberMonday Argentina 2026: lunes 2 al miercoles 4 de noviembre (hora de Argentina).
-// Desde el 29/10 la web muestra el anuncio con cuenta regresiva y del 2 al 4 el codigo
+// Desde el 29/10 la web muestra el anuncio con cuenta regresiva y del 2 al 7/11 el codigo
 // CYBER_CODE (cupon por porcentaje que se crea en el panel > Marketing > Cupones).
 const CYBER = {
   code: "CYBER10", pct: 10,
   anuncio: Date.parse("2026-10-29T00:00:00-03:00"),
   inicio: Date.parse("2026-11-02T00:00:00-03:00"),
-  fin: Date.parse("2026-11-04T23:59:59-03:00"),
-  inicioISO: "2026-11-02T00:00:00-03:00", finISO: "2026-11-04T23:59:59-03:00",
+  fin: Date.parse("2026-11-07T23:59:59-03:00"),
+  inicioISO: "2026-11-02T00:00:00-03:00", finISO: "2026-11-07T23:59:59-03:00",
 };
 // Las Gift Cards se cargan como productos comunes; se detectan por el nombre y se muestran solo en su filtro.
 const esGiftCard = (p) => /gift\s*card/i.test(String((p && (p.nombre || p.name)) || ""));
@@ -274,6 +274,9 @@ const [showCart, setShowCart] = useState(false);
 const [adminTab, setAdminTabRaw] = useState(() => { try { return localStorage.getItem("adminTabEsencia") || "inicio"; } catch { return "inicio"; } });
 const setAdminTab = (t) => { setAdminTabRaw(t); try { localStorage.setItem("adminTabEsencia", t); } catch {} try { window.scrollTo({ top: 0 }); } catch {} };
 const [adminSub, setAdminSub] = useState({ productos: "cargar", marketing: "banner", clientes: "resenas" });
+const [cyberIdsForm, setCyberIdsForm] = useState(null);
+const [cyberSearch, setCyberSearch] = useState("");
+const [cyberSaving, setCyberSaving] = useState(false);
 const [consultaModal, setConsultaModal] = useState(null);
 const [consultaNombre, setConsultaNombre] = useState("");
 const [consultaTelefono, setConsultaTelefono] = useState("");
@@ -1847,6 +1850,20 @@ setBulkImagesCount(0);
 if (bulkCsvInputRef.current) bulkCsvInputRef.current.value = "";
 if (bulkImagesInputRef.current) bulkImagesInputRef.current.value = "";
 }
+};
+
+const handleSaveCyberIds = async () => {
+if (!cyberIdsForm) return;
+setCyberSaving(true);
+try {
+await setDoc(doc(db, "productos", "_site_banner"), { cyberIds: cyberIdsForm, cyberUpdatedAt: serverTimestamp() }, { merge: true });
+setCyberIdsForm(null);
+showToast("Ofertas Cyber guardadas");
+} catch (e) {
+console.error("CYBER_SAVE_ERROR", e);
+showToast("No se pudieron guardar las ofertas Cyber");
+}
+setCyberSaving(false);
 };
 
 const handleSaveBanner = async () => {
@@ -3620,6 +3637,7 @@ return (
 {adminTab === "marketing" && (
 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "20px" }}>
 <button onClick={() => setAdminSub(s => ({ ...s, marketing: "banner" }))} style={{ background: adminSub.marketing === "banner" ? "#d4af37" : "#1a1a1a", color: adminSub.marketing === "banner" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.marketing === "banner" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>📣 Banner</button>
+<button onClick={() => setAdminSub(s => ({ ...s, marketing: "cyber" }))} style={{ background: adminSub.marketing === "cyber" ? "#d4af37" : "#1a1a1a", color: adminSub.marketing === "cyber" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.marketing === "cyber" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>🔥 Ofertas Cyber</button>
 <button onClick={() => setAdminSub(s => ({ ...s, marketing: "cupones" }))} style={{ background: adminSub.marketing === "cupones" ? "#d4af37" : "#1a1a1a", color: adminSub.marketing === "cupones" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.marketing === "cupones" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>🏷️ Cupones</button>
 <button onClick={() => setAdminSub(s => ({ ...s, marketing: "descuentos" }))} style={{ background: adminSub.marketing === "descuentos" ? "#d4af37" : "#1a1a1a", color: adminSub.marketing === "descuentos" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.marketing === "descuentos" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>🎁 Descuentos y combos</button>
 <button onClick={() => setAdminSub(s => ({ ...s, marketing: "contactos" }))} style={{ background: adminSub.marketing === "contactos" ? "#d4af37" : "#1a1a1a", color: adminSub.marketing === "contactos" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.marketing === "contactos" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>📧 Newsletter y contactos</button>
@@ -4239,6 +4257,40 @@ return (
 </div>
 )}
 </div>
+</>
+)}
+{adminTab === "marketing" && adminSub.marketing === "cyber" && (
+<>
+{(() => {
+const ids = cyberIdsForm || (bannerConfig && bannerConfig.cyberIds) || [];
+const elegidos = ids.map(id => dedupedProducts.find(pp => pp.id === id)).filter(Boolean);
+const resultados = cyberSearch.trim() ? dedupedProducts.filter(pp => !esGiftCard(pp) && !ids.includes(pp.id) && normalizeTxt(getProductName(pp)).includes(normalizeTxt(cyberSearch))).slice(0, 8) : [];
+const mover = (idx, dir) => { const a = [...ids]; const n = idx + dir; if (n < 0 || n >= a.length) return; [a[idx], a[n]] = [a[n], a[idx]]; setCyberIdsForm(a); };
+return (
+<div style={{ ...S.adminCard, marginBottom: "24px" }}>
+<h3 style={{ margin: "0 0 6px" }}>🔥 Ofertas Cyber (sección del inicio)</h3>
+<p style={{ margin: "0 0 16px", color: "#bdbdbd", fontSize: "13px" }}>Elegí hasta 8 perfumes para mostrar en la sección "Ofertas Cyber" del inicio, hasta el 7 de noviembre. Si no elegís ninguno, se muestran los que tienen precio en oferta.</p>
+<input type="text" placeholder="Buscar perfume para agregar..." value={cyberSearch} onChange={e => setCyberSearch(e.target.value)} style={{ ...S.input, marginBottom: "8px" }} />
+{resultados.length > 0 && (
+<div style={{ background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "8px", marginBottom: "10px", overflow: "hidden" }}>
+{resultados.map(pp => (<div key={pp.id} onClick={() => { if (ids.length >= 8) { alert("Máximo 8 perfumes."); return; } setCyberIdsForm([...ids, pp.id]); setCyberSearch(""); }} style={{ padding: "8px 12px", cursor: "pointer", fontSize: "13px", borderBottom: "1px solid #2b2b2b" }}>+ {getProductName(pp)}</div>))}
+</div>
+)}
+{elegidos.length === 0 ? (<p style={{ color: "#9a9a9a", fontSize: "13px" }}>Todavía no elegiste ninguno.</p>) : elegidos.map((pp, i) => (
+<div key={pp.id} style={{ display: "flex", gap: "8px", alignItems: "center", padding: "8px 0", borderBottom: "1px dashed #2b2b2b" }}>
+<span style={{ flex: 1, fontSize: "13.5px" }}>{i + 1}. {getProductName(pp)} · {formatPrice(getProductPrice(pp))}</span>
+<button onClick={() => mover(i, -1)} style={{ ...S.btnOutline, padding: "4px 10px" }}>↑</button>
+<button onClick={() => mover(i, 1)} style={{ ...S.btnOutline, padding: "4px 10px" }}>↓</button>
+<button onClick={() => setCyberIdsForm(ids.filter(x => x !== pp.id))} style={{ background: "#cc0000", color: "#fff", border: "none", borderRadius: "6px", padding: "4px 10px", cursor: "pointer" }}>✕</button>
+</div>
+))}
+<div style={{ display: "flex", gap: "10px", marginTop: "14px", flexWrap: "wrap" }}>
+<button onClick={handleSaveCyberIds} disabled={!cyberIdsForm || cyberSaving} style={{ ...S.btn, padding: "10px 20px", opacity: !cyberIdsForm || cyberSaving ? 0.5 : 1 }}>{cyberSaving ? "Guardando..." : "Guardar ofertas Cyber"}</button>
+{cyberIdsForm && <button onClick={() => setCyberIdsForm(null)} style={{ ...S.btnOutline, padding: "10px 20px" }}>Descartar cambios</button>}
+</div>
+</div>
+);
+})()}
 </>
 )}
 {adminTab === "marketing" && adminSub.marketing === "banner" && (
@@ -4912,7 +4964,7 @@ const cyberFase = nowTick >= CYBER.fin ? null : (nowTick >= CYBER.inicio ? "on" 
 const bannerView = cyberFase === "on"
   ? { bannerEnabled: true, bannerTexto: "🔥 CYBER MONDAY · " + CYBER.pct + "% OFF en toda la tienda con el código " + CYBER.code + " · termina en", bannerFechaObjetivo: CYBER.finISO, bannerLink: "/?filtro=todos&cupon=" + CYBER.code, bannerCtaLabel: "Aplicar código y comprar" }
   : cyberFase === "pre"
-  ? { bannerEnabled: true, bannerTexto: "🔥 CYBER MONDAY en Esencia · 2, 3 y 4 de noviembre · " + CYBER.pct + "% OFF en toda la tienda · empieza en", bannerFechaObjetivo: CYBER.inicioISO, bannerLink: "/?filtro=todos", bannerCtaLabel: "Ver perfumes" }
+  ? { bannerEnabled: true, bannerTexto: "🔥 CYBER MONDAY en Esencia · del 2 al 7 de noviembre · " + CYBER.pct + "% OFF en toda la tienda · empieza en", bannerFechaObjetivo: CYBER.inicioISO, bannerLink: "/?filtro=todos", bannerCtaLabel: "Ver perfumes" }
   : bannerConfig;
 
 return (
@@ -4981,7 +5033,7 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <h1 style={S.heroMainTitle}>Perfumería en Bahía Blanca</h1>
 <p style={S.heroSub}>Más de 300 fragancias · Diseñador · Árabes · Nicho</p>
 <div style={S.heroTrustRow} className="gs-hero-trust-row">
-{cyberFase && <span style={{ ...S.heroTrustBadge, background: "rgba(212,175,55,0.22)", border: "1px solid #d4af37", color: "#f5e3a1", fontWeight: 800 }}>{cyberFase === "on" ? "🔥 CyberMonday: " + CYBER.pct + "% OFF con " + CYBER.code : "🔥 CyberMonday 2, 3 y 4 de noviembre"}</span>}
+{cyberFase && <span style={{ ...S.heroTrustBadge, background: "rgba(212,175,55,0.22)", border: "1px solid #d4af37", color: "#f5e3a1", fontWeight: 800 }}>{cyberFase === "on" ? "🔥 CyberMonday: " + CYBER.pct + "% OFF con " + CYBER.code : "🔥 CyberMonday del 2 al 7 de noviembre"}</span>}
 <span style={S.heroTrustBadge}>✔ 100% Originales</span>
 <span style={S.heroTrustBadge}>🚚 Envío gratis en Bahía Blanca</span>
 <span style={S.heroTrustBadge}>📦 Envíos a todo el país</span>
@@ -5143,6 +5195,38 @@ return (
 </div>
 </div>
 )}
+{nowTick < CYBER.fin && (() => {
+const enCurso = nowTick >= CYBER.inicio;
+const ids = (bannerConfig && bannerConfig.cyberIds) || [];
+let picks = ids.map(id => dedupedProducts.find(pp => pp.id === id)).filter(pp => pp && getProductDisp(pp) !== "agotado");
+if (picks.length === 0) picks = dedupedProducts.filter(pp => !esGiftCard(pp) && getProductDisp(pp) !== "agotado" && getDiscountPercent(pp)).sort((a, b) => (getDiscountPercent(b) || 0) - (getDiscountPercent(a) || 0)).slice(0, 6);
+if (productsLoading || picks.length === 0) return null;
+const diffIni = Math.max(CYBER.inicio - nowTick, 0);
+const dI = Math.floor(diffIni / 86400000), hI = Math.floor((diffIni % 86400000) / 3600000);
+return (
+<div style={{ ...S.section, paddingTop: "18px", paddingBottom: "6px" }} id="ofertasCyber">
+<div style={{ background: "linear-gradient(135deg, #1a1405, #2a2210)", border: "1px solid #d4af37", borderRadius: "16px", padding: "20px 16px" }}>
+<div style={{ textAlign: "center", marginBottom: "16px" }}>
+<div style={{ color: "#d4af37", fontWeight: 800, fontSize: "22px", fontFamily: "'Playfair Display', serif" }}>🔥 Ofertas CyberMonday</div>
+<div style={{ color: "#e8ddc0", fontSize: "14px", marginTop: "6px" }}>{enCurso ? CYBER.pct + "% OFF con el código " + CYBER.code + " · hasta el sábado 7/11" : "Empieza en " + (dI > 0 ? dI + (dI === 1 ? " día " : " días ") : "") + hI + " h · " + CYBER.pct + "% OFF con " + CYBER.code + " del 2 al 7 de noviembre"}</div>
+{enCurso && !promoCode.trim() && <button onClick={() => { setPromoCode(CYBER.code); showToast("Código " + CYBER.code + " cargado: se aplica en tu carrito"); }} style={{ ...S.btn, marginTop: "10px", padding: "9px 18px" }}>Usar código {CYBER.code}</button>}
+</div>
+<div style={S.grid} className="product-grid">
+{picks.map(pp => (
+<a key={pp.id} className="product-card" href={productUrl(pp)} style={{ ...S.card, textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(pp); }}>
+<img className="card-img" src={optimizeImg(getProductImage(pp), "m")} alt={getProductName(pp)} style={S.cardImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+<div style={S.cardBody}>
+<div style={S.cardName}>{getProductName(pp)}</div>
+<div style={S.cardPrice}><span style={enCurso ? { textDecoration: "line-through", color: "#8a8a8a", fontSize: "13px" } : undefined}>{formatPrice(getProductPrice(pp))}</span></div>
+{enCurso && <div style={{ color: "#d4af37", fontWeight: 800, fontSize: "14px" }}>{formatPrice(Math.round(getProductPrice(pp) * (100 - CYBER.pct) / 100))} con {CYBER.code}</div>}
+</div>
+</a>
+))}
+</div>
+</div>
+</div>
+);
+})()}
 <div style={{ ...S.section, paddingTop: "12px" }} id="productsSection">
 <div style={{ ...S.sectionTitle, fontSize: "18px", marginBottom: "8px", paddingBottom: "4px" }}>Productos Disponibles</div>
 <div style={{ ...S.filterBar, gap: "14px" }}>
@@ -5701,6 +5785,20 @@ return pdpPhotos.length > 1 && (
 <p style={{ color: "#bdbdbd" }}>El carrito esta vacio</p>
 ) : (
 <>
+{(cyberFase === "on" || cyberFase === "pre") && (() => {
+const enCurso = cyberFase === "on";
+const diff = Math.max((enCurso ? CYBER.fin : CYBER.inicio) - nowTick, 0);
+const dd = Math.floor(diff / 86400000), hh = Math.floor((diff % 86400000) / 3600000), mm = Math.floor((diff % 3600000) / 60000);
+const txt = (dd > 0 ? dd + (dd === 1 ? " día " : " días ") : "") + hh + " h " + mm + " min";
+const restante = enCurso ? Math.max(0, Math.min(100, diff / (CYBER.fin - CYBER.inicio) * 100)) : 100;
+const urgente = enCurso && diff < 6 * 3600000;
+return (
+<div style={{ background: "#2a2210", border: "1px solid " + (urgente ? "#ff6b4a" : "#d4af37"), borderRadius: "8px", padding: "12px 14px", marginBottom: "12px" }}>
+<div style={{ fontSize: "13.5px", fontWeight: 800, color: urgente ? "#ff9a7a" : "#d4af37", marginBottom: "8px" }}>{enCurso ? (urgente ? "⚡ ¡Últimas horas! " : "🔥 CyberMonday: ") + "te quedan " + txt + " para usar " + CYBER.code + " (" + CYBER.pct + "% OFF)" : "🔥 CyberMonday empieza en " + txt + ": " + CYBER.pct + "% OFF con " + CYBER.code}</div>
+<div style={{ height: "6px", background: "#2b2b2b", borderRadius: "3px", overflow: "hidden" }}><div style={{ height: "100%", width: restante + "%", background: urgente ? "linear-gradient(90deg, #ff6b4a, #d4af37)" : "linear-gradient(135deg, #d4af37, #a8842c)", transition: "width .5s" }} /></div>
+</div>
+);
+})()}
 <div style={{ background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "12px 14px", marginBottom: "16px" }}>
 <div style={{ fontSize: "13px", color: neceserReached ? "#7ea87a" : "#e8ddc0", marginBottom: "8px" }}>
 {neceserReached
