@@ -91,6 +91,16 @@ return () => { cancelado = true; if (timer) clearInterval(timer); if (unsub) uns
 //    panel se ve mas seguro pero la base de datos todavia queda abierta por detras.
 const ADMIN_EMAIL = "elaleperro28@gmail.com";
 const BANK_TRANSFER_INFO = { banco: "Banco Galicia", titular: "Alejo Francisco Ciulo", cuil: "20-46743275-4", cbu: "0070082530004087084624", alias: "esencia.bahia" };
+// CyberMonday Argentina 2026: lunes 2 al miercoles 4 de noviembre (hora de Argentina).
+// Desde el 29/10 la web muestra el anuncio con cuenta regresiva y del 2 al 4 el codigo
+// CYBER_CODE (cupon por porcentaje que se crea en el panel > Marketing > Cupones).
+const CYBER = {
+  code: "CYBER10", pct: 10,
+  anuncio: Date.parse("2026-10-29T00:00:00-03:00"),
+  inicio: Date.parse("2026-11-02T00:00:00-03:00"),
+  fin: Date.parse("2026-11-04T23:59:59-03:00"),
+  inicioISO: "2026-11-02T00:00:00-03:00", finISO: "2026-11-04T23:59:59-03:00",
+};
 // Las Gift Cards se cargan como productos comunes; se detectan por el nombre y se muestran solo en su filtro.
 const esGiftCard = (p) => /gift\s*card/i.test(String((p && (p.nombre || p.name)) || ""));
 // Compras desde este monto en productos: neceser de regalo (el envio gratis queda solo para Bahia Blanca).
@@ -1138,6 +1148,8 @@ useEffect(() => {
 try {
 const url = new URL(window.location.href);
 const f = url.searchParams.get("filtro");
+const cup = url.searchParams.get("cupon");
+if (cup && /^[A-Za-z0-9_-]{3,20}$/.test(cup)) { setPromoCode(cup.toUpperCase()); url.searchParams.delete("cupon"); window.history.replaceState({}, "", url.pathname + (url.search || "") + url.hash); showToast("Codigo " + cup.toUpperCase() + " cargado: se aplica en tu carrito"); }
 if (!f) return;
 url.searchParams.delete("filtro");
 window.history.replaceState({}, "", url.pathname + (url.search || "") + url.hash);
@@ -2502,6 +2514,7 @@ if (!codigo) return { cupon: null, discount: 0, motivo: null };
 const c = cupones.find(x => x.id === codigo);
 if (!c) return { cupon: null, discount: 0, motivo: "no_encontrado" };
 if (!c.activo) return { cupon: c, discount: 0, motivo: "inactivo" };
+if (codigo === CYBER.code && Date.now() < CYBER.inicio) return { cupon: c, discount: 0, motivo: "pronto" };
 if (c.fechaExpiracion) {
 const exp = new Date(c.fechaExpiracion + "T23:59:59");
 if (!isNaN(exp.getTime()) && exp < new Date()) return { cupon: c, discount: 0, motivo: "vencido" };
@@ -4895,16 +4908,23 @@ return (
 );
 }
 
+const cyberFase = nowTick >= CYBER.fin ? null : (nowTick >= CYBER.inicio ? "on" : (nowTick >= CYBER.anuncio ? "pre" : null));
+const bannerView = cyberFase === "on"
+  ? { bannerEnabled: true, bannerTexto: "🔥 CYBER MONDAY · " + CYBER.pct + "% OFF en toda la tienda con el código " + CYBER.code + " · termina en", bannerFechaObjetivo: CYBER.finISO, bannerLink: "/?filtro=todos&cupon=" + CYBER.code, bannerCtaLabel: "Aplicar código y comprar" }
+  : cyberFase === "pre"
+  ? { bannerEnabled: true, bannerTexto: "🔥 CYBER MONDAY en Esencia · 2, 3 y 4 de noviembre · " + CYBER.pct + "% OFF en toda la tienda · empieza en", bannerFechaObjetivo: CYBER.inicioISO, bannerLink: "/?filtro=todos", bannerCtaLabel: "Ver perfumes" }
+  : bannerConfig;
+
 return (
 <div style={S.body}>
 {!bannerLoaded && !bannerConfig && !bannerDismissed && (
 <div aria-hidden="true" style={{ background: "#d4af37", height: (typeof window !== "undefined" && window.innerWidth <= 700) ? "70px" : "43px" }} />
 )}
-{bannerConfig && bannerConfig.bannerEnabled && bannerConfig.bannerTexto && !bannerDismissed && (
+{bannerView && bannerView.bannerEnabled && bannerView.bannerTexto && !bannerDismissed && (
 <div style={{ position: "relative", background: "#d4af37", color: "#0b0b0b", padding: "10px 40px", display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", flexWrap: "wrap", fontSize: "13.5px", fontWeight: 700, textAlign: "center" }}>
-<span>{bannerConfig.bannerTexto}</span>
-{bannerConfig.bannerFechaObjetivo && (() => {
-const target = new Date(bannerConfig.bannerFechaObjetivo).getTime();
+<span>{bannerView.bannerTexto}</span>
+{bannerView.bannerFechaObjetivo && (() => {
+const target = new Date(bannerView.bannerFechaObjetivo).getTime();
 const diff = target - nowTick;
 if (!Number.isFinite(target) || diff <= 0) return null;
 const days = Math.floor(diff / 86400000);
@@ -4912,8 +4932,8 @@ const hours = Math.floor((diff % 86400000) / 3600000);
 const mins = Math.floor((diff % 3600000) / 60000);
 return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10px", borderRadius: "6px", fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>{days > 0 ? days + "d " : ""}{hours}h {mins}m</span>;
 })()}
-{bannerConfig.bannerLink && (
-<a href={bannerConfig.bannerLink} target={/^(https?:)?\/\//i.test(bannerConfig.bannerLink) && !/esenciaperfumeria\.com\.ar/i.test(bannerConfig.bannerLink) ? "_blank" : undefined} rel="noreferrer" onClick={(e) => { try { const u = new URL(bannerConfig.bannerLink, window.location.origin); if (u.origin === window.location.origin || /(^|\.)esenciaperfumeria\.com\.ar$/i.test(u.hostname)) { const f = u.searchParams.get("filtro"); if (f && irAFiltroTienda(f)) e.preventDefault(); } } catch {} }} style={{ color: "#0b0b0b", textDecoration: "underline", fontWeight: 800 }}>{bannerConfig.bannerCtaLabel || "Ver mas"}</a>
+{bannerView.bannerLink && (
+<a href={bannerView.bannerLink} target={/^(https?:)?\/\//i.test(bannerView.bannerLink) && !/esenciaperfumeria\.com\.ar/i.test(bannerView.bannerLink) ? "_blank" : undefined} rel="noreferrer" onClick={(e) => { try { const u = new URL(bannerView.bannerLink, window.location.origin); if (u.origin === window.location.origin || /(^|\.)esenciaperfumeria\.com\.ar$/i.test(u.hostname)) { const f = u.searchParams.get("filtro"); const cq = u.searchParams.get("cupon"); if (cq && /^[A-Za-z0-9_-]{3,20}$/.test(cq)) { setPromoCode(cq.toUpperCase()); showToast("Codigo " + cq.toUpperCase() + " cargado: se aplica en tu carrito"); } if (f && irAFiltroTienda(f)) e.preventDefault(); } } catch {} }} style={{ color: "#0b0b0b", textDecoration: "underline", fontWeight: 800 }}>{bannerView.bannerCtaLabel || "Ver mas"}</a>
 )}
 <button onClick={() => { setBannerDismissed(true); try { sessionStorage.setItem("esenciaBannerDismissed", "1"); } catch {} }} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: "#0b0b0b", fontSize: "17px", cursor: "pointer", padding: "4px", lineHeight: 1 }} aria-label="Cerrar banner">✕</button>
 </div>
@@ -4961,6 +4981,7 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <h1 style={S.heroMainTitle}>Perfumería en Bahía Blanca</h1>
 <p style={S.heroSub}>Más de 300 fragancias · Diseñador · Árabes · Nicho</p>
 <div style={S.heroTrustRow} className="gs-hero-trust-row">
+{cyberFase && <span style={{ ...S.heroTrustBadge, background: "rgba(212,175,55,0.22)", border: "1px solid #d4af37", color: "#f5e3a1", fontWeight: 800 }}>{cyberFase === "on" ? "🔥 CyberMonday: " + CYBER.pct + "% OFF con " + CYBER.code : "🔥 CyberMonday 2, 3 y 4 de noviembre"}</span>}
 <span style={S.heroTrustBadge}>✔ 100% Originales</span>
 <span style={S.heroTrustBadge}>🚚 Envío gratis en Bahía Blanca</span>
 <span style={S.heroTrustBadge}>📦 Envíos a todo el país</span>
@@ -5051,10 +5072,6 @@ return (
 </div>
 </div>
 )}
-<div style={{ textAlign: "center", marginTop: "22px" }}>
-<a href="https://g.page/r/CScG6muOuscUEBM/review" target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "#d4af37", color: "#111", fontWeight: 700, textDecoration: "none", padding: "12px 24px", borderRadius: "999px", fontSize: "15px", boxShadow: "0 4px 14px rgba(212,175,55,0.35)" }}>⭐ Dejanos tu reseña en Google</a>
-<div style={{ fontSize: "12px", color: "#8a6d1f", marginTop: "8px" }}>Tu opinión nos ayuda a crecer en Bahía Blanca 🙏</div>
-</div>
 <div style={{ textAlign: "center", marginTop: "18px" }}>
 <a href="/opinar" onClick={(e) => { e.preventDefault(); setPage("opinar"); window.history.pushState({}, "", "/opinar"); window.scrollTo(0, 0); }} style={{ color: "#8a6d1f", fontSize: "13px", textDecoration: "underline", cursor: "pointer" }}>¿Ya nos compraste? Contanos tu experiencia</a>
 </div>
@@ -5760,6 +5777,9 @@ return pdpPhotos.length > 1 && (
 <p style={{ color: "#8a8a8a", fontSize: 12, margin: "-8px 0 12px" }}>* Campos obligatorios para poder pedir por WhatsApp</p>
 <div style={S.checkoutSectionTitle}>🎁 Descuentos y beneficios</div>
 <div style={S.cartPointsBox}>{user ? (<>{customerPoints !== null && (<div style={{ color: "#d4af37", fontSize: 13 }}>Tenes {customerPoints} puntos ({formatPrice(pointsToDiscount(customerPoints))} disponibles){pointsToDiscount(customerPoints) > 0 && (<label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, color: "#fff" }}><input type="checkbox" checked={redeemPoints} onChange={e => setRedeemPoints(e.target.checked)} />Usar mis puntos en este pedido</label>)}</div>)}<button style={{ ...S.btnOutline, width: "100%", marginTop: 8 }} onClick={() => loadMyPoints(user.uid)} disabled={pointsLoading}>{pointsLoading ? "Consultando..." : "Actualizar mis puntos"}</button>{referralCode && (<div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #2b2b2b" }}><p style={{ color: "#bdbdbd", fontSize: 12, margin: "0 0 4px" }}>Tu codigo de referido: <strong style={{ color: "#fff" }}>{referralCode}</strong></p><a href={"https://wa.me/?text=" + encodeURIComponent("Te invito a comprar en Esencia Perfumeria! Usa mi codigo " + referralCode + " y ambos recibimos $1.000 de descuento en tu primera compra. https://www.esenciaperfumeria.com.ar")} target="_blank" rel="noreferrer" style={{ color: "#d4af37", fontSize: 12, textDecoration: "underline" }}>Compartir con un amigo y ganar $1.000</a></div>)}</>) : (<button style={{ ...S.btnOutline, width: "100%" }} onClick={() => { setAccountMode("login"); setAccountError(""); setShowAccountModal(true); }}>Ingresa para sumar/usar puntos</button>)}</div>
+{cyberFase === "on" && !promoCode.trim() && (
+<button type="button" onClick={() => setPromoCode(CYBER.code)} style={{ width: "100%", marginBottom: "10px", padding: "11px", background: "#2a2210", border: "1px solid #d4af37", color: "#d4af37", borderRadius: "8px", fontWeight: 800, fontSize: "13.5px", cursor: "pointer" }}>🔥 CyberMonday: aplicar {CYBER.pct}% OFF ({CYBER.code})</button>
+)}
 <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Codigo de descuento (opcional)" style={{ width: "100%", padding: "10px", marginBottom: "4px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", fontSize: "14px", boxSizing: "border-box" }} />
 {promoCode.trim() && (cuponEval.motivo === null && cuponEval.cupon ? (
 <p style={{ color: "#9ddb9d", fontSize: "13px", margin: "0 0 12px" }}>✓ Cupon {cuponEval.cupon.id} aplicado: {formatPrice(cuponDiscount)} de descuento</p>
@@ -5768,6 +5788,7 @@ return pdpPhotos.length > 1 && (
 {cuponEval.motivo === "no_encontrado" && "Ese codigo no existe."}
 {cuponEval.motivo === "inactivo" && "Ese cupon ya no esta activo."}
 {cuponEval.motivo === "vencido" && "Ese cupon ya vencio."}
+{cuponEval.motivo === "pronto" && "Este codigo se activa el lunes 2 de noviembre (CyberMonday)."}
 {cuponEval.motivo === "minimo" && cuponEval.cupon && ("Necesitas una compra minima de " + formatPrice(cuponEval.cupon.minCompra) + " para usar este cupon.")}
 </p>
 ))}
@@ -5948,11 +5969,11 @@ return (
 <div style={S.footerHeading}>Contacto</div>
 <a href="https://wa.me/2914261941" target="_blank" rel="noreferrer" style={S.footerLink}>WhatsApp: +54 9 291 426-1941</a>
 <a href="https://www.instagram.com/esenciaperfumeria.bb/" target="_blank" rel="noreferrer" style={S.footerLink}>Instagram: @esenciaperfumeria.bb</a>
-<a href="https://maps.google.com/?cid=1497370521982600743" target="_blank" rel="noopener noreferrer" style={S.footerLink}>Google Maps: Esencia Perfumeria</a><a href="https://g.page/r/CScG6muOuscUEBM/review" target="_blank" rel="noopener noreferrer" style={S.footerLink}>Opiniones en Google</a><span style={S.footerLink}>Bahia Blanca, Argentina</span>
+<span style={S.footerLink}>Bahia Blanca, Argentina</span>
 </div>
 <div>
 <div style={S.footerHeading}>Compras</div>
-<span style={S.footerLink}>Pago: tarjetas de débito y crédito, transferencia, billeteras virtuales y efectivo</span>
+<span style={S.footerLink}>Pago: coordinado por WhatsApp (efectivo, transferencia)</span>
 <span style={S.footerLink}>Envio gratis dentro de Bahia Blanca</span>
 <span style={S.footerLink}>Envios a todo el pais a coordinar</span>
 </div>
