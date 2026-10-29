@@ -101,6 +101,14 @@ const CYBER = {
   fin: Date.parse("2026-11-07T23:59:59-03:00"),
   inicioISO: "2026-11-02T00:00:00-03:00", finISO: "2026-11-07T23:59:59-03:00",
 };
+// Descuento CyberMonday: se aplica solo en los precios (sin codigo) del 2 al 7/11.
+// No incluye Gift Cards ni combos armados (ya tienen precio especial).
+const cyberEligible = (p) => !!p && !esGiftCard(p) && !p.isCombo;
+const cyberDescuentoDe = (lines) => {
+  const t = Date.now();
+  if (t < CYBER.inicio || t >= CYBER.fin) return 0;
+  return Math.round((lines || []).filter(cyberEligible).reduce((a, i) => a + (Number(i.precio) || 0) * (Number(i.qty) || 0), 0) * CYBER.pct / 100);
+};
 // Las Gift Cards se cargan como productos comunes; se detectan por el nombre y se muestran solo en su filtro.
 const esGiftCard = (p) => /gift\s*card/i.test(String((p && (p.nombre || p.name)) || ""));
 // Compras desde este monto en productos: neceser de regalo (el envio gratis queda solo para Bahia Blanca).
@@ -1224,6 +1232,7 @@ direccion: pending.customerAddress,
 telefono: pending.customerPhone || null,
 esRegalo: !!pending.isGift,
 neceserRegalo: !!pending.neceserRegalo,
+cyberDescuento: Number(pending.cyberDescuento) || 0,
 cuponCodigo: pending.promoCode || null,
 orderId: pending.orderId || null,
 createdAt: serverTimestamp(),
@@ -1309,6 +1318,7 @@ direccion: pending.customerAddress,
 telefono: pending.customerPhone || null,
 esRegalo: !!pending.isGift,
 neceserRegalo: !!pending.neceserRegalo,
+cyberDescuento: Number(pending.cyberDescuento) || 0,
 giftMensaje: pending.isGift ? (pending.giftMessage || "") : "",
 ocultarPrecioRegalo: !!(pending.isGift && pending.hideGiftPrice),
 envoltorio: !!(pending.isGift && pending.giftWrap),
@@ -2528,10 +2538,10 @@ const normalizeCuponCodigo = (s) => (s || "").trim().toUpperCase();
 const evalCupon = (codigoIngresado, total) => {
 const codigo = normalizeCuponCodigo(codigoIngresado);
 if (!codigo) return { cupon: null, discount: 0, motivo: null };
+if (codigo === CYBER.code) return { cupon: null, discount: 0, motivo: "cyber" };
 const c = cupones.find(x => x.id === codigo);
 if (!c) return { cupon: null, discount: 0, motivo: "no_encontrado" };
 if (!c.activo) return { cupon: c, discount: 0, motivo: "inactivo" };
-if (codigo === CYBER.code && Date.now() < CYBER.inicio) return { cupon: c, discount: 0, motivo: "pronto" };
 if (c.fechaExpiracion) {
 const exp = new Date(c.fechaExpiracion + "T23:59:59");
 if (!isNaN(exp.getTime()) && exp < new Date()) return { cupon: c, discount: 0, motivo: "vencido" };
@@ -2542,7 +2552,8 @@ return { cupon: c, discount, motivo: null };
 };
 const cuponEval = evalCupon(promoCode, totalCart);
 const cuponDiscount = cuponEval.discount;
-const finalTotal = Math.max(totalCart - discountFromPoints - decantComboDiscount - perfumeComboDiscount - cuponDiscount, 0);
+const cyberDiscount = cyberDescuentoDe(cart);
+const finalTotal = Math.max(totalCart - discountFromPoints - decantComboDiscount - perfumeComboDiscount - cuponDiscount - cyberDiscount, 0);
 
 const handleAccountAuth = async () => {
 setAccountError("");
@@ -2610,6 +2621,8 @@ const perfumeSubtotalUsed = perfumeLinesUsed.reduce((acc, i) => acc + (Number(i.
 const perfumeComboDiscountUsed = Math.round(perfumeSubtotalUsed * perfumePctUsed / 100);
 if (perfumeComboDiscountUsed > 0) usedDiscount += perfumeComboDiscountUsed;
 }
+const cyberUsadoMp = cyberDescuentoDe(cartUsed);
+if (cyberUsadoMp > 0) usedDiscount += cyberUsadoMp;
 const cuponUsadoMp = evalCupon(promoCode, totalCartUsed);
 if (cuponUsadoMp.discount > 0) usedDiscount += cuponUsadoMp.discount;
 const totalAEnviar = Math.max(totalCartUsed - usedDiscount, 0);
@@ -2617,7 +2630,7 @@ const orderId = "EP" + Date.now().toString(36).toUpperCase();
 try {
 localStorage.setItem("mpPedidoPendiente", JSON.stringify({
 orderId, cartUsed, customerName: customerName.trim(), customerAddress: composeAddress(),
-promoCode, customerPhone: customerPhone.trim(), isGift, giftMessage, hideGiftPrice, giftWrap, totalAEnviar, neceserRegalo: totalCartUsed >= NECESER_THRESHOLD,
+promoCode, customerPhone: customerPhone.trim(), isGift, giftMessage, hideGiftPrice, giftWrap, totalAEnviar, neceserRegalo: totalCartUsed >= NECESER_THRESHOLD, cyberDescuento: cyberUsadoMp || 0,
 }));
 } catch (e) {}
 const resp = await fetch("/api/create-preference", {
@@ -2657,6 +2670,8 @@ const perfumeSubtotalUsed = perfumeLinesUsed.reduce((acc, i) => acc + (Number(i.
 const perfumeComboDiscountUsed = Math.round(perfumeSubtotalUsed * perfumePctUsed / 100);
 if (perfumeComboDiscountUsed > 0) usedDiscount += perfumeComboDiscountUsed;
 }
+const cyberUsadoNave = cyberDescuentoDe(cartUsed);
+if (cyberUsadoNave > 0) usedDiscount += cyberUsadoNave;
 const cuponUsadoNave = evalCupon(promoCode, totalCartUsed);
 if (cuponUsadoNave.discount > 0) usedDiscount += cuponUsadoNave.discount;
 const totalAEnviar = Math.max(totalCartUsed - usedDiscount, 0);
@@ -2679,7 +2694,7 @@ if (!resp.ok || !data.checkout_url) throw new Error((data && data.error) || "No 
 try {
 localStorage.setItem("navePedidoPendiente", JSON.stringify({
 orderId, paymentRequestId: data.payment_request_id, cartUsed, customerName: customerName.trim(), customerAddress: composeAddress(),
-promoCode, customerPhone: customerPhone.trim(), isGift, giftMessage, hideGiftPrice, giftWrap, totalAEnviar, neceserRegalo: totalCartUsed >= NECESER_THRESHOLD,
+promoCode, customerPhone: customerPhone.trim(), isGift, giftMessage, hideGiftPrice, giftWrap, totalAEnviar, neceserRegalo: totalCartUsed >= NECESER_THRESHOLD, cyberDescuento: cyberUsadoNave || 0,
 }));
 } catch (e) {}
 return data.checkout_url;
@@ -2767,6 +2782,8 @@ usedDiscount += perfumeComboDiscountUsed;
 msg += " - Combo de " + perfumeQtyUsed + " perfumes: " + Math.round(perfumePctUsed) + "% OFF ($" + perfumeComboDiscountUsed.toLocaleString("es-CL") + ")";
 }
 }
+const cyberUsadoWa = cyberDescuentoDe(cartUsed);
+if (cyberUsadoWa > 0) { usedDiscount += cyberUsadoWa; msg += " - Descuento CyberMonday " + CYBER.pct + "%: " + formatPrice(cyberUsadoWa) + " (ya incluido en el total)"; }
 const cuponUsado = evalCupon(promoCode, totalCartUsed);
 if (cuponUsado.discount > 0) {
 usedDiscount += cuponUsado.discount;
@@ -2856,6 +2873,7 @@ referencia: customerReference.trim() || null,
 telefono: customerPhone.trim(),
 esRegalo: !!isGift,
 neceserRegalo: totalCartUsed >= NECESER_THRESHOLD,
+cyberDescuento: cyberUsadoWa || 0,
 uid: user ? user.uid : null,
 orderId,
 createdAt: serverTimestamp(),
@@ -2909,8 +2927,8 @@ const getProductPrice = (p) => p.precio || p.price || 0;
 // armado con todos los datos); este es un atajo mas informal, disponible
 // apenas hay productos en el carrito.
 const buildCartWhatsAppUrl = (nombre) => {
-  const lineas = cart.map(i => `- ${i.qty}x ${getProductName(i)} (${formatPrice(getProductPrice(i))})`).join("\n");
-  const msg = `Hola! Soy ${nombre || "un cliente"}. Te consulto por estos productos de mi carrito:\n${lineas}\nTotal: ${formatPrice(totalCart)}`;
+  const lineas = cart.map(i => `- ${i.qty}x ${getProductName(i)} (${formatPrice(priceCyber(i, getProductPrice(i)))})`).join("\n");
+  const msg = `Hola! Soy ${nombre || "un cliente"}. Te consulto por estos productos de mi carrito:\n${lineas}\nTotal: ${formatPrice(totalCart - cyberDescuentoDe(cart))}`;
   return "https://wa.me/2914261941?text=" + encodeURIComponent(msg);
 };
 // Consultas por WhatsApp: antes de abrir el chat pedimos al menos el nombre y dejamos
@@ -2933,13 +2951,13 @@ const enviarConsulta = async () => {
   const waWindow = window.open("", "_blank");
   let items, total, msg;
   if (esCarrito) {
-    items = cart.map(i => ({ id: i.id, nombre: getProductName(i), qty: i.qty, precio: Number(getProductPrice(i)) || 0 }));
-    total = totalCart;
-    const lineas = cart.map(i => `- ${i.qty}x ${getProductName(i)} (${formatPrice(getProductPrice(i))})`).join("\n");
-    msg = `Hola! Soy ${nombre}. Te consulto por estos productos de mi carrito:\n${lineas}\nTotal: ${formatPrice(totalCart)}`;
+    items = cart.map(i => ({ id: i.id, nombre: getProductName(i), qty: i.qty, precio: Number(priceCyber(i, getProductPrice(i))) || 0 }));
+    total = totalCart - cyberDescuentoDe(cart);
+    const lineas = cart.map(i => `- ${i.qty}x ${getProductName(i)} (${formatPrice(priceCyber(i, getProductPrice(i)))})`).join("\n");
+    msg = `Hola! Soy ${nombre}. Te consulto por estos productos de mi carrito:\n${lineas}\nTotal: ${formatPrice(total)}`;
   } else {
-    items = [{ id: prod.id, nombre: getProductName(prod), qty: 1, precio: Number(getProductPrice(prod)) || 0 }];
-    total = Number(getProductPrice(prod)) || 0;
+    items = [{ id: prod.id, nombre: getProductName(prod), qty: 1, precio: Number(priceCyber(prod, getProductPrice(prod))) || 0 }];
+    total = Number(priceCyber(prod, getProductPrice(prod))) || 0;
     msg = `Hola! Soy ${nombre}. Quiero consultar sobre: ${getProductName(prod)}`;
   }
   const tel = consultaTelefono.trim();
@@ -2963,6 +2981,17 @@ const enviarConsulta = async () => {
   setConsultaEnviando(false);
   setConsultaModal(null);
 };
+const cyberOn = nowTick >= CYBER.inicio && nowTick < CYBER.fin;
+const cyberAplica = (p) => cyberOn && cyberEligible(p);
+const cyberPrecio = (price) => Math.round((Number(price) || 0) * (100 - CYBER.pct) / 100);
+const priceCyber = (p, price) => (cyberAplica(p) ? cyberPrecio(price) : price);
+const precioCyberJSX = (p, price, tam) => (
+<>
+<span style={{ textDecoration: "line-through", color: "#8a8a8a", fontSize: tam || "13px", fontWeight: 500 }}>{formatPrice(price)}</span>
+<span style={{ color: "#f5d36b", fontWeight: 900 }}>{formatPrice(cyberPrecio(price))}</span>
+<span style={{ display: "inline-block", background: "#d4af37", color: "#0b0b0b", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>🔥 -{CYBER.pct}% CYBER</span>
+</>
+);
 const getProductOriginalPrice = (p) => p.precioOriginal || null;
 const getDiscountPercent = (p) => {
 const orig = getProductOriginalPrice(p);
@@ -4962,9 +4991,9 @@ return (
 
 const cyberFase = nowTick >= CYBER.fin ? null : (nowTick >= CYBER.inicio ? "on" : (nowTick >= CYBER.anuncio ? "pre" : null));
 const bannerView = cyberFase === "on"
-  ? { bannerEnabled: true, bannerTexto: "🔥 CYBER MONDAY · " + CYBER.pct + "% OFF en toda la tienda con el código " + CYBER.code + " · termina en", bannerFechaObjetivo: CYBER.finISO, bannerLink: "/?filtro=todos&cupon=" + CYBER.code, bannerCtaLabel: "Aplicar código y comprar" }
+  ? { bannerEnabled: true, bannerTexto: "🔥 CYBER MONDAY · " + CYBER.pct + "% OFF ya aplicado en todos los precios · termina en", bannerFechaObjetivo: CYBER.finISO, bannerLink: "/?filtro=todos", bannerCtaLabel: "Ver ofertas" }
   : cyberFase === "pre"
-  ? { bannerEnabled: true, bannerTexto: "🔥 CYBER MONDAY en Esencia · del 2 al 7 de noviembre · " + CYBER.pct + "% OFF en toda la tienda · empieza en", bannerFechaObjetivo: CYBER.inicioISO, bannerLink: "/?filtro=todos", bannerCtaLabel: "Ver perfumes" }
+  ? { bannerEnabled: true, bannerTexto: "🔥 CYBER MONDAY en Esencia · del 2 al 7 de noviembre · " + CYBER.pct + "% OFF automático en toda la tienda · empieza en", bannerFechaObjetivo: CYBER.inicioISO, bannerLink: "/?filtro=todos", bannerCtaLabel: "Ver perfumes" }
   : bannerConfig;
 
 return (
@@ -5033,7 +5062,7 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <h1 style={S.heroMainTitle}>Perfumería en Bahía Blanca</h1>
 <p style={S.heroSub}>Más de 300 fragancias · Diseñador · Árabes · Nicho</p>
 <div style={S.heroTrustRow} className="gs-hero-trust-row">
-{cyberFase && <span style={{ ...S.heroTrustBadge, background: "rgba(212,175,55,0.22)", border: "1px solid #d4af37", color: "#f5e3a1", fontWeight: 800 }}>{cyberFase === "on" ? "🔥 CyberMonday: " + CYBER.pct + "% OFF con " + CYBER.code : "🔥 CyberMonday del 2 al 7 de noviembre"}</span>}
+{cyberFase && <span style={{ ...S.heroTrustBadge, background: "rgba(212,175,55,0.22)", border: "1px solid #d4af37", color: "#f5e3a1", fontWeight: 800 }}>{cyberFase === "on" ? "🔥 CyberMonday: " + CYBER.pct + "% OFF en todos los precios" : "🔥 CyberMonday del 2 al 7 de noviembre"}</span>}
 <span style={S.heroTrustBadge}>✔ 100% Originales</span>
 <span style={S.heroTrustBadge}>🚚 Envío gratis en Bahía Blanca</span>
 <span style={S.heroTrustBadge}>📦 Envíos a todo el país</span>
@@ -5071,9 +5100,11 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <div style={S.cardBody}>
 <div style={S.cardName}>{getProductName(p)}</div>
 <div style={S.cardPrice}>
+{cyberAplica(p) ? precioCyberJSX(p, getProductPrice(p)) : (<>
 <span>{formatPrice(getProductPrice(p))}</span>
 {getDiscountPercent(p) && <span style={S.originalPrice}>{formatPrice(getProductOriginalPrice(p))}</span>}
 {getDiscountPercent(p) && <span style={S.discountBadge}>-{getDiscountPercent(p)}%</span>}
+</>)}
 </div>
 <div style={S.badgeRow}>
 {getProductDisp(p) === "stock"
@@ -5160,7 +5191,7 @@ return (
 <a key={p.id} className="product-card" href={productUrl(p)} style={{ ...S.recentlyViewedCard, display: "block", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); }}>
 <img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.recentlyViewedName}>{getProductName(p)}</div>
-<div style={S.recentlyViewedPrice}>{formatPrice(getProductPrice(p))}</div>
+<div style={S.recentlyViewedPrice}>{formatPrice(priceCyber(p, getProductPrice(p)))}</div>
 </a>
 ))}
 </div>
@@ -5208,8 +5239,7 @@ return (
 <div style={{ background: "linear-gradient(135deg, #1a1405, #2a2210)", border: "1px solid #d4af37", borderRadius: "16px", padding: "20px 16px" }}>
 <div style={{ textAlign: "center", marginBottom: "16px" }}>
 <div style={{ color: "#d4af37", fontWeight: 800, fontSize: "22px", fontFamily: "'Playfair Display', serif" }}>🔥 Ofertas CyberMonday</div>
-<div style={{ color: "#e8ddc0", fontSize: "14px", marginTop: "6px" }}>{enCurso ? CYBER.pct + "% OFF con el código " + CYBER.code + " · hasta el sábado 7/11" : "Empieza en " + (dI > 0 ? dI + (dI === 1 ? " día " : " días ") : "") + hI + " h · " + CYBER.pct + "% OFF con " + CYBER.code + " del 2 al 7 de noviembre"}</div>
-{enCurso && !promoCode.trim() && <button onClick={() => { setPromoCode(CYBER.code); showToast("Código " + CYBER.code + " cargado: se aplica en tu carrito"); }} style={{ ...S.btn, marginTop: "10px", padding: "9px 18px" }}>Usar código {CYBER.code}</button>}
+<div style={{ color: "#e8ddc0", fontSize: "14px", marginTop: "6px" }}>{enCurso ? CYBER.pct + "% OFF ya aplicado en los precios · hasta el sábado 7/11 a las 23:59" : "Empieza en " + (dI > 0 ? dI + (dI === 1 ? " día " : " días ") : "") + hI + " h · " + CYBER.pct + "% OFF automático en todos los precios del 2 al 7 de noviembre"}</div>
 </div>
 <div style={S.grid} className="product-grid">
 {picks.map(pp => (
@@ -5217,8 +5247,7 @@ return (
 <img className="card-img" src={optimizeImg(getProductImage(pp), "m")} alt={getProductName(pp)} style={S.cardImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.cardBody}>
 <div style={S.cardName}>{getProductName(pp)}</div>
-<div style={S.cardPrice}><span style={enCurso ? { textDecoration: "line-through", color: "#8a8a8a", fontSize: "13px" } : undefined}>{formatPrice(getProductPrice(pp))}</span></div>
-{enCurso && <div style={{ color: "#d4af37", fontWeight: 800, fontSize: "14px" }}>{formatPrice(Math.round(getProductPrice(pp) * (100 - CYBER.pct) / 100))} con {CYBER.code}</div>}
+<div style={S.cardPrice}>{enCurso && cyberEligible(pp) ? precioCyberJSX(pp, getProductPrice(pp)) : <span>{formatPrice(getProductPrice(pp))}</span>}</div>
 </div>
 </a>
 ))}
@@ -5253,7 +5282,7 @@ return (
 <img src={optimizeImg(getProductImage(sp), "m")} alt="" width="40" height="40" loading="lazy" decoding="async" style={{ width: "40px", height: "40px", objectFit: "contain", background: "#fff", borderRadius: "8px", flexShrink: 0 }} onError={e => { e.target.style.visibility = "hidden"; }} />
 <div style={{ minWidth: 0, flex: 1 }}>
 <div style={{ color: "#fff", fontSize: "13px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{getProductName(sp)}</div>
-<div style={{ color: "#d4af37", fontSize: "12.5px", fontWeight: 700 }}>{formatPrice(getProductPrice(sp))}{getProductDisp(sp) === "agotado" ? " · Agotado" : ""}</div>
+<div style={{ color: "#d4af37", fontSize: "12.5px", fontWeight: 700 }}>{formatPrice(priceCyber(sp, getProductPrice(sp)))}{getProductDisp(sp) === "agotado" ? " · Agotado" : ""}</div>
 </div>
 </div>
 ))}
@@ -5372,7 +5401,7 @@ return (
 <div style={S.grid} className="product-grid">
 {productsLoading && Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={"skel" + i} />)}
 {!productsLoading && filteredProducts.slice(0, visibleCount).flatMap((product, productIdx) => { const card = (
-<a key={product.id} className="product-card" href={productUrl(product)} style={{ ...S.card, position: "relative", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(product); }}>
+<a key={product.id} className="product-card" href={productUrl(product)} style={{ ...S.card, position: "relative", textDecoration: "none", color: "inherit", ...(cyberAplica(product) ? { border: "1px solid #d4af37", boxShadow: "0 0 0 1px rgba(212,175,55,0.25), 0 6px 18px rgba(212,175,55,0.12)" } : {}) }} onClick={(e) => { e.preventDefault(); setSelectedProduct(product); }}>
 <button className={"fav-btn" + (favorites.includes(product.id) ? " active" : "")} onClick={e => { e.preventDefault(); e.stopPropagation(); toggleFavorite(product.id); }} style={S.favBtn(favorites.includes(product.id))} aria-label="Favorito">{favorites.includes(product.id) ? "♥" : "♡"}</button>
 <img className="card-img" src={optimizeImg(getProductImage(product), "m")} alt={getProductName(product)} style={S.cardImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.cardBody}>
@@ -5380,9 +5409,11 @@ return (
 {filter !== "decants" && (
 <>
 <div style={S.cardPrice}>
+{cyberAplica(product) ? precioCyberJSX(product, getProductPrice(product)) : (<>
 <span>{formatPrice(getProductPrice(product))}</span>
 {getDiscountPercent(product) && <span style={S.originalPrice}>{formatPrice(getProductOriginalPrice(product))}</span>}
 {getDiscountPercent(product) && <span style={S.discountBadge}>-{getDiscountPercent(product)}%</span>}
+</>)}
 </div>
 <div style={S.badgeRow}>
 {getProductDisp(product) === "stock"
@@ -5403,10 +5434,10 @@ return (
 <div style={{ marginTop: filter === "decants" ? "0" : "12px", borderTop: filter === "decants" ? "none" : "1px solid #2b2b2b", paddingTop: filter === "decants" ? "0" : "10px" }}>
 <div style={{ color: "#d4af37", fontSize: "13px", fontWeight: "bold", marginBottom: "6px" }}>Decant disponible</div>
 {getDecantPrice5(product) && (
-<button style={{ ...S.btn, width: "100%", marginTop: "6px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }} onClick={e => { e.preventDefault(); e.stopPropagation(); addDecantToCart(product, 5); }}>5ml - {formatPrice(getDecantPrice5(product))}</button>
+<button style={{ ...S.btn, width: "100%", marginTop: "6px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }} onClick={e => { e.preventDefault(); e.stopPropagation(); addDecantToCart(product, 5); }}>5ml - {formatPrice(priceCyber(product, getDecantPrice5(product)))}</button>
 )}
 {getDecantPrice10(product) && (
-<button style={{ ...S.btn, width: "100%", marginTop: "6px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }} onClick={e => { e.preventDefault(); e.stopPropagation(); addDecantToCart(product, 10); }}>10ml - {formatPrice(getDecantPrice10(product))}</button>
+<button style={{ ...S.btn, width: "100%", marginTop: "6px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }} onClick={e => { e.preventDefault(); e.stopPropagation(); addDecantToCart(product, 10); }}>10ml - {formatPrice(priceCyber(product, getDecantPrice10(product)))}</button>
 )}
 </div>
 )}
@@ -5421,7 +5452,7 @@ return (
 <a key={p.id} className="product-card" href={productUrl(p)} style={{ ...S.recentlyViewedCard, display: "block", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); }}>
 <img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
 <div style={S.recentlyViewedName}>{getProductName(p)}</div>
-<div style={S.recentlyViewedPrice}>{formatPrice(getProductPrice(p))}</div>
+<div style={S.recentlyViewedPrice}>{formatPrice(priceCyber(p, getProductPrice(p)))}</div>
 </a>
 ))}
 </div>
@@ -5517,9 +5548,11 @@ return pdpPhotos.length > 1 && (
 <h2 className="gs-pdp-name">{getProductName(selectedProduct)}</h2>
 {avgRating && <div style={{ ...S.ratingBadge, marginBottom: "10px" }}>★ {avgRating} de 5 · {reviewCount} {reviewCount === 1 ? "opinion" : "opiniones"}</div>}
 <div className="gs-pdp-price">
+{cyberAplica(selectedProduct) ? (<span style={{ display: "inline-flex", alignItems: "baseline", gap: "10px", flexWrap: "wrap" }}>{precioCyberJSX(selectedProduct, getProductPrice(selectedProduct), "18px")}</span>) : (<>
 {getDiscountPercent(selectedProduct) && <span style={{ ...S.originalPrice, fontSize: "18px" }}>{formatPrice(getProductOriginalPrice(selectedProduct))}</span>}
 {formatPrice(getProductPrice(selectedProduct))}
 {getDiscountPercent(selectedProduct) && <span style={S.discountBadge}>-{getDiscountPercent(selectedProduct)}%</span>}
+</>)}
 </div>
 {getProductDisp(selectedProduct) === "stock"
 ? <span style={S.badgeStock}><span style={S.badgeStockDot}></span>En Stock - Disponible ahora</span>
@@ -5617,10 +5650,10 @@ return pdpPhotos.length > 1 && (
 <div style={{ marginTop: "16px", borderTop: "1px solid #2b2b2b", paddingTop: "14px" }}>
 <div style={{ color: "#d4af37", fontSize: "14px", fontWeight: "bold", marginBottom: "8px" }}>Tambien disponible en Decant (sin comprar el frasco completo)</div>
 {getDecantPrice5(selectedProduct) && (
-<button style={{ ...S.btn, width: "100%", marginTop: "8px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }} onClick={() => { addDecantToCart(selectedProduct, 5); setSelectedProduct(null); }}>Agregar Decant 5ml - {formatPrice(getDecantPrice5(selectedProduct))}</button>
+<button style={{ ...S.btn, width: "100%", marginTop: "8px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }} onClick={() => { addDecantToCart(selectedProduct, 5); setSelectedProduct(null); }}>Agregar Decant 5ml - {formatPrice(priceCyber(selectedProduct, getDecantPrice5(selectedProduct)))}</button>
 )}
 {getDecantPrice10(selectedProduct) && (
-<button style={{ ...S.btn, width: "100%", marginTop: "8px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }} onClick={() => { addDecantToCart(selectedProduct, 10); setSelectedProduct(null); }}>Agregar Decant 10ml - {formatPrice(getDecantPrice10(selectedProduct))}</button>
+<button style={{ ...S.btn, width: "100%", marginTop: "8px", background: "transparent", border: "1px solid #d4af37", color: "#d4af37" }} onClick={() => { addDecantToCart(selectedProduct, 10); setSelectedProduct(null); }}>Agregar Decant 10ml - {formatPrice(priceCyber(selectedProduct, getDecantPrice10(selectedProduct)))}</button>
 )}
 </div>
 )}
@@ -5636,7 +5669,7 @@ return pdpPhotos.length > 1 && (
 <a key={p.id} className="gs-pdp-similar-card" href={productUrl(p)} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); const ov = document.querySelector(".gs-pdp-overlay"); if (ov) ov.scrollTop = 0; }}>
 <img src={optimizeImg(getProductImage(p), "t")} alt={getProductName(p)} loading="lazy" decoding="async" style={{ width: "100%", height: "120px", objectFit: "contain", background: "#fff", borderRadius: "6px", marginBottom: "8px" }} />
 <div style={{ fontSize: "12px", color: "#fff", marginBottom: "6px", minHeight: "32px", lineHeight: "1.3" }}>{getProductName(p)}</div>
-<div style={{ fontSize: "13px", color: "#d4af37", fontWeight: "700" }}>{formatPrice(getProductPrice(p))}</div>
+<div style={{ fontSize: "13px", color: "#d4af37", fontWeight: "700" }}>{formatPrice(priceCyber(p, getProductPrice(p)))}</div>
 {getDiscountPercent(p) && <div style={{ fontSize: "11px", color: "#8a8a8a", textDecoration: "line-through" }}>{formatPrice(getProductOriginalPrice(p))}</div>}
 </a>
 ))}
@@ -5677,7 +5710,7 @@ return pdpPhotos.length > 1 && (
 </div>
 </div>
 <div className="gs-pdp-sticky-cta">
-<span className="gs-pdp-sticky-price">{formatPrice(getProductPrice(selectedProduct))}</span>
+<span className="gs-pdp-sticky-price">{formatPrice(priceCyber(selectedProduct, getProductPrice(selectedProduct)))}</span>
 {getProductDisp(selectedProduct) === "agotado" ? (
 <button style={{ ...S.btn, flex: 1, padding: "12px" }} disabled={notifySubmitting || notifyDone} onClick={() => notifyPhone.trim() ? handleNotifyStock(selectedProduct) : document.getElementById("gs-pdp-notify-input")?.focus()}>{notifyDone ? "✓ Listo" : "🔔 Avisarme"}</button>
 ) : (
@@ -5762,7 +5795,7 @@ return pdpPhotos.length > 1 && (
 <a key={p.id} href={productUrl(p)} style={{ display: "block", background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px", cursor: "pointer", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setShowQuiz(false); setSelectedProduct(p); }}>
 <img src={optimizeImg(getProductImage(p), "t")} alt={getProductName(p)} loading="lazy" decoding="async" style={{ width: "100%", height: "90px", objectFit: "contain", background: "#fff", borderRadius: "6px", marginBottom: "8px" }} />
 <div style={{ fontSize: "12px", marginBottom: "4px", lineHeight: "1.3" }}>{getProductName(p)}</div>
-<div style={{ color: "#d4af37", fontWeight: "700", fontSize: "13px" }}>{formatPrice(getProductPrice(p))}</div>
+<div style={{ color: "#d4af37", fontWeight: "700", fontSize: "13px" }}>{formatPrice(priceCyber(p, getProductPrice(p)))}</div>
 </a>
 ))}
 </div>
@@ -5794,7 +5827,7 @@ const restante = enCurso ? Math.max(0, Math.min(100, diff / (CYBER.fin - CYBER.i
 const urgente = enCurso && diff < 6 * 3600000;
 return (
 <div style={{ background: "#2a2210", border: "1px solid " + (urgente ? "#ff6b4a" : "#d4af37"), borderRadius: "8px", padding: "12px 14px", marginBottom: "12px" }}>
-<div style={{ fontSize: "13.5px", fontWeight: 800, color: urgente ? "#ff9a7a" : "#d4af37", marginBottom: "8px" }}>{enCurso ? (urgente ? "⚡ ¡Últimas horas! " : "🔥 CyberMonday: ") + "te quedan " + txt + " para usar " + CYBER.code + " (" + CYBER.pct + "% OFF)" : "🔥 CyberMonday empieza en " + txt + ": " + CYBER.pct + "% OFF con " + CYBER.code}</div>
+<div style={{ fontSize: "13.5px", fontWeight: 800, color: urgente ? "#ff9a7a" : "#d4af37", marginBottom: "8px" }}>{enCurso ? (urgente ? "⚡ ¡Últimas horas! " : "🔥 CyberMonday: ") + "te quedan " + txt + " con " + CYBER.pct + "% OFF en todos los precios" : "🔥 CyberMonday empieza en " + txt + ": " + CYBER.pct + "% OFF automático en todos los precios"}</div>
 <div style={{ height: "6px", background: "#2b2b2b", borderRadius: "3px", overflow: "hidden" }}><div style={{ height: "100%", width: restante + "%", background: urgente ? "linear-gradient(90deg, #ff6b4a, #d4af37)" : "linear-gradient(135deg, #d4af37, #a8842c)", transition: "width .5s" }} /></div>
 </div>
 );
@@ -5835,7 +5868,7 @@ return (
 <img src={optimizeImg(getProductImage(item), "t")} alt={getProductName(item)} loading="lazy" decoding="async" style={{ width: "60px", height: "60px", objectFit: "contain", background: "#fff", borderRadius: "6px" }} />
 <div style={{ flex: 1 }}>
 <div style={{ fontWeight: "bold", fontSize: "14px" }}>{getProductName(item)}</div>
-<div style={{ color: "#d4af37" }}>{formatPrice(getProductPrice(item))}</div>
+<div style={{ color: "#d4af37", display: "flex", gap: "8px", alignItems: "baseline", flexWrap: "wrap" }}>{cyberAplica(item) ? precioCyberJSX(item, getProductPrice(item)) : formatPrice(getProductPrice(item))}</div>
 <div style={S.qtyStepperRow}>
 <button onClick={() => updateCartQty(item.id, -1)} style={S.qtyBtn} aria-label="Restar">-</button>
 <span style={S.qtyValue}>{item.qty}</span>
@@ -5853,7 +5886,7 @@ return (
 <div key={p.id} style={{ flexShrink: 0, width: "108px", background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "8px", textAlign: "center" }}>
 <img src={optimizeImg(getProductImage(p), "t")} alt={getProductName(p)} loading="lazy" decoding="async" style={{ width: "100%", height: "70px", objectFit: "contain", background: "#fff", borderRadius: "6px", marginBottom: "6px" }} />
 <div style={{ fontSize: "11px", color: "#fff", marginBottom: "4px", minHeight: "28px", lineHeight: "1.3" }}>{getProductName(p)}</div>
-<div style={{ fontSize: "12px", color: "#d4af37", fontWeight: "700", marginBottom: "6px" }}>{formatPrice(getProductPrice(p))}</div>
+<div style={{ fontSize: "12px", color: "#d4af37", fontWeight: "700", marginBottom: "6px" }}>{formatPrice(priceCyber(p, getProductPrice(p)))}</div>
 <button onClick={() => addToCart(p)} style={{ width: "100%", background: "transparent", border: "1px solid #d4af37", color: "#d4af37", borderRadius: "6px", padding: "5px", fontSize: "11px", cursor: "pointer" }}>+ Agregar</button>
 </div>
 ))}
@@ -5862,7 +5895,7 @@ return (
 )}
 <button type="button" onClick={() => abrirConsulta("carrito")} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "100%", padding: "11px", marginBottom: "16px", fontSize: "14px", fontWeight: "700", borderRadius: "8px", border: "1px solid #25D366", background: "transparent", color: "#25D366", textDecoration: "none", boxSizing: "border-box" , cursor: "pointer" }}>💬 Prefiero consultar este carrito por WhatsApp</button>
 <div style={{ borderTop: "1px solid #2b2b2b", paddingTop: "16px", marginTop: "16px" }}>
-<div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(finalTotal)}{discountFromPoints > 0 && <span style={{ color: "#d4af37", fontSize: 13, display: "block" }}>(incluye descuento de {formatPrice(discountFromPoints)} por puntos)</span>}{decantComboDiscount > 0 && <span style={{ color: "#7ea87a", fontSize: 13, display: "block" }}>(incluye {formatPrice(decantComboDiscount)} OFF por set de decants)</span>}{perfumeComboDiscount > 0 && <span style={{ color: "#7ea87a", fontSize: 13, display: "block" }}>(incluye {formatPrice(perfumeComboDiscount)} OFF por combo de perfumes)</span>}{cuponDiscount > 0 && <span style={{ color: "#9ddb9d", fontSize: 13, display: "block" }}>(incluye {formatPrice(cuponDiscount)} OFF por cupon {cuponEval.cupon && cuponEval.cupon.id})</span>}</div>
+<div style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "16px" }}>Total: {formatPrice(finalTotal)}{discountFromPoints > 0 && <span style={{ color: "#d4af37", fontSize: 13, display: "block" }}>(incluye descuento de {formatPrice(discountFromPoints)} por puntos)</span>}{decantComboDiscount > 0 && <span style={{ color: "#7ea87a", fontSize: 13, display: "block" }}>(incluye {formatPrice(decantComboDiscount)} OFF por set de decants)</span>}{perfumeComboDiscount > 0 && <span style={{ color: "#7ea87a", fontSize: 13, display: "block" }}>(incluye {formatPrice(perfumeComboDiscount)} OFF por combo de perfumes)</span>}{cyberDiscount > 0 && <span style={{ color: "#f5d36b", fontSize: 13, display: "block" }}>(incluye {formatPrice(cyberDiscount)} OFF de CyberMonday {CYBER.pct}%)</span>}{cuponDiscount > 0 && <span style={{ color: "#9ddb9d", fontSize: 13, display: "block" }}>(incluye {formatPrice(cuponDiscount)} OFF por cupon {cuponEval.cupon && cuponEval.cupon.id})</span>}</div>
 <div style={S.checkoutSectionTitle}>📦 Datos de envío</div>
 <div style={{ marginBottom: 12 }}>
 <input type="text" placeholder="Nombre y apellido *" value={customerName} onChange={e => { setCustomerName(e.target.value); if (checkoutError) setCheckoutError(""); }} style={{ ...S.input, marginBottom: 8, ...(checkoutError && !customerName.trim() ? { border: "1px solid #8b1a2a" } : {}) }} />
@@ -5875,9 +5908,6 @@ return (
 <p style={{ color: "#8a8a8a", fontSize: 12, margin: "-8px 0 12px" }}>* Campos obligatorios para poder pedir por WhatsApp</p>
 <div style={S.checkoutSectionTitle}>🎁 Descuentos y beneficios</div>
 <div style={S.cartPointsBox}>{user ? (<>{customerPoints !== null && (<div style={{ color: "#d4af37", fontSize: 13 }}>Tenes {customerPoints} puntos ({formatPrice(pointsToDiscount(customerPoints))} disponibles){pointsToDiscount(customerPoints) > 0 && (<label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, color: "#fff" }}><input type="checkbox" checked={redeemPoints} onChange={e => setRedeemPoints(e.target.checked)} />Usar mis puntos en este pedido</label>)}</div>)}<button style={{ ...S.btnOutline, width: "100%", marginTop: 8 }} onClick={() => loadMyPoints(user.uid)} disabled={pointsLoading}>{pointsLoading ? "Consultando..." : "Actualizar mis puntos"}</button>{referralCode && (<div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #2b2b2b" }}><p style={{ color: "#bdbdbd", fontSize: 12, margin: "0 0 4px" }}>Tu codigo de referido: <strong style={{ color: "#fff" }}>{referralCode}</strong></p><a href={"https://wa.me/?text=" + encodeURIComponent("Te invito a comprar en Esencia Perfumeria! Usa mi codigo " + referralCode + " y ambos recibimos $1.000 de descuento en tu primera compra. https://www.esenciaperfumeria.com.ar")} target="_blank" rel="noreferrer" style={{ color: "#d4af37", fontSize: 12, textDecoration: "underline" }}>Compartir con un amigo y ganar $1.000</a></div>)}</>) : (<button style={{ ...S.btnOutline, width: "100%" }} onClick={() => { setAccountMode("login"); setAccountError(""); setShowAccountModal(true); }}>Ingresa para sumar/usar puntos</button>)}</div>
-{cyberFase === "on" && !promoCode.trim() && (
-<button type="button" onClick={() => setPromoCode(CYBER.code)} style={{ width: "100%", marginBottom: "10px", padding: "11px", background: "#2a2210", border: "1px solid #d4af37", color: "#d4af37", borderRadius: "8px", fontWeight: 800, fontSize: "13.5px", cursor: "pointer" }}>🔥 CyberMonday: aplicar {CYBER.pct}% OFF ({CYBER.code})</button>
-)}
 <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Codigo de descuento (opcional)" style={{ width: "100%", padding: "10px", marginBottom: "4px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", fontSize: "14px", boxSizing: "border-box" }} />
 {promoCode.trim() && (cuponEval.motivo === null && cuponEval.cupon ? (
 <p style={{ color: "#9ddb9d", fontSize: "13px", margin: "0 0 12px" }}>✓ Cupon {cuponEval.cupon.id} aplicado: {formatPrice(cuponDiscount)} de descuento</p>
@@ -5886,7 +5916,7 @@ return (
 {cuponEval.motivo === "no_encontrado" && "Ese codigo no existe."}
 {cuponEval.motivo === "inactivo" && "Ese cupon ya no esta activo."}
 {cuponEval.motivo === "vencido" && "Ese cupon ya vencio."}
-{cuponEval.motivo === "pronto" && "Este codigo se activa el lunes 2 de noviembre (CyberMonday)."}
+{cuponEval.motivo === "cyber" && "No hace falta el codigo: el " + CYBER.pct + "% de CyberMonday se aplica solo en los precios del 2 al 7 de noviembre."}
 {cuponEval.motivo === "minimo" && cuponEval.cupon && ("Necesitas una compra minima de " + formatPrice(cuponEval.cupon.minCompra) + " para usar este cupon.")}
 </p>
 ))}
