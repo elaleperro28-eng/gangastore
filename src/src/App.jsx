@@ -2951,10 +2951,15 @@ const enviarConsulta = async () => {
   setConsultaError("");
   setConsultaEnviando(true);
   const esCarrito = consultaModal.tipo === "carrito";
+  const esGeneral = consultaModal.tipo === "general";
   const prod = consultaModal.producto;
   const waWindow = window.open("", "_blank");
   let items, total, msg;
-  if (esCarrito) {
+  if (esGeneral) {
+    items = [];
+    total = 0;
+    msg = `Hola! Soy ${nombre}. Vi el CyberMonday con ${CYBER.pct}% OFF en toda la tienda y quiero que me ayuden a elegir un perfume.`;
+  } else if (esCarrito) {
     items = cart.map(i => ({ id: i.id, nombre: getProductName(i), qty: i.qty, precio: Number(priceCyber(i, getProductPrice(i))) || 0 }));
     total = totalCart - cyberDescuentoDe(cart);
     const lineas = cart.map(i => `- ${i.qty}x ${getProductName(i)} (${formatPrice(priceCyber(i, getProductPrice(i)))})`).join("\n");
@@ -2973,7 +2978,7 @@ const enviarConsulta = async () => {
     await Promise.race([
       addDoc(collection(db, "pedidos"), {
         items, subtotal: total, descuento: 0, total,
-        medioPago: "consulta", origen: "consulta_whatsapp", tipoConsulta: esCarrito ? "carrito" : "producto",
+        medioPago: "consulta", origen: "consulta_whatsapp", tipoConsulta: esGeneral ? "general" : (esCarrito ? "carrito" : "producto"),
         estado: "pendiente", nombre, telefono: tel || null, uid: user ? user.uid : null, orderId, createdAt: serverTimestamp(),
       }),
       new Promise((resolve) => setTimeout(resolve, 4000)),
@@ -3887,7 +3892,7 @@ return (
 <div onClick={() => togglePedidoAbierto(p.id, nuevo)} style={{ display: "flex", gap: "16px", alignItems: "center", flexWrap: "wrap", cursor: "pointer" }}>
 <div style={{ flex: 1, minWidth: "180px" }}>
 <strong>{nuevo && <span style={{ background: "#d4af37", color: "#0b0b0b", fontSize: "11px", fontWeight: 800, borderRadius: "10px", padding: "2px 8px", marginRight: "8px" }}>NUEVO</span>}{p.nombre || "Sin nombre"}</strong>
-<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{items.length} producto(s) · {fecha}{esConsulta ? (p.tipoConsulta === "producto" ? " · consultó un producto" : " · consultó su carrito") : ""}</div>
+<div style={{ color: "#bdbdbd", fontSize: "13px" }}>{items.length} producto(s) · {fecha}{esConsulta ? (p.tipoConsulta === "producto" ? " · consultó un producto" : p.tipoConsulta === "general" ? " · consulta general (Cyber)" : " · consultó su carrito") : ""}</div>
 </div>
 <span style={{ fontSize: "12px", fontWeight: "700", color: p.estado === "pagado" || p.estado === "vendido" ? "#9ddb9d" : (p.estado === "no_concreto" ? "#ff9a9a" : "#e0b84a"), background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "4px 10px" }}>{p.estado === "pagado" ? "✅ Pagado" : p.estado === "vendido" ? "✅ Vendido" : p.estado === "no_concreto" ? "✖ No concretó" : p.estado === "pendiente" ? "⏳ Pendiente" : "📨 Enviado"}</span>
 <span style={{ fontSize: "12px", fontWeight: "700", color: p.origen === "mercadopago" || p.origen === "nave" ? "#9ddb9d" : (esConsulta ? "#25D366" : "#e0b84a"), background: "#0f0f0f", border: "1px solid #2b2b2b", borderRadius: "20px", padding: "4px 10px" }}>{getPedidoMedioLabel(p)}</span>
@@ -5762,7 +5767,7 @@ return pdpPhotos.length > 1 && (
 <div onClick={() => { if (!consultaEnviando) setConsultaModal(null); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
 <div onClick={e => e.stopPropagation()} style={{ background: "#141414", border: "1px solid rgba(212,175,55,0.5)", borderRadius: "16px", padding: "24px 22px", width: "100%", maxWidth: "380px", boxSizing: "border-box" }}>
 <div style={{ color: "#d4af37", fontWeight: 800, fontSize: "18px", marginBottom: "6px", fontFamily: "'Playfair Display', serif" }}>Antes de escribirnos</div>
-<div style={{ color: "#bdbdbd", fontSize: "13.5px", marginBottom: "16px" }}>{consultaModal.tipo === "carrito" ? "Dejanos tu nombre y te respondemos por WhatsApp con tu carrito a mano." : "Dejanos tu nombre y te respondemos por WhatsApp sobre " + getProductName(consultaModal.producto) + "."}</div>
+<div style={{ color: "#bdbdbd", fontSize: "13.5px", marginBottom: "16px" }}>{consultaModal.tipo === "general" ? "Dejanos tu nombre y te ayudamos por WhatsApp a elegir tu perfume con el CyberMonday." : consultaModal.tipo === "carrito" ? "Dejanos tu nombre y te respondemos por WhatsApp con tu carrito a mano." : "Dejanos tu nombre y te respondemos por WhatsApp sobre " + getProductName(consultaModal.producto) + "."}</div>
 <label style={{ color: "#e8ddc0", fontSize: "13px", fontWeight: 600 }}>Tu nombre *</label>
 <input type="text" autoFocus value={consultaNombre} onChange={e => setConsultaNombre(e.target.value)} onKeyDown={e => { if (e.key === "Enter") enviarConsulta(); }} placeholder="Ej: Laura" style={{ ...S.input, marginTop: "6px", marginBottom: "12px" }} />
 <label style={{ color: "#e8ddc0", fontSize: "13px", fontWeight: 600 }}>Tu teléfono <span style={{ color: "#8a8a8a", fontWeight: 400 }}>(opcional)</span></label>
@@ -6052,6 +6057,9 @@ return (
 <span style={S.mobileCartBarText}>{cart.reduce((a, i) => a + i.qty, 0)} {cart.reduce((a, i) => a + i.qty, 0) === 1 ? "producto" : "productos"} · {formatPrice(totalCart)}</span>
 <span style={S.mobileCartBarBtn}>Ver carrito</span>
 </div>
+)}
+{cyberOn && !showCart && !consultaModal && (
+<button type="button" onClick={() => abrirConsulta("general")} style={{ position: "fixed", left: "14px", bottom: "14px", zIndex: 90, background: "#25D366", color: "#fff", border: "none", borderRadius: "28px", padding: "12px 18px", fontSize: "14px", fontWeight: 800, cursor: "pointer", boxShadow: "0 6px 18px rgba(0,0,0,0.35)" }}>💬 Pedir mi Cyber por WhatsApp</button>
 )}
 <button className="gs-assistant-btn" style={S.assistantBtn} onClick={() => setAssistantOpen(!assistantOpen)} title="Asistente virtual">
 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0f0f0f" strokeWidth="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
