@@ -91,19 +91,21 @@ return () => { cancelado = true; if (timer) clearInterval(timer); if (unsub) uns
 //    panel se ve mas seguro pero la base de datos todavia queda abierta por detras.
 const ADMIN_EMAIL = "elaleperro28@gmail.com";
 const BANK_TRANSFER_INFO = { banco: "Banco Galicia", titular: "Alejo Francisco Ciulo", cuil: "20-46743275-4", cbu: "0070082530004087084624", alias: "esencia.bahia" };
-// CyberMonday Argentina 2026: lunes 2 al miercoles 4 de noviembre (hora de Argentina).
+// CyberMonday Esencia 2026: del jueves 29/10 al sabado 7/11 (hora de Argentina; el Cyber oficial es 2 al 4/11).
 // Desde el 29/10 la web muestra el anuncio con cuenta regresiva y del 2 al 7/11 el codigo
 // CYBER_CODE (cupon por porcentaje que se crea en el panel > Marketing > Cupones).
 const CYBER = {
   code: "CYBER10", pct: 10,
   anuncio: Date.parse("2026-10-29T00:00:00-03:00"),
-  inicio: Date.parse("2026-11-02T00:00:00-03:00"),
+  inicio: Date.parse("2026-10-29T00:00:00-03:00"),
   fin: Date.parse("2026-11-07T23:59:59-03:00"),
-  inicioISO: "2026-11-02T00:00:00-03:00", finISO: "2026-11-07T23:59:59-03:00",
+  inicioISO: "2026-10-29T00:00:00-03:00", finISO: "2026-11-07T23:59:59-03:00",
 };
 // Descuento CyberMonday: se aplica solo en los precios (sin codigo) del 2 al 7/11.
 // No incluye Gift Cards ni combos armados (ya tienen precio especial).
 const cyberEligible = (p) => !!p && !esGiftCard(p) && !p.isCombo;
+// Durante el Cyber el 10% es el UNICO descuento: no se suman cupones, combos, puntos ni referidos.
+const cyberSolo = () => Date.now() >= CYBER.inicio && Date.now() < CYBER.fin;
 const cyberDescuentoDe = (lines) => {
   const t = Date.now();
   if (t < CYBER.inicio || t >= CYBER.fin) return 0;
@@ -430,6 +432,7 @@ const [bannerDismissed, setBannerDismissed] = useState(() => {
   try { return sessionStorage.getItem("esenciaBannerDismissed") === "1"; } catch { return false; }
 });
 const [nowTick, setNowTick] = useState(() => Date.now());
+const cyberOn = nowTick >= CYBER.inicio && nowTick < CYBER.fin;
 useEffect(() => {
   const t = setInterval(() => setNowTick(Date.now()), 60000);
   return () => clearInterval(t);
@@ -2511,12 +2514,12 @@ setReferralPendingIds(qs.docs.map((d) => d.id));
 console.error("REFERRAL_LOAD_ERROR", e);
 }
 };
-const redeemableNow = redeemPoints && customerPoints ? Math.floor(customerPoints / 300) * 300 : 0;
+const redeemableNow = redeemPoints && customerPoints && !cyberOn ? Math.floor(customerPoints / 300) * 300 : 0;
 const discountFromPoints = pointsToDiscount(redeemableNow);
 const decantCartLines = cart.filter(i => i.isDecant);
 const decantComboCount = new Set(decantCartLines.map(i => i.id.split("_decant")[0])).size;
 const decantComboSubtotal = decantCartLines.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
-const decantComboActive = decantComboCount >= DECANT_COMBO_MIN;
+const decantComboActive = decantComboCount >= DECANT_COMBO_MIN && !cyberOn;
 const decantComboDiscount = decantComboActive ? Math.round(decantComboSubtotal * DECANT_COMBO_DISCOUNT_PCT) : 0;
 // Descuento automatico por cantidad de perfumes (configurable por el admin, ver
 // "_site_perfume_combo"): cuenta TODAS las unidades que no son decants ni
@@ -2527,7 +2530,7 @@ const perfumeComboQty = perfumeCartLines.reduce((acc, i) => acc + i.qty, 0);
 const perfumeComboSubtotal = perfumeCartLines.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
 const perfumeComboMin = (perfumeComboConfig && Number(perfumeComboConfig.minCantidad)) || 2;
 const perfumeComboPct = (perfumeComboConfig && Number(perfumeComboConfig.descuentoPct)) || 0;
-const perfumeComboActive = !!(perfumeComboConfig && perfumeComboConfig.activo) && perfumeComboQty >= perfumeComboMin && perfumeComboPct > 0;
+const perfumeComboActive = !cyberOn && !!(perfumeComboConfig && perfumeComboConfig.activo) && perfumeComboQty >= perfumeComboMin && perfumeComboPct > 0;
 const perfumeComboDiscount = perfumeComboActive ? Math.round(perfumeComboSubtotal * perfumeComboPct / 100) : 0;
 const neceserRemaining = Math.max(NECESER_THRESHOLD - totalCart, 0);
 const neceserReached = neceserRemaining <= 0 && totalCart > 0;
@@ -2539,6 +2542,7 @@ const evalCupon = (codigoIngresado, total) => {
 const codigo = normalizeCuponCodigo(codigoIngresado);
 if (!codigo) return { cupon: null, discount: 0, motivo: null };
 if (codigo === CYBER.code) return { cupon: null, discount: 0, motivo: "cyber" };
+if (cyberSolo()) return { cupon: null, discount: 0, motivo: "cyber_solo" };
 const c = cupones.find(x => x.id === codigo);
 if (!c) return { cupon: null, discount: 0, motivo: "no_encontrado" };
 if (!c.activo) return { cupon: c, discount: 0, motivo: "inactivo" };
@@ -2607,7 +2611,7 @@ const handleMercadoPagoCheckout = async (cartUsed, totalCartUsed) => {
 let usedDiscount = 0;
 const decantLinesUsed = cartUsed.filter(i => i.isDecant);
 const decantComboCountUsed = new Set(decantLinesUsed.map(i => i.id.split("_decant")[0])).size;
-if (decantComboCountUsed >= DECANT_COMBO_MIN) {
+if (decantComboCountUsed >= DECANT_COMBO_MIN && !cyberSolo()) {
 const decantComboSubtotalUsed = decantLinesUsed.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
 const decantComboDiscountUsed = Math.round(decantComboSubtotalUsed * DECANT_COMBO_DISCOUNT_PCT);
 if (decantComboDiscountUsed > 0) usedDiscount += decantComboDiscountUsed;
@@ -2616,7 +2620,7 @@ const perfumeLinesUsed = cartUsed.filter(i => !i.isDecant && !i.isCombo);
 const perfumeQtyUsed = perfumeLinesUsed.reduce((acc, i) => acc + i.qty, 0);
 const perfumeMinUsed = (perfumeComboConfig && Number(perfumeComboConfig.minCantidad)) || 2;
 const perfumePctUsed = (perfumeComboConfig && Number(perfumeComboConfig.descuentoPct)) || 0;
-if (perfumeComboConfig && perfumeComboConfig.activo && perfumeQtyUsed >= perfumeMinUsed && perfumePctUsed > 0) {
+if (perfumeComboConfig && perfumeComboConfig.activo && perfumeQtyUsed >= perfumeMinUsed && perfumePctUsed > 0 && !cyberSolo()) {
 const perfumeSubtotalUsed = perfumeLinesUsed.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
 const perfumeComboDiscountUsed = Math.round(perfumeSubtotalUsed * perfumePctUsed / 100);
 if (perfumeComboDiscountUsed > 0) usedDiscount += perfumeComboDiscountUsed;
@@ -2656,7 +2660,7 @@ const handleNaveCheckout = async (cartUsed, totalCartUsed) => {
 let usedDiscount = 0;
 const decantLinesUsed = cartUsed.filter(i => i.isDecant);
 const decantComboCountUsed = new Set(decantLinesUsed.map(i => i.id.split("_decant")[0])).size;
-if (decantComboCountUsed >= DECANT_COMBO_MIN) {
+if (decantComboCountUsed >= DECANT_COMBO_MIN && !cyberSolo()) {
 const decantComboSubtotalUsed = decantLinesUsed.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
 const decantComboDiscountUsed = Math.round(decantComboSubtotalUsed * DECANT_COMBO_DISCOUNT_PCT);
 if (decantComboDiscountUsed > 0) usedDiscount += decantComboDiscountUsed;
@@ -2665,7 +2669,7 @@ const perfumeLinesUsed = cartUsed.filter(i => !i.isDecant && !i.isCombo);
 const perfumeQtyUsed = perfumeLinesUsed.reduce((acc, i) => acc + i.qty, 0);
 const perfumeMinUsed = (perfumeComboConfig && Number(perfumeComboConfig.minCantidad)) || 2;
 const perfumePctUsed = (perfumeComboConfig && Number(perfumeComboConfig.descuentoPct)) || 0;
-if (perfumeComboConfig && perfumeComboConfig.activo && perfumeQtyUsed >= perfumeMinUsed && perfumePctUsed > 0) {
+if (perfumeComboConfig && perfumeComboConfig.activo && perfumeQtyUsed >= perfumeMinUsed && perfumePctUsed > 0 && !cyberSolo()) {
 const perfumeSubtotalUsed = perfumeLinesUsed.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
 const perfumeComboDiscountUsed = Math.round(perfumeSubtotalUsed * perfumePctUsed / 100);
 if (perfumeComboDiscountUsed > 0) usedDiscount += perfumeComboDiscountUsed;
@@ -2762,7 +2766,7 @@ if (totalCartUsed >= NECESER_THRESHOLD) msg += " - 🎁 Corresponde neceser de r
 let usedDiscount = 0;
 const decantLinesUsed = cartUsed.filter(i => i.isDecant);
 const decantComboCountUsed = new Set(decantLinesUsed.map(i => i.id.split("_decant")[0])).size;
-if (decantComboCountUsed >= DECANT_COMBO_MIN) {
+if (decantComboCountUsed >= DECANT_COMBO_MIN && !cyberSolo()) {
 const decantComboSubtotalUsed = decantLinesUsed.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
 const decantComboDiscountUsed = Math.round(decantComboSubtotalUsed * DECANT_COMBO_DISCOUNT_PCT);
 if (decantComboDiscountUsed > 0) {
@@ -2774,7 +2778,7 @@ const perfumeLinesUsed = cartUsed.filter(i => !i.isDecant && !i.isCombo);
 const perfumeQtyUsed = perfumeLinesUsed.reduce((acc, i) => acc + i.qty, 0);
 const perfumeMinUsed = (perfumeComboConfig && Number(perfumeComboConfig.minCantidad)) || 2;
 const perfumePctUsed = (perfumeComboConfig && Number(perfumeComboConfig.descuentoPct)) || 0;
-if (perfumeComboConfig && perfumeComboConfig.activo && perfumeQtyUsed >= perfumeMinUsed && perfumePctUsed > 0) {
+if (perfumeComboConfig && perfumeComboConfig.activo && perfumeQtyUsed >= perfumeMinUsed && perfumePctUsed > 0 && !cyberSolo()) {
 const perfumeSubtotalUsed = perfumeLinesUsed.reduce((acc, i) => acc + (Number(i.precio) || 0) * i.qty, 0);
 const perfumeComboDiscountUsed = Math.round(perfumeSubtotalUsed * perfumePctUsed / 100);
 if (perfumeComboDiscountUsed > 0) {
@@ -2792,7 +2796,7 @@ msg += " - Cupon " + cuponUsado.cupon.id + ": " + formatPrice(cuponUsado.discoun
 const referralCodeEntered = referralInput.trim().toUpperCase();
 let referralUsedThisOrder = false;
 let referrerUidFound = null;
-if (referralCodeEntered && referralCodeEntered !== referralCode) {
+if (referralCodeEntered && referralCodeEntered !== referralCode && !cyberSolo()) {
 try {
 const refSnap = await getDoc(doc(db, "referralCodes", referralCodeEntered));
 if (refSnap.exists()) {
@@ -2804,7 +2808,7 @@ msg += " - Codigo de referido: " + referralCodeEntered + " ($1.000 de descuento 
 } catch (e) { console.error("REFERRAL_CHECK_ERROR", e); }
 }
 let usedReferralCredit = 0;
-if (!referralUsedThisOrder && redeemReferralCredit && referralCredit > 0) {
+if (!referralUsedThisOrder && redeemReferralCredit && referralCredit > 0 && !cyberSolo()) {
 usedReferralCredit = Math.min(1000, referralCredit);
 usedDiscount += usedReferralCredit;
 msg += " - Usa credito de referidos ($" + usedReferralCredit.toLocaleString("es-CL") + " de descuento)";
@@ -2815,7 +2819,7 @@ const ref = doc(db, "puntosClientes", user.uid);
 const snap = await getDoc(ref);
 const current = snap.exists() ? (snap.data().puntos || 0) : 0;
 let updated = current;
-if (redeemPoints) {
+if (redeemPoints && !cyberSolo()) {
 const usedRedeem = Math.min(Math.floor(current / 300) * 300, redeemableNow);
 if (usedRedeem > 0) {
 updated -= usedRedeem;
@@ -2981,7 +2985,6 @@ const enviarConsulta = async () => {
   setConsultaEnviando(false);
   setConsultaModal(null);
 };
-const cyberOn = nowTick >= CYBER.inicio && nowTick < CYBER.fin;
 const cyberAplica = (p) => cyberOn && cyberEligible(p);
 const cyberPrecio = (price) => Math.round((Number(price) || 0) * (100 - CYBER.pct) / 100);
 const priceCyber = (p, price) => (cyberAplica(p) ? cyberPrecio(price) : price);
@@ -4993,7 +4996,7 @@ const cyberFase = nowTick >= CYBER.fin ? null : (nowTick >= CYBER.inicio ? "on" 
 const bannerView = cyberFase === "on"
   ? { bannerEnabled: true, bannerTexto: "🔥 CYBER MONDAY · " + CYBER.pct + "% OFF ya aplicado en todos los precios · termina en", bannerFechaObjetivo: CYBER.finISO, bannerLink: "/?filtro=todos", bannerCtaLabel: "Ver ofertas" }
   : cyberFase === "pre"
-  ? { bannerEnabled: true, bannerTexto: "🔥 CYBER MONDAY en Esencia · del 2 al 7 de noviembre · " + CYBER.pct + "% OFF automático en toda la tienda · empieza en", bannerFechaObjetivo: CYBER.inicioISO, bannerLink: "/?filtro=todos", bannerCtaLabel: "Ver perfumes" }
+  ? { bannerEnabled: true, bannerTexto: "🔥 CYBER MONDAY en Esencia · hasta el 7 de noviembre · " + CYBER.pct + "% OFF automático en toda la tienda · empieza en", bannerFechaObjetivo: CYBER.inicioISO, bannerLink: "/?filtro=todos", bannerCtaLabel: "Ver perfumes" }
   : bannerConfig;
 
 return (
@@ -5021,7 +5024,7 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 )}
 <style>{`@media (max-width: 700px) { .gs-nav { position: sticky !important; top: 0 !important; z-index: 80 !important; flex-wrap: wrap !important; row-gap: 8px !important; padding: 10px 12px !important; } .gs-nav-promo { position: static !important; left: auto !important; top: auto !important; transform: none !important; order: 3 !important; width: 100% !important; max-width: 100% !important; text-align: center !important; font-size: 11px !important; } .gs-nav-cart-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-nav-account-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-nav-instagram-btn { position: static !important; top: auto !important; right: auto !important; width: 36px !important; height: 36px !important; } .gs-nav-blog-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-mobile-cart-bar { display: flex !important; } } .gs-reviews-scroll { overflow: hidden; } .gs-reviews-track { display: flex; gap: 14px; width: max-content; animation: gsReviewsScroll 42s linear infinite; } .gs-reviews-scroll:hover .gs-reviews-track { animation-play-state: paused; } @keyframes gsReviewsScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } } .gs-review-card { flex-shrink: 0; width: 200px; background: #ffffff; border-radius: 10px; padding: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 1px solid #e8ddc0; } .gs-review-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; } .gs-review-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid #d4af37; flex-shrink: 0; } .gs-review-avatar-fallback { width: 36px; height: 36px; border-radius: 50%; background: #d4af37; color: #000; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; } .gs-review-name { font-weight: 700; color: #1a1a1a; font-size: 13px; line-height: 1.25; } .gs-review-city { font-size: 11px; color: #7a7a7a; } .gs-review-stars { color: #d4af37; font-size: 12px; margin-bottom: 6px; } .gs-review-text { color: #3a3a3a; font-size: 12.5px; font-style: italic; margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }`}</style>
 <div style={S.nav} className="gs-nav">
-<div style={S.navPromo} className="gs-nav-promo"><span style={{ color: "#d4af37" }}>PERFUMES ORIGINALES</span> / <span style={{ color: "#ffffff" }}>APROVECHA CODIGO PROMOCIONAL</span></div>
+<div style={S.navPromo} className="gs-nav-promo"><span style={{ color: "#d4af37" }}>PERFUMES ORIGINALES</span> / <span style={{ color: "#ffffff" }}>{cyberOn ? "🔥 CYBERMONDAY: 10% OFF EN TODA LA TIENDA" : "APROVECHA CODIGO PROMOCIONAL"}</span></div>
 <a href="https://www.instagram.com/esenciaperfumeria.bb/" target="_blank" rel="noopener noreferrer" style={S.navInstagramBtn} className="gs-nav-instagram-btn" aria-label="Instagram"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d4af37" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.5" y2="6.5"></line></svg></a> <a href="/blog" style={S.navBlogBtn} className="gs-nav-blog-btn">Blog</a>
 <button onClick={() => { setAccountError(""); setShowAccountModal(true); }} style={S.navAccountBtn} className="gs-nav-account-btn">{user ? "Mi Cuenta" : "Ingresar"}</button>
 <button onClick={() => setShowCart(true)} style={S.navCartBtn} className="gs-nav-cart-btn">Carrito ({cart.length})</button>
@@ -5062,7 +5065,7 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <h1 style={S.heroMainTitle}>Perfumería en Bahía Blanca</h1>
 <p style={S.heroSub}>Más de 300 fragancias · Diseñador · Árabes · Nicho</p>
 <div style={S.heroTrustRow} className="gs-hero-trust-row">
-{cyberFase && <span style={{ ...S.heroTrustBadge, background: "rgba(212,175,55,0.22)", border: "1px solid #d4af37", color: "#f5e3a1", fontWeight: 800 }}>{cyberFase === "on" ? "🔥 CyberMonday: " + CYBER.pct + "% OFF en todos los precios" : "🔥 CyberMonday del 2 al 7 de noviembre"}</span>}
+{cyberFase && <span style={{ ...S.heroTrustBadge, background: "rgba(212,175,55,0.22)", border: "1px solid #d4af37", color: "#f5e3a1", fontWeight: 800 }}>{cyberFase === "on" ? "🔥 CyberMonday: " + CYBER.pct + "% OFF en todos los precios" : "🔥 CyberMonday hasta el 7 de noviembre"}</span>}
 <span style={S.heroTrustBadge}>✔ 100% Originales</span>
 <span style={S.heroTrustBadge}>🚚 Envío gratis en Bahía Blanca</span>
 <span style={S.heroTrustBadge}>📦 Envíos a todo el país</span>
@@ -5078,6 +5081,7 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 </div>
 <div className="gs-hero-scroll" style={S.heroScrollCue}>↓</div>
 </div>
+{!cyberOn && (
 <div style={{ background: "linear-gradient(90deg, #141414, #1f1f1f, #141414)", borderTop: "1px solid rgba(212,175,55,0.25)", borderBottom: "1px solid rgba(212,175,55,0.25)", padding: "12px 16px" }}>
 <div style={{ maxWidth: "900px", margin: "0 auto", display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "center", alignItems: "center" }}>
 {perfumeComboConfig && perfumeComboConfig.activo && perfumeComboPct > 0 && (
@@ -5090,6 +5094,7 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 </button>
 </div>
 </div>
+)}
 <div style={S.tickerSection}>
 <style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } } @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } } .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; animation: fadeInUp 0.6s ease both; } .product-card:hover, .product-card:active { transform: translateY(-6px); box-shadow: 0 14px 28px rgba(212,175,55,0.18); } .card-img { transition: transform 0.35s ease; } .product-card:hover .card-img { transform: scale(1.06); } .fav-btn { transition: transform 0.2s ease, background 0.2s ease; } .fav-btn:hover { transform: scale(1.12); } .fav-btn.active { animation: favPop 0.3s ease; } @keyframes favPop { 0% { transform: scale(1); } 45% { transform: scale(1.3); } 100% { transform: scale(1); } } .add-cart-btn { transition: transform 0.2s ease, box-shadow 0.2s ease; } .add-cart-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(212,175,55,0.4); } .add-cart-btn:active { transform: scale(0.96); } @keyframes skeletonPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } } .skel { animation: skeletonPulse 1.4s ease-in-out infinite; background: #23231f; } @keyframes toastPop { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }`}</style>
 <div style={S.tickerTrack}>
@@ -5239,7 +5244,7 @@ return (
 <div style={{ background: "linear-gradient(135deg, #1a1405, #2a2210)", border: "1px solid #d4af37", borderRadius: "16px", padding: "20px 16px" }}>
 <div style={{ textAlign: "center", marginBottom: "16px" }}>
 <div style={{ color: "#d4af37", fontWeight: 800, fontSize: "22px", fontFamily: "'Playfair Display', serif" }}>🔥 Ofertas CyberMonday</div>
-<div style={{ color: "#e8ddc0", fontSize: "14px", marginTop: "6px" }}>{enCurso ? CYBER.pct + "% OFF ya aplicado en los precios · hasta el sábado 7/11 a las 23:59" : "Empieza en " + (dI > 0 ? dI + (dI === 1 ? " día " : " días ") : "") + hI + " h · " + CYBER.pct + "% OFF automático en todos los precios del 2 al 7 de noviembre"}</div>
+<div style={{ color: "#e8ddc0", fontSize: "14px", marginTop: "6px" }}>{enCurso ? CYBER.pct + "% OFF ya aplicado en los precios · hasta el sábado 7/11 a las 23:59" : "Empieza en " + (dI > 0 ? dI + (dI === 1 ? " día " : " días ") : "") + hI + " h · " + CYBER.pct + "% OFF automático en todos los precios hasta el 7 de noviembre"}</div>
 </div>
 <div style={S.grid} className="product-grid">
 {picks.map(pp => (
@@ -5368,12 +5373,12 @@ return (
 <button style={{ ...S.btnOutline, marginTop: "14px" }} onClick={() => { setFilterMarca(""); setFilterPrecioMin(""); setFilterPrecioMax(""); setFilterDuracion(""); setFilterNotas(""); setFilterTemporada(""); setFilterGenero(""); setFilterTipo(""); }}>Limpiar filtros</button>
 </div>
 )}
-{filter === "decants" && (
+{filter === "decants" && !cyberOn && (
 <div style={{ textAlign: "center", background: "linear-gradient(135deg, #ffe28a, #d4af37)", border: "2px solid #a8842c", borderRadius: "10px", padding: "14px 18px", marginBottom: "16px", fontSize: "16px", color: "#1a1200", fontWeight: "900", textTransform: "uppercase", letterSpacing: "0.4px", lineHeight: "1.4", boxShadow: "0 4px 18px rgba(212,175,55,0.5)" }}>
 🎁 Armá tu set: llevate {DECANT_COMBO_MIN} decants distintos y obtené {Math.round(DECANT_COMBO_DISCOUNT_PCT * 100)}% OFF automático en el carrito
 </div>
 )}
-{filter === "perfumes" && perfumeComboConfig && perfumeComboConfig.activo && perfumeComboPct > 0 && (
+{filter === "perfumes" && !cyberOn && perfumeComboConfig && perfumeComboConfig.activo && perfumeComboPct > 0 && (
 <div style={{ textAlign: "center", background: "linear-gradient(135deg, #ffe28a, #d4af37)", border: "2px solid #a8842c", borderRadius: "10px", padding: "14px 18px", marginBottom: "16px", fontSize: "16px", color: "#1a1200", fontWeight: "900", textTransform: "uppercase", letterSpacing: "0.4px", lineHeight: "1.4", boxShadow: "0 4px 18px rgba(212,175,55,0.5)" }}>
 🎁 Llevate {perfumeComboMin} perfumes y obtené {Math.round(perfumeComboPct)}% OFF automático en el carrito
 </div>
@@ -5843,7 +5848,7 @@ return (
 </div>
 <div style={{ fontSize: "11px", color: "#8a8a8a", marginTop: "6px" }}>Neceser de regalo en compras desde {formatPrice(NECESER_THRESHOLD)}. En Bahia Blanca el envio es gratis siempre.</div>
 </div>
-{decantComboCount > 0 && decantComboCount < DECANT_COMBO_MIN && (
+{!cyberOn && decantComboCount > 0 && decantComboCount < DECANT_COMBO_MIN && (
 <div style={{ background: "rgba(212,175,55,0.18)", border: "1px solid #d4af37", borderRadius: "8px", padding: "10px 14px", marginBottom: "16px", fontSize: "13px", color: "#fff3d6", fontWeight: "700" }}>
 🎁 Sumá {DECANT_COMBO_MIN - decantComboCount} decant{DECANT_COMBO_MIN - decantComboCount > 1 ? "s" : ""} distinto{DECANT_COMBO_MIN - decantComboCount > 1 ? "s" : ""} más y llevate {Math.round(DECANT_COMBO_DISCOUNT_PCT * 100)}% OFF en todos tus decants
 </div>
@@ -5853,7 +5858,7 @@ return (
 🎉 Set de {decantComboCount} decants distintos: {Math.round(DECANT_COMBO_DISCOUNT_PCT * 100)}% OFF aplicado (-{formatPrice(decantComboDiscount)})
 </div>
 )}
-{perfumeComboConfig && perfumeComboConfig.activo && perfumeComboPct > 0 && perfumeComboQty > 0 && perfumeComboQty < perfumeComboMin && (
+{!cyberOn && perfumeComboConfig && perfumeComboConfig.activo && perfumeComboPct > 0 && perfumeComboQty > 0 && perfumeComboQty < perfumeComboMin && (
 <div style={{ background: "rgba(212,175,55,0.18)", border: "1px solid #d4af37", borderRadius: "8px", padding: "10px 14px", marginBottom: "16px", fontSize: "13px", color: "#fff3d6", fontWeight: "700" }}>
 🎁 Sumá {perfumeComboMin - perfumeComboQty} perfume{perfumeComboMin - perfumeComboQty > 1 ? "s" : ""} más y llevate {Math.round(perfumeComboPct)}% OFF en tus perfumes
 </div>
@@ -5907,6 +5912,10 @@ return (
 </div>
 <p style={{ color: "#8a8a8a", fontSize: 12, margin: "-8px 0 12px" }}>* Campos obligatorios para poder pedir por WhatsApp</p>
 <div style={S.checkoutSectionTitle}>🎁 Descuentos y beneficios</div>
+{cyberOn ? (
+<div style={{ background: "#2a2210", border: "1px solid #d4af37", borderRadius: "8px", padding: "12px 14px", marginBottom: "12px", color: "#f5d36b", fontSize: "13.5px", fontWeight: 700 }}>{"🔥 Ya tenés el " + CYBER.pct + "% de CyberMonday aplicado en los precios. Es el único descuento activo hasta el 7/11: no se suman cupones, puntos ni referidos."}</div>
+) : (
+<>
 <div style={S.cartPointsBox}>{user ? (<>{customerPoints !== null && (<div style={{ color: "#d4af37", fontSize: 13 }}>Tenes {customerPoints} puntos ({formatPrice(pointsToDiscount(customerPoints))} disponibles){pointsToDiscount(customerPoints) > 0 && (<label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, color: "#fff" }}><input type="checkbox" checked={redeemPoints} onChange={e => setRedeemPoints(e.target.checked)} />Usar mis puntos en este pedido</label>)}</div>)}<button style={{ ...S.btnOutline, width: "100%", marginTop: 8 }} onClick={() => loadMyPoints(user.uid)} disabled={pointsLoading}>{pointsLoading ? "Consultando..." : "Actualizar mis puntos"}</button>{referralCode && (<div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #2b2b2b" }}><p style={{ color: "#bdbdbd", fontSize: 12, margin: "0 0 4px" }}>Tu codigo de referido: <strong style={{ color: "#fff" }}>{referralCode}</strong></p><a href={"https://wa.me/?text=" + encodeURIComponent("Te invito a comprar en Esencia Perfumeria! Usa mi codigo " + referralCode + " y ambos recibimos $1.000 de descuento en tu primera compra. https://www.esenciaperfumeria.com.ar")} target="_blank" rel="noreferrer" style={{ color: "#d4af37", fontSize: 12, textDecoration: "underline" }}>Compartir con un amigo y ganar $1.000</a></div>)}</>) : (<button style={{ ...S.btnOutline, width: "100%" }} onClick={() => { setAccountMode("login"); setAccountError(""); setShowAccountModal(true); }}>Ingresa para sumar/usar puntos</button>)}</div>
 <input type="text" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} placeholder="Codigo de descuento (opcional)" style={{ width: "100%", padding: "10px", marginBottom: "4px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", fontSize: "14px", boxSizing: "border-box" }} />
 {promoCode.trim() && (cuponEval.motivo === null && cuponEval.cupon ? (
@@ -5916,11 +5925,14 @@ return (
 {cuponEval.motivo === "no_encontrado" && "Ese codigo no existe."}
 {cuponEval.motivo === "inactivo" && "Ese cupon ya no esta activo."}
 {cuponEval.motivo === "vencido" && "Ese cupon ya vencio."}
-{cuponEval.motivo === "cyber" && "No hace falta el codigo: el " + CYBER.pct + "% de CyberMonday se aplica solo en los precios del 2 al 7 de noviembre."}
+{cuponEval.motivo === "cyber_solo" && "Durante el CyberMonday el " + CYBER.pct + "% ya aplicado es el unico descuento: los cupones no se suman."}
+{cuponEval.motivo === "cyber" && "No hace falta el codigo: el " + CYBER.pct + "% de CyberMonday se aplica solo en los precios hasta el 7 de noviembre."}
 {cuponEval.motivo === "minimo" && cuponEval.cupon && ("Necesitas una compra minima de " + formatPrice(cuponEval.cupon.minCompra) + " para usar este cupon.")}
 </p>
 ))}
 <input type="text" value={referralInput} onChange={(e) => setReferralInput(e.target.value)} placeholder="Codigo de referido de un amigo (opcional)" style={{ width: "100%", padding: "10px", marginBottom: "8px", borderRadius: "6px", border: "1px solid #2b2b2b", background: "#1a1a1a", color: "#fff", fontSize: "14px", boxSizing: "border-box" }} />{referralInput.trim() && (<p style={{ color: "#d4af37", fontSize: "13px", margin: "0 0 12px" }}>Si el codigo es valido, se descuentan $1.000 al confirmar el pedido.</p>)}{user && referralCredit > 0 && !referralInput.trim() && (<label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#d4af37", fontSize: "14px", marginBottom: "12px" }}><input type="checkbox" checked={redeemReferralCredit} onChange={(e) => setRedeemReferralCredit(e.target.checked)} />Usar mi credito de referidos ($1.000 de descuento en esta compra)</label>)}
+</>
+)}
 <div style={{ background: "#1a1a1a", border: "1px solid #2b2b2b", borderRadius: "8px", padding: "10px 12px", marginBottom: "12px" }}>
 <label style={{ display: "flex", alignItems: "center", gap: "8px", color: "#fff", fontSize: "14px", cursor: "pointer" }}><input type="checkbox" checked={isGift} onChange={e => setIsGift(e.target.checked)} />🎁 Es un regalo</label>
 {isGift && (<textarea value={giftMessage} onChange={e => setGiftMessage(e.target.value)} placeholder="Mensaje para incluir (opcional)" style={{ ...S.input, marginTop: "8px", minHeight: "50px", resize: "vertical", width: "100%", boxSizing: "border-box" }} />)}
