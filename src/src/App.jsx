@@ -91,15 +91,15 @@ return () => { cancelado = true; if (timer) clearInterval(timer); if (unsub) uns
 //    panel se ve mas seguro pero la base de datos todavia queda abierta por detras.
 const ADMIN_EMAIL = "elaleperro28@gmail.com";
 const BANK_TRANSFER_INFO = { banco: "Banco Galicia", titular: "Alejo Francisco Ciulo", cuil: "20-46743275-4", cbu: "0070082530004087084624", alias: "esencia.bahia" };
-// CyberMonday Esencia 2026: del jueves 29/10 al sabado 7/11 (hora de Argentina; el Cyber oficial es 2 al 4/11).
+// CyberMonday Esencia 2026: del miercoles 28/10 al sabado 7/11 (hora de Argentina; el Cyber oficial es 2 al 4/11).
 // Desde el 29/10 la web muestra el anuncio con cuenta regresiva y del 2 al 7/11 el codigo
 // CYBER_CODE (cupon por porcentaje que se crea en el panel > Marketing > Cupones).
 const CYBER = {
   code: "CYBER10", pct: 10,
-  anuncio: Date.parse("2026-10-29T00:00:00-03:00"),
-  inicio: Date.parse("2026-10-29T00:00:00-03:00"),
+  anuncio: Date.parse("2026-10-28T00:00:00-03:00"),
+  inicio: Date.parse("2026-10-28T00:00:00-03:00"),
   fin: Date.parse("2026-11-07T23:59:59-03:00"),
-  inicioISO: "2026-10-29T00:00:00-03:00", finISO: "2026-11-07T23:59:59-03:00",
+  inicioISO: "2026-10-28T00:00:00-03:00", finISO: "2026-11-07T23:59:59-03:00",
 };
 // Descuento CyberMonday: se aplica solo en los precios (sin codigo) del 2 al 7/11.
 // No incluye Gift Cards ni combos armados (ya tienen precio especial).
