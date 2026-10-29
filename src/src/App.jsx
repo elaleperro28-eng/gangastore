@@ -3523,7 +3523,7 @@ navInstagramBtn: { position: "fixed", top: "16px", right: "270px", width: "40px"
 navBlogBtn: { position: "fixed", top: "16px", right: "390px", background: "transparent", color: "#d4af37", border: "1px solid #d4af37", padding: "10px 18px", borderRadius: "6px", cursor: "pointer", fontWeight: "700", zIndex: 55, textDecoration: "none", display: "flex", alignItems: "center" },
   navPromo: { position: "absolute", left: "50%", top: "50%", transform: "translate(-50%, -50%)", fontFamily: "'Playfair Display', serif", fontWeight: "700", fontSize: "13px", letterSpacing: "1px", textAlign: "center", maxWidth: "55%" },
 hero: { textAlign: "center", padding: "130px 20px 100px", backgroundImage: "linear-gradient(rgba(10,10,10,0.6), rgba(10,10,10,0.72)), url('https://images.unsplash.com/photo-1622618991746-fe6004db3a47?q=80&w=1920&auto=format&fit=crop')", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" },
-heroWrap: { position: "relative", minHeight: "92vh", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", padding: "150px 20px 110px", boxSizing: "border-box" },
+heroWrap: { position: "relative", minHeight: "64vh", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", padding: "100px 20px 70px", boxSizing: "border-box" },
 heroOverlay: { position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(10,10,10,0.45) 0%, rgba(10,10,10,0.65) 55%, rgba(8,8,8,0.9) 100%)", zIndex: 1 },
 heroContent: { position: "relative", zIndex: 2, textAlign: "center", maxWidth: "920px", margin: "0 auto", padding: "0 12px" },
 heroDivider: { width: "64px", height: "3px", background: "#d4af37", margin: "0 auto 20px", borderRadius: "2px" },
@@ -5007,6 +5007,27 @@ return (
 );
 }
 
+const searchBox = () => (
+<div style={{ ...S.searchWrap, maxWidth: "none", margin: 0, width: "100%", color: "#444" }}>
+<svg style={{ ...S.searchIconSvg, left: "17px", opacity: 0.75 }} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+<input type="text" placeholder="Buscá tu perfume: Sauvage, Lattafa, dulce, árabe..." value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setSearchOpen(true); }} onFocus={() => setSearchOpen(true)} onBlur={() => setTimeout(() => setSearchOpen(false), 150)} onKeyDown={e => { if (e.key === "Enter") { setSearchOpen(false); e.target.blur(); document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }); } else if (e.key === "Escape") { setSearchOpen(false); } }} autoComplete="off" aria-label="Buscar perfumes" style={{ ...S.searchInput, padding: "14px 42px 14px 46px", fontSize: "16px", borderRadius: "30px", border: "2px solid #d4af37", background: "#ffffff", color: "#111111" }} />
+{searchQuery && <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => { setSearchQuery(""); setSearchOpen(false); }} aria-label="Borrar búsqueda" style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: "#9a9a9a", fontSize: "16px", cursor: "pointer", padding: "4px", lineHeight: 1 }}>✕</button>}
+{searchOpen && searchQuery.trim().length >= 2 && filteredProducts.length > 0 && (
+<div role="listbox" style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, zIndex: 70, background: "#141414", border: "1px solid rgba(212,175,55,0.45)", borderRadius: "14px", boxShadow: "0 14px 34px rgba(0,0,0,0.55)", overflow: "hidden", textAlign: "left" }}>
+{filteredProducts.slice(0, 6).map(sp => (
+<div key={sp.id} role="option" onMouseDown={e => e.preventDefault()} onClick={() => { setSearchOpen(false); setSelectedProduct(sp); }} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid #232323" }}>
+<img src={optimizeImg(getProductImage(sp), "m")} alt="" width="40" height="40" loading="lazy" decoding="async" style={{ width: "40px", height: "40px", objectFit: "contain", background: "#fff", borderRadius: "8px", flexShrink: 0 }} onError={e => { e.target.style.visibility = "hidden"; }} />
+<div style={{ minWidth: 0, flex: 1 }}>
+<div style={{ color: "#fff", fontSize: "13px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{getProductName(sp)}</div>
+<div style={{ color: "#d4af37", fontSize: "12.5px", fontWeight: 700 }}>{formatPrice(priceCyber(sp, getProductPrice(sp)))}{getProductDisp(sp) === "agotado" ? " · Agotado" : ""}</div>
+</div>
+</div>
+))}
+<div onMouseDown={e => e.preventDefault()} onClick={() => { setSearchOpen(false); document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }); }} style={{ padding: "9px 12px", textAlign: "center", color: "#d4af37", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}>Ver los {filteredProducts.length} resultados ↓</div>
+</div>
+)}
+</div>
+);
 const cyberFase = nowTick >= CYBER.fin ? null : (nowTick >= CYBER.inicio ? "on" : (nowTick >= CYBER.anuncio ? "pre" : null));
 const bannerView = cyberFase === "on"
   ? { bannerEnabled: true, bannerTexto: "🔥 CYBER MONDAY · " + CYBER.pct + "% OFF ya aplicado en todos los precios · termina en", bannerFechaObjetivo: CYBER.finISO, bannerLink: "/?filtro=todos", bannerCtaLabel: "Ver ofertas" }
@@ -5037,12 +5058,20 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <button onClick={() => { setBannerDismissed(true); try { sessionStorage.setItem("esenciaBannerDismissed", "1"); } catch {} }} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: "#0b0b0b", fontSize: "17px", cursor: "pointer", padding: "4px", lineHeight: 1 }} aria-label="Cerrar banner">✕</button>
 </div>
 )}
-<style>{`@media (max-width: 700px) { .gs-nav { position: sticky !important; top: 0 !important; z-index: 80 !important; flex-wrap: wrap !important; row-gap: 8px !important; padding: 10px 12px !important; } .gs-nav-promo { position: static !important; left: auto !important; top: auto !important; transform: none !important; order: 3 !important; width: 100% !important; max-width: 100% !important; text-align: center !important; font-size: 11px !important; } .gs-nav-cart-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-nav-account-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-nav-instagram-btn { position: static !important; top: auto !important; right: auto !important; width: 36px !important; height: 36px !important; } .gs-nav-blog-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-mobile-cart-bar { display: flex !important; } } .gs-reviews-scroll { overflow: hidden; } .gs-reviews-track { display: flex; gap: 14px; width: max-content; animation: gsReviewsScroll 42s linear infinite; } .gs-reviews-scroll:hover .gs-reviews-track { animation-play-state: paused; } @keyframes gsReviewsScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } } .gs-review-card { flex-shrink: 0; width: 200px; background: #ffffff; border-radius: 10px; padding: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 1px solid #e8ddc0; } .gs-review-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; } .gs-review-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid #d4af37; flex-shrink: 0; } .gs-review-avatar-fallback { width: 36px; height: 36px; border-radius: 50%; background: #d4af37; color: #000; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; } .gs-review-name { font-weight: 700; color: #1a1a1a; font-size: 13px; line-height: 1.25; } .gs-review-city { font-size: 11px; color: #7a7a7a; } .gs-review-stars { color: #d4af37; font-size: 12px; margin-bottom: 6px; } .gs-review-text { color: #3a3a3a; font-size: 12.5px; font-style: italic; margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }`}</style>
+<style>{`@media (max-width: 700px) { .gs-nav { position: sticky !important; top: 0 !important; z-index: 80 !important; flex-wrap: wrap !important; row-gap: 8px !important; padding: 10px 12px !important; } .gs-nav-promo { display: none !important; position: static !important; left: auto !important; top: auto !important; transform: none !important; order: 3 !important; width: 100% !important; max-width: 100% !important; text-align: center !important; font-size: 11px !important; } .gs-nav-cart-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-nav-account-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-nav-instagram-btn { position: static !important; top: auto !important; right: auto !important; width: 36px !important; height: 36px !important; } .gs-nav-blog-btn { position: static !important; top: auto !important; right: auto !important; padding: 8px 12px !important; font-size: 13px !important; } .gs-mobile-cart-bar { display: flex !important; } .gs-search-bar-mobile { display: block !important; } .gs-search-bar-desktop { display: none !important; } } .gs-quick-chips::-webkit-scrollbar { display: none; } .gs-reviews-scroll { overflow: hidden; } .gs-reviews-track { display: flex; gap: 14px; width: max-content; animation: gsReviewsScroll 42s linear infinite; } .gs-reviews-scroll:hover .gs-reviews-track { animation-play-state: paused; } @keyframes gsReviewsScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } } .gs-review-card { flex-shrink: 0; width: 200px; background: #ffffff; border-radius: 10px; padding: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border: 1px solid #e8ddc0; } .gs-review-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; } .gs-review-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid #d4af37; flex-shrink: 0; } .gs-review-avatar-fallback { width: 36px; height: 36px; border-radius: 50%; background: #d4af37; color: #000; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex-shrink: 0; } .gs-review-name { font-weight: 700; color: #1a1a1a; font-size: 13px; line-height: 1.25; } .gs-review-city { font-size: 11px; color: #7a7a7a; } .gs-review-stars { color: #d4af37; font-size: 12px; margin-bottom: 6px; } .gs-review-text { color: #3a3a3a; font-size: 12.5px; font-style: italic; margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }`}</style>
 <div style={S.nav} className="gs-nav">
 <div style={S.navPromo} className="gs-nav-promo"><span style={{ color: "#d4af37" }}>PERFUMES ORIGINALES</span> / <span style={{ color: "#ffffff" }}>{cyberOn ? "🔥 CYBERMONDAY: 10% OFF EN TODA LA TIENDA" : "APROVECHA CODIGO PROMOCIONAL"}</span></div>
 <a href="https://www.instagram.com/esenciaperfumeria.bb/" target="_blank" rel="noopener noreferrer" style={S.navInstagramBtn} className="gs-nav-instagram-btn" aria-label="Instagram"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d4af37" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.5" y2="6.5"></line></svg></a> <a href="/blog" style={S.navBlogBtn} className="gs-nav-blog-btn">Blog</a>
 <button onClick={() => { setAccountError(""); setShowAccountModal(true); }} style={S.navAccountBtn} className="gs-nav-account-btn">{user ? "Mi Cuenta" : "Ingresar"}</button>
 <button onClick={() => setShowCart(true)} style={S.navCartBtn} className="gs-nav-cart-btn">Carrito ({cart.length})</button>
+<div className="gs-search-bar-mobile" style={{ order: 5, width: "100%", display: "none" }}>{searchBox()}</div>
+</div>
+<div className="gs-search-bar-desktop" style={{ position: "sticky", top: 0, zIndex: 80, background: "#0f0f0f", padding: "12px 20px", borderBottom: "1px solid #2b2b2b" }}><div style={{ maxWidth: "720px", margin: "0 auto" }}>{searchBox()}</div></div>
+<div className="gs-quick-chips" style={{ display: "flex", gap: "8px", overflowX: "auto", padding: "10px 14px", background: "#0f0f0f", borderBottom: "1px solid #2b2b2b", WebkitOverflowScrolling: "touch" }}>
+{cyberOn && <button type="button" onClick={() => document.getElementById("ofertasCyber")?.scrollIntoView({ behavior: "smooth" })} style={{ flexShrink: 0, background: "#d4af37", color: "#0b0b0b", border: "1px solid #d4af37", borderRadius: "20px", padding: "8px 14px", fontSize: "13px", fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}>🔥 Ofertas Cyber</button>}
+{[["perfumes", "Perfumes"], ["arabes", "Árabes"], ["disenador", "Diseñador"], ["decants", "Decants"], ["cosmeticos", "Cosméticos"], ["giftcards", "🎁 Gift Cards"], ["menos100k", "Menos de $100.000"], ["mas_vendidos", "Más vendidos"], ["todos", "Ver todo"]].map(([k, l]) => (
+<button key={k} type="button" onClick={() => { setSearchQuery(""); irAFiltroTienda(k); }} style={{ flexShrink: 0, background: "transparent", color: "#e8ddc0", border: "1px solid #d4af37", borderRadius: "20px", padding: "8px 14px", fontSize: "13px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>{l}</button>
+))}
 </div>
 <div style={S.heroWrap} className="gs-hero">
 <style>{`
@@ -5053,7 +5082,9 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 .gs-hero-scroll{animation:gsBounce 2s infinite;}
 @keyframes gsBounce{0%,100%{transform:translateX(-50%) translateY(0);}50%{transform:translateX(-50%) translateY(8px);}}
 @media (max-width:700px){
-.gs-hero{min-height:auto !important;padding:105px 16px 64px !important;}
+.gs-hero{min-height:auto !important;padding:26px 16px 30px !important;}
+.gs-hero-title{font-size:30px !important;margin:2px 0 10px !important;}
+.gs-hero-scroll{display:none !important;}
 .gs-hero-trust-row{display:grid !important;grid-template-columns:1fr 1fr;gap:8px !important;margin:16px 0 4px !important;}
 .gs-hero-trust-row span{font-size:11px !important;padding:7px 8px !important;justify-content:center;line-height:1.3;}
 .gs-hero-btn-row{flex-direction:column !important;width:100%;align-items:stretch !important;margin-top:22px !important;gap:12px !important;}
@@ -5077,7 +5108,7 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 <div style={S.heroContent}>
 <div style={S.heroDivider}></div>
 <div style={S.heroTag}>PERFUMES ORIGINALES</div>
-<h1 style={S.heroMainTitle}>Perfumería en Bahía Blanca</h1>
+<h1 className="gs-hero-title" style={S.heroMainTitle}>Perfumería en Bahía Blanca</h1>
 <p style={S.heroSub}>Más de 300 fragancias · Diseñador · Árabes · Nicho</p>
 <div style={S.heroTrustRow} className="gs-hero-trust-row">
 {cyberFase && <span style={{ ...S.heroTrustBadge, background: "rgba(212,175,55,0.22)", border: "1px solid #d4af37", color: "#f5e3a1", fontWeight: 800 }}>{cyberFase === "on" ? "🔥 CyberMonday: " + CYBER.pct + "% OFF en todos los precios" : "🔥 CyberMonday hasta el 7 de noviembre"}</span>}
@@ -5096,156 +5127,6 @@ return <span style={{ background: "#0b0b0b", color: "#d4af37", padding: "3px 10p
 </div>
 <div className="gs-hero-scroll" style={S.heroScrollCue}>↓</div>
 </div>
-{!cyberOn && (
-<div style={{ background: "linear-gradient(90deg, #141414, #1f1f1f, #141414)", borderTop: "1px solid rgba(212,175,55,0.25)", borderBottom: "1px solid rgba(212,175,55,0.25)", padding: "12px 16px" }}>
-<div style={{ maxWidth: "900px", margin: "0 auto", display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "center", alignItems: "center" }}>
-{perfumeComboConfig && perfumeComboConfig.activo && perfumeComboPct > 0 && (
-<button onClick={() => { setFilter("perfumes"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }} style={{ display: "flex", alignItems: "center", gap: "7px", background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: "24px", padding: "8px 16px", fontSize: "12.5px", color: "#d4af37", fontWeight: 700, letterSpacing: "0.2px", cursor: "pointer" }}>
-🎁 Llevate {perfumeComboMin} perfumes y obtené {Math.round(perfumeComboPct)}% OFF
-</button>
-)}
-<button onClick={() => { setFilter("decants"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }} style={{ display: "flex", alignItems: "center", gap: "7px", background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: "24px", padding: "8px 16px", fontSize: "12.5px", color: "#d4af37", fontWeight: 700, letterSpacing: "0.2px", cursor: "pointer" }}>
-🎁 Llevate {DECANT_COMBO_MIN} decants distintos y obtené {Math.round(DECANT_COMBO_DISCOUNT_PCT * 100)}% OFF
-</button>
-</div>
-</div>
-)}
-<div style={S.tickerSection}>
-<style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } } @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } } .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; animation: fadeInUp 0.6s ease both; } .product-card:hover, .product-card:active { transform: translateY(-6px); box-shadow: 0 14px 28px rgba(212,175,55,0.18); } .card-img { transition: transform 0.35s ease; } .product-card:hover .card-img { transform: scale(1.06); } .fav-btn { transition: transform 0.2s ease, background 0.2s ease; } .fav-btn:hover { transform: scale(1.12); } .fav-btn.active { animation: favPop 0.3s ease; } @keyframes favPop { 0% { transform: scale(1); } 45% { transform: scale(1.3); } 100% { transform: scale(1); } } .add-cart-btn { transition: transform 0.2s ease, box-shadow 0.2s ease; } .add-cart-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(212,175,55,0.4); } .add-cart-btn:active { transform: scale(0.96); } @keyframes skeletonPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } } .skel { animation: skeletonPulse 1.4s ease-in-out infinite; background: #23231f; } @keyframes toastPop { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }`}</style>
-<div style={S.tickerTrack}>
-{[...tickerProducts, ...tickerProducts].map((p, i) => (
-<a key={i} className="product-card" href={productUrl(p)} style={{ ...S.tickerItem, display: "block", position: "relative", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); }}>
-<button className={"fav-btn" + (favorites.includes(p.id) ? " active" : "")} onClick={e => { e.preventDefault(); e.stopPropagation(); toggleFavorite(p.id); }} style={S.favBtn(favorites.includes(p.id))} aria-label="Favorito">{favorites.includes(p.id) ? "♥" : "♡"}</button>
-<img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.cardImg} loading="lazy" decoding="async" onError={(e) => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
-<div style={S.cardBody}>
-<div style={S.cardName}>{getProductName(p)}</div>
-<div style={S.cardPrice}>
-{cyberAplica(p) ? precioCyberJSX(p, getProductPrice(p)) : (<>
-<span>{formatPrice(getProductPrice(p))}</span>
-{getDiscountPercent(p) && <span style={S.originalPrice}>{formatPrice(getProductOriginalPrice(p))}</span>}
-{getDiscountPercent(p) && <span style={S.discountBadge}>-{getDiscountPercent(p)}%</span>}
-</>)}
-</div>
-<div style={S.badgeRow}>
-{getProductDisp(p) === "stock"
-? <span style={S.badgeStock}><span style={S.badgeStockDot}></span>En Stock</span>
-: getProductDisp(p) === "agotado"
-? <span style={S.badgeAgotado}>● Agotado</span>
-: <span style={S.badgePedido}>Por Pedido · {getProductDias(p)} dias hab.</span>
-}
-{getUrgencyMsg(p) && <span style={S.urgencyBadge}>{getUrgencyMsg(p)}</span>}
-</div>
-{getProductDisp(p) === "agotado"
-? <button className="add-cart-btn" style={{ ...S.btnOutline, width: "100%", marginTop: "auto", padding: "10px" }} onClick={e => { e.preventDefault(); e.stopPropagation(); setSelectedProduct(p); }}>🔔 Avisarme</button>
-: <button className="add-cart-btn" style={{ ...S.btn, width: "100%", marginTop: "auto" }} onClick={e => { e.preventDefault(); e.stopPropagation(); addToCart(p); }}>Agregar al Carrito</button>}
-</div>
-</a>
-))}
-</div>
-</div>
-{(() => {
-const resenasPublicadas = resenas.filter(r => r.estado !== "pendiente");
-return (
-<div style={{ ...S.section, padding: "40px 20px" }}>
-<div style={{ ...S.sectionTitle, fontSize: "20px", marginBottom: "10px" }}>Opiniones de Clientes</div>
-<p style={{ color: "#7a7a7a", fontSize: "13px", textAlign: "center", marginTop: "-4px", marginBottom: "16px" }}>Sobre nuestra atención y la entrega de sus pedidos, verificadas antes de publicarse.</p>
-{avgRating && <div style={{ textAlign: "center", marginBottom: "16px" }}><span style={{ ...S.ratingBadge, fontSize: "16px" }}>★ {avgRating} de 5 · {reviewCount} {reviewCount === 1 ? "opinion verificada" : "opiniones verificadas"}</span></div>}
-{resenasPublicadas.length === 0 ? (
-<p style={{ color: "#7a7a7a", textAlign: "center" }}>Todavia no hay opiniones cargadas.</p>
-) : (
-<div className="gs-reviews-scroll">
-<div className="gs-reviews-track">
-{[...resenasPublicadas, ...resenasPublicadas].map((r, i) => (
-<div key={r.id + "-" + i} className="gs-review-card">
-<div className="gs-review-card-head">
-{r.foto ? (
-<img src={optimizeImg(r.foto, "t")} alt={r.nombre} loading="lazy" decoding="async" className="gs-review-avatar" />
-) : (
-<div className="gs-review-avatar-fallback">{(r.nombre || "?").trim().charAt(0).toUpperCase()}</div>
-)}
-<div>
-<div className="gs-review-name">{r.nombre}</div>
-{r.ciudad && <div className="gs-review-city">{r.ciudad}</div>}
-</div>
-</div>
-<div className="gs-review-stars">{"★".repeat(r.estrellas || 5)}{"☆".repeat(5 - (r.estrellas || 5))}</div>
-<p className="gs-review-text">"{r.texto}"</p>
-</div>
-))}
-</div>
-</div>
-)}
-<div style={{ textAlign: "center", marginTop: "18px" }}>
-<a href="/opinar" onClick={(e) => { e.preventDefault(); setPage("opinar"); window.history.pushState({}, "", "/opinar"); window.scrollTo(0, 0); }} style={{ color: "#8a6d1f", fontSize: "13px", textDecoration: "underline", cursor: "pointer" }}>¿Ya nos compraste? Contanos tu experiencia</a>
-</div>
-</div>
-);
-})()}
-{(() => { const showCreditNow = user && referralCredit > 0; return (
-<div style={{ margin: "0 auto 8px", maxWidth: 900, padding: "0 16px" }}>
-<div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "14px", background: "#1a1a1a", border: "1px solid #d4af37", borderRadius: "12px", padding: "18px 22px" }}>
-<div style={{ flex: "1 1 260px" }}>
-<div style={{ color: "#d4af37", fontWeight: 700, fontSize: "15px", fontFamily: "'Playfair Display', serif" }}>{showCreditNow ? "🎁 Tenes credito por referidos sin usar" : "🎁 Invita a un amigo y ganen $1.000 cada uno"}</div>
-<div style={{ color: "#bdbdbd", fontSize: "13px", marginTop: "4px" }}>
-{showCreditNow
-? "Tenes " + formatPrice(referralCredit) + " de credito disponible (se descuenta $1.000 por compra). Usálo en tu proximo pedido."
-: (user ? "Compartí tu código y cuando lo usen, ambos reciben $1.000 de descuento." : "Si ya nos compraste, iniciá sesión para conseguir tu código y empezar a ganar descuentos.")}
-</div>
-</div>
-{user ? (
-<a href={"https://wa.me/?text=" + encodeURIComponent("Te invito a comprar en Esencia Perfumeria! Usa mi codigo " + referralCode + " y ambos recibimos $1.000 de descuento en tu primera compra. https://www.esenciaperfumeria.com.ar")} target="_blank" rel="noreferrer" style={{ ...S.btnOutline, textDecoration: "none", textAlign: "center", whiteSpace: "nowrap" }}>Compartir mi código</a>
-) : (
-<button style={{ ...S.btnOutline, whiteSpace: "nowrap" }} onClick={() => { setAccountMode("login"); setAccountError(""); setShowAccountModal(true); }}>Conseguir mi código</button>
-)}
-</div>
-</div>
-); })()}
-{recentlyViewedProducts.length > 0 && (
-<div style={S.recentlyViewedWrap}>
-<button style={S.recentlyViewedToggle} onClick={() => setRecentlyViewedOpen(!recentlyViewedOpen)}>
-{recentlyViewedOpen ? "▲ Ocultar vistos recientemente" : `🕐 Vistos recientemente (${recentlyViewedProducts.length}) ▾`}
-</button>
-{recentlyViewedOpen && (
-<div style={{ ...S.recentlyViewedRow, marginTop: "10px" }}>
-{recentlyViewedProducts.map(p => (
-<a key={p.id} className="product-card" href={productUrl(p)} style={{ ...S.recentlyViewedCard, display: "block", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); }}>
-<img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
-<div style={S.recentlyViewedName}>{getProductName(p)}</div>
-<div style={S.recentlyViewedPrice}>{formatPrice(priceCyber(p, getProductPrice(p)))}</div>
-</a>
-))}
-</div>
-)}
-</div>
-)}
-{combos.filter(c => c.activo).length > 0 && (
-<div style={{ ...S.section, paddingTop: "12px" }}>
-<div style={{ ...S.sectionTitle, fontSize: "18px", marginBottom: "12px", paddingBottom: "4px" }}>🎁 Combos y Ofertas</div>
-<div style={{ display: "flex", gap: "16px", overflowX: "auto", paddingBottom: "8px" }}>
-{combos.filter(c => c.activo).map(c => {
-const comboItems = (c.productIds || []).map(id => products.find(p => p.id === id)).filter(Boolean);
-const precioOriginal = comboItems.reduce((a, p) => a + getProductPrice(p), 0);
-const ahorroCombo = Math.max(precioOriginal - (Number(c.precioCombo) || 0), 0);
-const imgCombo = c.imagen || (comboItems[0] ? getProductImage(comboItems[0]) : "");
-return (
-<div key={c.id} style={{ ...S.card, minWidth: "230px", maxWidth: "230px", flexShrink: 0, cursor: "default" }}>
-<img src={optimizeImg(imgCombo, "m")} alt={c.nombre} style={S.cardImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Combo"; }} />
-<div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: "6px", flex: 1 }}>
-<strong style={{ fontSize: "14px" }}>{c.nombre}</strong>
-<div style={{ fontSize: "12px", color: "#9a9a9a", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{comboItems.map(p => getProductName(p)).join(" + ")}</div>
-<div style={{ marginTop: "auto" }}>
-{precioOriginal > 0 && <div style={{ fontSize: "12px", color: "#8a8a8a", textDecoration: "line-through" }}>{formatPrice(precioOriginal)}</div>}
-<div style={{ fontSize: "18px", fontWeight: "800", color: "#d4af37" }}>{formatPrice(c.precioCombo)}</div>
-{ahorroCombo > 0 && <div style={{ fontSize: "12px", color: "#9ddb9d", fontWeight: "700" }}>Ahorrás {formatPrice(ahorroCombo)}</div>}
-</div>
-<button style={{ ...S.btn, marginTop: "8px" }} onClick={() => addComboToCart(c)}>Agregar combo al carrito</button>
-</div>
-</div>
-);
-})}
-</div>
-</div>
-)}
 {nowTick < CYBER.fin && (() => {
 const enCurso = nowTick >= CYBER.inicio;
 const ids = (bannerConfig && bannerConfig.cyberIds) || [];
@@ -5276,7 +5157,7 @@ return (
 </div>
 );
 })()}
-<div style={{ ...S.section, paddingTop: "12px" }} id="productsSection">
+<div style={{ ...S.section, paddingTop: "12px", scrollMarginTop: "130px" }} id="productsSection">
 <div style={{ ...S.sectionTitle, fontSize: "18px", marginBottom: "8px", paddingBottom: "4px" }}>Productos Disponibles</div>
 <div style={{ ...S.filterBar, gap: "14px" }}>
 <button style={S.filterBtnCategory(filter === "todos")} onClick={() => setFilter("todos")}>Todos</button>
@@ -5291,25 +5172,7 @@ return (
 <button style={S.filterBtn(filter === "favoritos")} onClick={() => setFilter("favoritos")}>♥ Favoritos{favorites.length > 0 ? ` (${favorites.length})` : ""}</button>
 </div>
 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center", maxWidth: "620px", margin: "0 auto 8px" }}>
-<div style={{ ...S.searchWrap, flex: "1 1 240px", maxWidth: "420px", margin: 0 }}>
-<svg style={S.searchIconSvg} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-<input type="text" placeholder="Ej: perfume dulce, para verano, parecido a Sauvage..." value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setSearchOpen(true); }} onFocus={() => setSearchOpen(true)} onBlur={() => setTimeout(() => setSearchOpen(false), 150)} onKeyDown={e => { if (e.key === "Enter") { setSearchOpen(false); e.target.blur(); document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }); } else if (e.key === "Escape") { setSearchOpen(false); } }} autoComplete="off" aria-label="Buscar perfumes" style={{ ...S.searchInput, padding: "9px 34px 9px 38px", fontSize: "13.5px" }} />
-{searchQuery && <button type="button" onMouseDown={e => e.preventDefault()} onClick={() => { setSearchQuery(""); setSearchOpen(false); }} aria-label="Borrar búsqueda" style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: "#9a9a9a", fontSize: "16px", cursor: "pointer", padding: "4px", lineHeight: 1 }}>✕</button>}
-{searchOpen && searchQuery.trim().length >= 2 && filteredProducts.length > 0 && (
-<div role="listbox" style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, zIndex: 70, background: "#141414", border: "1px solid rgba(212,175,55,0.45)", borderRadius: "14px", boxShadow: "0 14px 34px rgba(0,0,0,0.55)", overflow: "hidden", textAlign: "left" }}>
-{filteredProducts.slice(0, 6).map(sp => (
-<div key={sp.id} role="option" onMouseDown={e => e.preventDefault()} onClick={() => { setSearchOpen(false); setSelectedProduct(sp); }} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid #232323" }}>
-<img src={optimizeImg(getProductImage(sp), "m")} alt="" width="40" height="40" loading="lazy" decoding="async" style={{ width: "40px", height: "40px", objectFit: "contain", background: "#fff", borderRadius: "8px", flexShrink: 0 }} onError={e => { e.target.style.visibility = "hidden"; }} />
-<div style={{ minWidth: 0, flex: 1 }}>
-<div style={{ color: "#fff", fontSize: "13px", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{getProductName(sp)}</div>
-<div style={{ color: "#d4af37", fontSize: "12.5px", fontWeight: 700 }}>{formatPrice(priceCyber(sp, getProductPrice(sp)))}{getProductDisp(sp) === "agotado" ? " · Agotado" : ""}</div>
-</div>
-</div>
-))}
-<div onMouseDown={e => e.preventDefault()} onClick={() => { setSearchOpen(false); document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }); }} style={{ padding: "9px 12px", textAlign: "center", color: "#d4af37", fontSize: "12.5px", fontWeight: 700, cursor: "pointer" }}>Ver los {filteredProducts.length} resultados ↓</div>
-</div>
-)}
-</div>
+
 <select style={{ ...S.select, flex: "0 1 190px", maxWidth: "190px", padding: "8px 12px" }} value={sortBy} onChange={e => setSortBy(e.target.value)} disabled={!!searchQuery.trim()} title={searchQuery.trim() ? "Al buscar, se ordena por relevancia" : "Ordenar por"}>
 <option value="relevancia">Ordenar: Novedades</option>
 <option value="vendidos">Ordenar: Más vendidos</option>
@@ -5488,6 +5351,156 @@ card
 <button style={S.loadMoreBtn} onClick={() => setVisibleCount(v => v + PAGE_SIZE)}>Ver más perfumes ({filteredProducts.length - visibleCount} más)</button>
 )}
 </div>
+{!cyberOn && (
+<div style={{ background: "linear-gradient(90deg, #141414, #1f1f1f, #141414)", borderTop: "1px solid rgba(212,175,55,0.25)", borderBottom: "1px solid rgba(212,175,55,0.25)", padding: "12px 16px" }}>
+<div style={{ maxWidth: "900px", margin: "0 auto", display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "center", alignItems: "center" }}>
+{perfumeComboConfig && perfumeComboConfig.activo && perfumeComboPct > 0 && (
+<button onClick={() => { setFilter("perfumes"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }} style={{ display: "flex", alignItems: "center", gap: "7px", background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: "24px", padding: "8px 16px", fontSize: "12.5px", color: "#d4af37", fontWeight: 700, letterSpacing: "0.2px", cursor: "pointer" }}>
+🎁 Llevate {perfumeComboMin} perfumes y obtené {Math.round(perfumeComboPct)}% OFF
+</button>
+)}
+<button onClick={() => { setFilter("decants"); setTimeout(() => document.getElementById("productsSection")?.scrollIntoView({ behavior: "smooth" }), 60); }} style={{ display: "flex", alignItems: "center", gap: "7px", background: "rgba(212,175,55,0.08)", border: "1px solid rgba(212,175,55,0.4)", borderRadius: "24px", padding: "8px 16px", fontSize: "12.5px", color: "#d4af37", fontWeight: 700, letterSpacing: "0.2px", cursor: "pointer" }}>
+🎁 Llevate {DECANT_COMBO_MIN} decants distintos y obtené {Math.round(DECANT_COMBO_DISCOUNT_PCT * 100)}% OFF
+</button>
+</div>
+</div>
+)}
+{combos.filter(c => c.activo).length > 0 && (
+<div style={{ ...S.section, paddingTop: "12px" }}>
+<div style={{ ...S.sectionTitle, fontSize: "18px", marginBottom: "12px", paddingBottom: "4px" }}>🎁 Combos y Ofertas</div>
+<div style={{ display: "flex", gap: "16px", overflowX: "auto", paddingBottom: "8px" }}>
+{combos.filter(c => c.activo).map(c => {
+const comboItems = (c.productIds || []).map(id => products.find(p => p.id === id)).filter(Boolean);
+const precioOriginal = comboItems.reduce((a, p) => a + getProductPrice(p), 0);
+const ahorroCombo = Math.max(precioOriginal - (Number(c.precioCombo) || 0), 0);
+const imgCombo = c.imagen || (comboItems[0] ? getProductImage(comboItems[0]) : "");
+return (
+<div key={c.id} style={{ ...S.card, minWidth: "230px", maxWidth: "230px", flexShrink: 0, cursor: "default" }}>
+<img src={optimizeImg(imgCombo, "m")} alt={c.nombre} style={S.cardImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Combo"; }} />
+<div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: "6px", flex: 1 }}>
+<strong style={{ fontSize: "14px" }}>{c.nombre}</strong>
+<div style={{ fontSize: "12px", color: "#9a9a9a", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{comboItems.map(p => getProductName(p)).join(" + ")}</div>
+<div style={{ marginTop: "auto" }}>
+{precioOriginal > 0 && <div style={{ fontSize: "12px", color: "#8a8a8a", textDecoration: "line-through" }}>{formatPrice(precioOriginal)}</div>}
+<div style={{ fontSize: "18px", fontWeight: "800", color: "#d4af37" }}>{formatPrice(c.precioCombo)}</div>
+{ahorroCombo > 0 && <div style={{ fontSize: "12px", color: "#9ddb9d", fontWeight: "700" }}>Ahorrás {formatPrice(ahorroCombo)}</div>}
+</div>
+<button style={{ ...S.btn, marginTop: "8px" }} onClick={() => addComboToCart(c)}>Agregar combo al carrito</button>
+</div>
+</div>
+);
+})}
+</div>
+</div>
+)}
+{(() => { const showCreditNow = user && referralCredit > 0; return (
+<div style={{ margin: "0 auto 8px", maxWidth: 900, padding: "0 16px" }}>
+<div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "14px", background: "#1a1a1a", border: "1px solid #d4af37", borderRadius: "12px", padding: "18px 22px" }}>
+<div style={{ flex: "1 1 260px" }}>
+<div style={{ color: "#d4af37", fontWeight: 700, fontSize: "15px", fontFamily: "'Playfair Display', serif" }}>{showCreditNow ? "🎁 Tenes credito por referidos sin usar" : "🎁 Invita a un amigo y ganen $1.000 cada uno"}</div>
+<div style={{ color: "#bdbdbd", fontSize: "13px", marginTop: "4px" }}>
+{showCreditNow
+? "Tenes " + formatPrice(referralCredit) + " de credito disponible (se descuenta $1.000 por compra). Usálo en tu proximo pedido."
+: (user ? "Compartí tu código y cuando lo usen, ambos reciben $1.000 de descuento." : "Si ya nos compraste, iniciá sesión para conseguir tu código y empezar a ganar descuentos.")}
+</div>
+</div>
+{user ? (
+<a href={"https://wa.me/?text=" + encodeURIComponent("Te invito a comprar en Esencia Perfumeria! Usa mi codigo " + referralCode + " y ambos recibimos $1.000 de descuento en tu primera compra. https://www.esenciaperfumeria.com.ar")} target="_blank" rel="noreferrer" style={{ ...S.btnOutline, textDecoration: "none", textAlign: "center", whiteSpace: "nowrap" }}>Compartir mi código</a>
+) : (
+<button style={{ ...S.btnOutline, whiteSpace: "nowrap" }} onClick={() => { setAccountMode("login"); setAccountError(""); setShowAccountModal(true); }}>Conseguir mi código</button>
+)}
+</div>
+</div>
+); })()}
+{recentlyViewedProducts.length > 0 && (
+<div style={S.recentlyViewedWrap}>
+<button style={S.recentlyViewedToggle} onClick={() => setRecentlyViewedOpen(!recentlyViewedOpen)}>
+{recentlyViewedOpen ? "▲ Ocultar vistos recientemente" : `🕐 Vistos recientemente (${recentlyViewedProducts.length}) ▾`}
+</button>
+{recentlyViewedOpen && (
+<div style={{ ...S.recentlyViewedRow, marginTop: "10px" }}>
+{recentlyViewedProducts.map(p => (
+<a key={p.id} className="product-card" href={productUrl(p)} style={{ ...S.recentlyViewedCard, display: "block", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); }}>
+<img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+<div style={S.recentlyViewedName}>{getProductName(p)}</div>
+<div style={S.recentlyViewedPrice}>{formatPrice(priceCyber(p, getProductPrice(p)))}</div>
+</a>
+))}
+</div>
+)}
+</div>
+)}
+<div style={S.tickerSection}>
+<style>{`@keyframes gangaTicker { from { transform: translateX(0); } to { transform: translateX(-50%); } } @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } } .product-card { transition: transform 0.3s ease, box-shadow 0.3s ease; animation: fadeInUp 0.6s ease both; } .product-card:hover, .product-card:active { transform: translateY(-6px); box-shadow: 0 14px 28px rgba(212,175,55,0.18); } .card-img { transition: transform 0.35s ease; } .product-card:hover .card-img { transform: scale(1.06); } .fav-btn { transition: transform 0.2s ease, background 0.2s ease; } .fav-btn:hover { transform: scale(1.12); } .fav-btn.active { animation: favPop 0.3s ease; } @keyframes favPop { 0% { transform: scale(1); } 45% { transform: scale(1.3); } 100% { transform: scale(1); } } .add-cart-btn { transition: transform 0.2s ease, box-shadow 0.2s ease; } .add-cart-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(212,175,55,0.4); } .add-cart-btn:active { transform: scale(0.96); } @keyframes skeletonPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } } .skel { animation: skeletonPulse 1.4s ease-in-out infinite; background: #23231f; } @keyframes toastPop { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }`}</style>
+<div style={S.tickerTrack}>
+{[...tickerProducts, ...tickerProducts].map((p, i) => (
+<a key={i} className="product-card" href={productUrl(p)} style={{ ...S.tickerItem, display: "block", position: "relative", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); }}>
+<button className={"fav-btn" + (favorites.includes(p.id) ? " active" : "")} onClick={e => { e.preventDefault(); e.stopPropagation(); toggleFavorite(p.id); }} style={S.favBtn(favorites.includes(p.id))} aria-label="Favorito">{favorites.includes(p.id) ? "♥" : "♡"}</button>
+<img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.cardImg} loading="lazy" decoding="async" onError={(e) => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
+<div style={S.cardBody}>
+<div style={S.cardName}>{getProductName(p)}</div>
+<div style={S.cardPrice}>
+{cyberAplica(p) ? precioCyberJSX(p, getProductPrice(p)) : (<>
+<span>{formatPrice(getProductPrice(p))}</span>
+{getDiscountPercent(p) && <span style={S.originalPrice}>{formatPrice(getProductOriginalPrice(p))}</span>}
+{getDiscountPercent(p) && <span style={S.discountBadge}>-{getDiscountPercent(p)}%</span>}
+</>)}
+</div>
+<div style={S.badgeRow}>
+{getProductDisp(p) === "stock"
+? <span style={S.badgeStock}><span style={S.badgeStockDot}></span>En Stock</span>
+: getProductDisp(p) === "agotado"
+? <span style={S.badgeAgotado}>● Agotado</span>
+: <span style={S.badgePedido}>Por Pedido · {getProductDias(p)} dias hab.</span>
+}
+{getUrgencyMsg(p) && <span style={S.urgencyBadge}>{getUrgencyMsg(p)}</span>}
+</div>
+{getProductDisp(p) === "agotado"
+? <button className="add-cart-btn" style={{ ...S.btnOutline, width: "100%", marginTop: "auto", padding: "10px" }} onClick={e => { e.preventDefault(); e.stopPropagation(); setSelectedProduct(p); }}>🔔 Avisarme</button>
+: <button className="add-cart-btn" style={{ ...S.btn, width: "100%", marginTop: "auto" }} onClick={e => { e.preventDefault(); e.stopPropagation(); addToCart(p); }}>Agregar al Carrito</button>}
+</div>
+</a>
+))}
+</div>
+</div>
+{(() => {
+const resenasPublicadas = resenas.filter(r => r.estado !== "pendiente");
+return (
+<div style={{ ...S.section, padding: "40px 20px" }}>
+<div style={{ ...S.sectionTitle, fontSize: "20px", marginBottom: "10px" }}>Opiniones de Clientes</div>
+<p style={{ color: "#7a7a7a", fontSize: "13px", textAlign: "center", marginTop: "-4px", marginBottom: "16px" }}>Sobre nuestra atención y la entrega de sus pedidos, verificadas antes de publicarse.</p>
+{avgRating && <div style={{ textAlign: "center", marginBottom: "16px" }}><span style={{ ...S.ratingBadge, fontSize: "16px" }}>★ {avgRating} de 5 · {reviewCount} {reviewCount === 1 ? "opinion verificada" : "opiniones verificadas"}</span></div>}
+{resenasPublicadas.length === 0 ? (
+<p style={{ color: "#7a7a7a", textAlign: "center" }}>Todavia no hay opiniones cargadas.</p>
+) : (
+<div className="gs-reviews-scroll">
+<div className="gs-reviews-track">
+{[...resenasPublicadas, ...resenasPublicadas].map((r, i) => (
+<div key={r.id + "-" + i} className="gs-review-card">
+<div className="gs-review-card-head">
+{r.foto ? (
+<img src={optimizeImg(r.foto, "t")} alt={r.nombre} loading="lazy" decoding="async" className="gs-review-avatar" />
+) : (
+<div className="gs-review-avatar-fallback">{(r.nombre || "?").trim().charAt(0).toUpperCase()}</div>
+)}
+<div>
+<div className="gs-review-name">{r.nombre}</div>
+{r.ciudad && <div className="gs-review-city">{r.ciudad}</div>}
+</div>
+</div>
+<div className="gs-review-stars">{"★".repeat(r.estrellas || 5)}{"☆".repeat(5 - (r.estrellas || 5))}</div>
+<p className="gs-review-text">"{r.texto}"</p>
+</div>
+))}
+</div>
+</div>
+)}
+<div style={{ textAlign: "center", marginTop: "18px" }}>
+<a href="/opinar" onClick={(e) => { e.preventDefault(); setPage("opinar"); window.history.pushState({}, "", "/opinar"); window.scrollTo(0, 0); }} style={{ color: "#8a6d1f", fontSize: "13px", textDecoration: "underline", cursor: "pointer" }}>¿Ya nos compraste? Contanos tu experiencia</a>
+</div>
+</div>
+);
+})()}
   
 <div style={S.loyaltySection} id="loyaltySection"><div style={S.loyaltyCard}><div style={S.loyaltyTitle}>Programa de Fidelizacion Esencia Perfumeria</div><p style={{ color: "#fff", maxWidth: 560, margin: "0 auto" }}>Cada compra suma puntos! Por cada $100.000 de compra sumas 100 puntos, y con 300 puntos obtenes $10.000 de descuento en tu proximo pedido.</p><div style={S.loyaltyGrid}><div style={S.loyaltyStep}><div style={{ color: "#d4af37", fontWeight: 700, marginBottom: 4 }}>1. Compra</div><div style={{ color: "#bdbdbd", fontSize: 13 }}>Crea tu cuenta con tu correo y compra tus perfumes favoritos.</div></div><div style={S.loyaltyStep}><div style={{ color: "#d4af37", fontWeight: 700, marginBottom: 4 }}>2. Suma puntos</div><div style={{ color: "#bdbdbd", fontSize: 13 }}>$100.000 de compra = 100 puntos acumulados a tu cuenta.</div></div><div style={S.loyaltyStep}><div style={{ color: "#d4af37", fontWeight: 700, marginBottom: 4 }}>3. Canjea</div><div style={{ color: "#bdbdbd", fontSize: 13 }}>300 puntos = $10.000 de descuento en tu proximo pedido.</div></div></div><div style={{ marginTop: 22, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, maxWidth: 380, marginLeft: "auto", marginRight: "auto" }}>{user ? (<><p style={{ color: "#bdbdbd", fontSize: 13, margin: 0 }}>Conectado como {user.email}</p>{customerPoints !== null && (<p style={{ color: "#d4af37", fontWeight: 700, margin: 0 }}>Tenes {customerPoints} puntos = {formatPrice(pointsToDiscount(customerPoints))} de descuento disponible</p>)}<button style={S.btnOutline} onClick={() => loadMyPoints(user.uid)} disabled={pointsLoading}>{pointsLoading ? "Consultando..." : "Actualizar mis puntos"}</button></>) : (<><p style={{ color: "#bdbdbd", fontSize: 14, margin: 0 }}>Inicia sesion con tu correo para ver y usar tus puntos.</p><button style={S.btn} onClick={() => { setAccountMode("login"); setAccountError(""); setShowAccountModal(true); }}>Ingresar / Crear cuenta</button></>)}</div></div></div>
 <div style={{ padding: "10px 20px 40px", maxWidth: "1200px", margin: "0 auto" }}>
