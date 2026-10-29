@@ -2993,13 +2993,23 @@ const enviarConsulta = async () => {
 const cyberAplica = (p) => cyberOn && cyberEligible(p);
 const cyberPrecio = (price) => Math.round((Number(price) || 0) * (100 - CYBER.pct) / 100);
 const priceCyber = (p, price) => (cyberAplica(p) ? cyberPrecio(price) : price);
-const precioCyberJSX = (p, price, tam) => (
+// Precio en modo Cyber: se muestra el precio final (con el 10% ya aplicado). Si el producto
+// ya tenia un precio original real cargado (precioOriginal), se tacha ese precio y el % total
+// es el real contra ese original; si no, solo se muestra el sello del 10% Cyber.
+const precioCyberJSX = (p, price, tam) => {
+  const orig = Number(p && p.precioOriginal) || 0;
+  const tieneOrig = orig > Number(price);
+  const final = cyberPrecio(price);
+  const pctTotal = tieneOrig ? Math.round((1 - final / orig) * 100) : CYBER.pct;
+  return (
 <>
-<span style={{ textDecoration: "line-through", color: "#8a8a8a", fontSize: tam || "13px", fontWeight: 500 }}>{formatPrice(price)}</span>
-<span style={{ color: "#f5d36b", fontWeight: 900 }}>{formatPrice(cyberPrecio(price))}</span>
-<span style={{ display: "inline-block", background: "#d4af37", color: "#0b0b0b", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>🔥 -{CYBER.pct}% CYBER</span>
+{tieneOrig && <span style={{ textDecoration: "line-through", color: "#8a8a8a", fontSize: tam || "13px", fontWeight: 500 }}>{formatPrice(orig)}</span>}
+<span style={{ color: "#f5d36b", fontWeight: 900 }}>{formatPrice(final)}</span>
+<span style={{ display: "inline-block", background: "#d4af37", color: "#0b0b0b", padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: 800 }}>{tieneOrig ? "🔥 -" + pctTotal + "% OFF" : "🔥 -" + CYBER.pct + "% CYBER"}</span>
+{tieneOrig && <span style={{ color: "#bdbdbd", fontSize: "11px", fontWeight: 600 }}>incluye {CYBER.pct}% CYBER</span>}
 </>
-);
+  );
+};
 const getProductOriginalPrice = (p) => p.precioOriginal || null;
 const getDiscountPercent = (p) => {
 const orig = getProductOriginalPrice(p);
