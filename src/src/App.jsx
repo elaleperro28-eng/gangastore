@@ -5326,25 +5326,7 @@ return (
 )}
 </div>
 </a>
-); if (productIdx === 11 && trendProducts.length > 0) { return [
-<div key="trend-banner" style={{ gridColumn: "1 / -1", ...S.section, padding: "30px 20px", width: "100%", maxWidth: "100%", margin: 0, boxSizing: "border-box", minWidth: 0, overflow: "hidden" }}>
-<div style={S.sectionTitle}>☀️ Tendencias para el Verano 2027</div>
-<p style={{ textAlign: "center", color: "#bdbdbd", maxWidth: 560, margin: "-6px auto 18px", fontSize: "14px" }}>Nuestra selección de perfumes ideales para el verano 2027, disponibles ahora.</p>
-<div style={S.recentlyViewedRow}>
-{trendProducts.map(p => (
-<a key={p.id} className="product-card" href={productUrl(p)} style={{ ...S.recentlyViewedCard, display: "block", textDecoration: "none", color: "inherit" }} onClick={(e) => { e.preventDefault(); setSelectedProduct(p); }}>
-<img className="card-img" src={optimizeImg(getProductImage(p), "m")} alt={getProductName(p)} style={S.recentlyViewedImg} loading="lazy" decoding="async" onError={e => { e.target.src = "https://placehold.co/300x300?text=Sin+Imagen"; }} />
-<div style={S.recentlyViewedName}>{getProductName(p)}</div>
-<div style={S.recentlyViewedPrice}>{formatPrice(priceCyber(p, getProductPrice(p)))}</div>
-</a>
-))}
-</div>
-<div style={{ textAlign: "center", marginTop: "16px" }}>
-<button style={S.btnOutline} onClick={() => setFilter("tendenciasverano2027")}>Ver toda la colección</button>
-</div>
-</div>,
-card
-]; } return [card]; })}
+); return [card]; })}
 {!productsLoading && filteredProducts.length === 0 && !searchQuery.trim() && <p style={{ color: "#bdbdbd", gridColumn: "1/-1" }}>No hay productos en esta categoria.</p>}
 </div>
 {visibleCount < filteredProducts.length && (
