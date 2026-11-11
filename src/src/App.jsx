@@ -113,6 +113,42 @@ const cyberDescuentoDe = (lines) => {
 };
 // Las Gift Cards se cargan como productos comunes; se detectan por el nombre y se muestran solo en su filtro.
 const esGiftCard = (p) => /gift\s*card/i.test(String((p && (p.nombre || p.name)) || ""));
+// ---- Ajuste masivo de precios (panel > Productos > Ajuste de precios) ----
+// Solo sube PERFUMES y sus DECANTS. Quedan afuera: cosmeticos (etiqueta "cosmeticos"),
+// Victoria's Secret y Gift Cards. Los combos armados tienen precio propio y no se tocan.
+const ajusteExcluido = (p) => {
+  if (esGiftCard(p)) return "Gift Card";
+  if ((p.etiquetas || []).includes("cosmeticos")) return "Cosmético";
+  if (/victoria/i.test(String(p.nombre || "") + " " + String(p.marca || ""))) return "Victoria's Secret";
+  return "";
+};
+const ajusteSubir = (v, pct, paso) => {
+  const n = Number(v);
+  if (!isFinite(n) || n <= 0) return null;
+  const nuevo = Math.round((n * (1 + pct / 100)) / paso) * paso;
+  return nuevo;
+};
+const ajustePlan = (lista, pct, paso) => {
+  const filas = []; const excluidos = []; const avisos = [];
+  (lista || []).filter(p => p && p.nombre && !String(p.id).startsWith("_")).forEach(p => {
+    const motivo = ajusteExcluido(p);
+    if (motivo) { excluidos.push({ nombre: p.nombre, motivo }); return; }
+    const precio = Number(p.precio) || 0;
+    const nuevo = ajusteSubir(precio, pct, paso);
+    if (nuevo === null) { avisos.push(p.nombre + ": sin precio, no se toca"); return; }
+    const f = { id: p.id, nombre: p.nombre, precio, nuevo, patch: { precio: nuevo } };
+    const orig = Number(p.precioOriginal) || 0;
+    if (orig > 0) {
+      if (orig > precio) { f.orig = orig; f.origNuevo = ajusteSubir(orig, pct, paso); f.patch.precioOriginal = f.origNuevo; }
+      else avisos.push(p.nombre + ": el precio original ($" + orig + ") es menor o igual al de venta; revisalo, no lo toqué");
+    }
+    const d5 = ajusteSubir(p.precioDecant5, pct, paso); if (d5 !== null) { f.d5 = Number(p.precioDecant5); f.d5n = d5; f.patch.precioDecant5 = d5; }
+    const d10 = ajusteSubir(p.precioDecant10, pct, paso); if (d10 !== null) { f.d10 = Number(p.precioDecant10); f.d10n = d10; f.patch.precioDecant10 = d10; }
+    f.anterior = { precio, precioOriginal: p.precioOriginal ?? "", precioDecant5: p.precioDecant5 ?? "", precioDecant10: p.precioDecant10 ?? "" };
+    filas.push(f);
+  });
+  return { filas, excluidos, avisos };
+};
 // Compras desde este monto en productos: neceser de regalo (el envio gratis queda solo para Bahia Blanca).
 const NECESER_THRESHOLD = 150000;
 const DECANT_COMBO_MIN = 3;
@@ -287,6 +323,12 @@ const [adminSub, setAdminSub] = useState({ productos: "cargar", marketing: "bann
 const [cyberIdsForm, setCyberIdsForm] = useState(null);
 const [cyberSearch, setCyberSearch] = useState("");
 const [cyberSaving, setCyberSaving] = useState(false);
+const [ajustePct, setAjustePct] = useState("4");
+const [ajustePaso, setAjustePaso] = useState("100");
+const [ajusteConfirm, setAjusteConfirm] = useState("");
+const [ajusteBusy, setAjusteBusy] = useState(false);
+const [ajusteProg, setAjusteProg] = useState({ done: 0, total: 0 });
+const [ajusteResultado, setAjusteResultado] = useState(null);
 const [consultaModal, setConsultaModal] = useState(null);
 const [consultaNombre, setConsultaNombre] = useState("");
 const [consultaTelefono, setConsultaTelefono] = useState("");
@@ -1863,6 +1905,33 @@ setBulkImagesCount(0);
 if (bulkCsvInputRef.current) bulkCsvInputRef.current.value = "";
 if (bulkImagesInputRef.current) bulkImagesInputRef.current.value = "";
 }
+};
+
+const handleAplicarAjuste = async () => {
+if (ajusteBusy) return;
+const pct = Number(ajustePct); const paso = Number(ajustePaso) || 100;
+if (!isFinite(pct) || pct <= 0 || pct > 30) { alert("Ingresá un porcentaje entre 0,1 y 30."); return; }
+const plan = ajustePlan(products, pct, paso);
+if (plan.filas.length === 0) { alert("No hay productos para actualizar."); return; }
+setAjusteBusy(true); setAjusteResultado(null); setAjusteProg({ done: 0, total: plan.filas.length });
+// 1) Respaldo con los precios ANTERIORES (se puede volver atras subiendolo en "Carga masiva").
+try {
+downloadCSVFile([["id", "nombre", "precio", "precioOriginal", "precioDecant5", "precioDecant10"], ...plan.filas.map(f => [f.id, f.nombre, f.anterior.precio, f.anterior.precioOriginal, f.anterior.precioDecant5, f.anterior.precioDecant10])], "respaldo_precios_antes_del_ajuste_" + new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-") + ".csv");
+} catch (e) { console.error("AJUSTE_BACKUP_ERROR", e); }
+let ok = 0; const errores = [];
+for (let i = 0; i < plan.filas.length; i += 10) {
+const lote = plan.filas.slice(i, i + 10);
+await Promise.all(lote.map(async f => {
+try { await updateDoc(doc(db, "productos", f.id), f.patch); ok++; }
+catch (e) { console.error("AJUSTE_ERROR", f.id, e); errores.push(f.nombre); }
+}));
+setAjusteProg({ done: Math.min(i + 10, plan.filas.length), total: plan.filas.length });
+}
+try { await setDoc(doc(db, "productos", "_site_catalog_version"), { v: Date.now() }); } catch (e) { console.error("CATALOG_VERSION_ERROR", e); }
+try { localStorage.setItem("ajustePreciosUltimo", JSON.stringify({ pct, ok, at: Date.now() })); } catch (e) {}
+setAjusteResultado({ ok, errores, pct });
+setAjusteConfirm("");
+setAjusteBusy(false);
 };
 
 const handleSaveCyberIds = async () => {
@@ -3679,6 +3748,7 @@ return (
 <button onClick={() => setAdminSub(s => ({ ...s, productos: "lista" }))} style={{ background: adminSub.productos === "lista" ? "#d4af37" : "#1a1a1a", color: adminSub.productos === "lista" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.productos === "lista" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>📋 Lista de productos</button>
 <button onClick={() => setAdminSub(s => ({ ...s, productos: "orden" }))} style={{ background: adminSub.productos === "orden" ? "#d4af37" : "#1a1a1a", color: adminSub.productos === "orden" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.productos === "orden" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>🔀 Orden del catálogo</button>
 <button onClick={() => setAdminSub(s => ({ ...s, productos: "masiva" }))} style={{ background: adminSub.productos === "masiva" ? "#d4af37" : "#1a1a1a", color: adminSub.productos === "masiva" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.productos === "masiva" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>📦 Carga masiva</button>
+<button onClick={() => setAdminSub(s => ({ ...s, productos: "ajuste" }))} style={{ background: adminSub.productos === "ajuste" ? "#d4af37" : "#1a1a1a", color: adminSub.productos === "ajuste" ? "#0b0b0b" : "#e8ddc0", border: "1px solid " + (adminSub.productos === "ajuste" ? "#d4af37" : "#2b2b2b"), borderRadius: "20px", padding: "8px 16px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>💲 Ajuste de precios</button>
 </div>
 )}
 {adminTab === "marketing" && (
@@ -4224,6 +4294,51 @@ Aleatorio (mezclado entre todos, cambia solo)
 ); })()}
 </>
 )}
+{adminTab === "productos" && adminSub.productos === "ajuste" && (() => {
+const pct = Number(ajustePct); const paso = Number(ajustePaso) || 100;
+const valido = isFinite(pct) && pct > 0 && pct <= 30;
+const plan = valido ? ajustePlan(products, pct, paso) : { filas: [], excluidos: [], avisos: [] };
+let ultimo = null; try { ultimo = JSON.parse(localStorage.getItem("ajustePreciosUltimo") || "null"); } catch (e) {}
+const th = { textAlign: "left", padding: "6px 8px", borderBottom: "1px solid #2b2b2b", color: "#d4af37", fontSize: "12px", position: "sticky", top: 0, background: "#141414" };
+const td = { padding: "6px 8px", borderBottom: "1px solid #1f1f1f", fontSize: "12.5px", verticalAlign: "top" };
+const par = (a, b) => (a != null ? <span>{formatPrice(a)} → <strong style={{ color: "#f5d36b" }}>{formatPrice(b)}</strong></span> : <span style={{ color: "#666" }}>—</span>);
+return (
+<div style={S.adminCard}>
+<h3 style={{ margin: "0 0 6px" }}>💲 Ajuste masivo de precios</h3>
+<p style={{ margin: "0 0 14px", color: "#bdbdbd", fontSize: "13px" }}>Sube el precio de los <strong>perfumes y sus decants</strong> (y el precio tachado, para que el % de descuento que se ve no cambie). No toca cosméticos, Victoria's Secret, Gift Cards ni combos armados. Antes de guardar se descarga un respaldo con los precios actuales.</p>
+{ultimo && <div style={{ background: "#2a2210", border: "1px solid #d4af37", borderRadius: "8px", padding: "10px 12px", marginBottom: "14px", color: "#f5d36b", fontSize: "13px" }}>⚠️ Ya se aplicó un ajuste de {String(ultimo.pct).replace(".", ",")}% desde este navegador el {new Date(ultimo.at).toLocaleString("es-AR")} ({ultimo.ok} productos). Si lo aplicás de nuevo, los precios suben otra vez.</div>}
+<div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "flex-end", marginBottom: "14px" }}>
+<label style={{ fontSize: "13px", color: "#e8ddc0" }}>Aumento (%)<br /><input type="number" step="0.5" min="0.5" max="30" value={ajustePct} onChange={e => { setAjustePct(e.target.value); setAjusteConfirm(""); }} style={{ ...S.input, width: "110px", marginTop: "4px" }} /></label>
+<label style={{ fontSize: "13px", color: "#e8ddc0" }}>Redondeo<br /><select value={ajustePaso} onChange={e => { setAjustePaso(e.target.value); setAjusteConfirm(""); }} style={{ ...S.input, width: "200px", marginTop: "4px" }}><option value="100">A los $100 más cercanos</option><option value="500">A los $500 más cercanos</option><option value="1">Exacto (sin redondear)</option></select></label>
+</div>
+{!valido && <p style={{ color: "#ff9a7a", fontSize: "13px" }}>Ingresá un porcentaje entre 0,5 y 30.</p>}
+{valido && (
+<>
+<div style={{ fontSize: "14px", color: "#e8ddc0", marginBottom: "8px" }}><strong>{plan.filas.length}</strong> perfumes van a subir {String(pct).replace(".", ",")}% ({plan.filas.filter(f => f.d5n != null || f.d10n != null).length} de ellos también en decants). Quedan sin cambios: <strong>{plan.excluidos.length}</strong> ({plan.excluidos.filter(x => x.motivo === "Victoria's Secret").length} Victoria's Secret, {plan.excluidos.filter(x => x.motivo === "Cosmético").length} cosméticos, {plan.excluidos.filter(x => x.motivo === "Gift Card").length} Gift Cards).</div>
+{plan.avisos.length > 0 && <div style={{ fontSize: "12.5px", color: "#ff9a7a", marginBottom: "10px" }}>{plan.avisos.map((a, i) => <div key={i}>⚠️ {a}</div>)}</div>}
+<div style={{ maxHeight: "420px", overflow: "auto", border: "1px solid #2b2b2b", borderRadius: "8px", marginBottom: "16px" }}>
+<table style={{ width: "100%", borderCollapse: "collapse", color: "#e8ddc0" }}>
+<thead><tr><th style={th}>Producto</th><th style={th}>Precio</th><th style={th}>Tachado</th><th style={th}>Decant 5 ml</th><th style={th}>Decant 10 ml</th></tr></thead>
+<tbody>{plan.filas.map(f => (<tr key={f.id}><td style={td}>{f.nombre}</td><td style={td}>{par(f.precio, f.nuevo)}</td><td style={td}>{par(f.orig, f.origNuevo)}</td><td style={td}>{par(f.d5, f.d5n)}</td><td style={td}>{par(f.d10, f.d10n)}</td></tr>))}</tbody>
+</table>
+</div>
+{ajusteResultado && (
+<div style={{ background: ajusteResultado.errores.length ? "#2a1a10" : "#10261a", border: "1px solid " + (ajusteResultado.errores.length ? "#ff9a7a" : "#4caf50"), borderRadius: "8px", padding: "12px 14px", marginBottom: "14px", fontSize: "13.5px", color: "#e8ddc0" }}>
+✅ Se actualizaron {ajusteResultado.ok} productos (+{String(ajusteResultado.pct).replace(".", ",")}%). La tienda ya muestra los precios nuevos. El respaldo con los precios anteriores se descargó en tu computadora.
+{ajusteResultado.errores.length > 0 && <div style={{ color: "#ff9a7a", marginTop: "6px" }}>No se pudieron actualizar: {ajusteResultado.errores.join(", ")}</div>}
+<div style={{ color: "#bdbdbd", marginTop: "6px" }}>Para volver atrás: Carga masiva → subir ese archivo de respaldo.</div>
+</div>
+)}
+{ajusteBusy && <div style={{ marginBottom: "12px", color: "#f5d36b", fontSize: "13.5px" }}>Actualizando… {ajusteProg.done} de {ajusteProg.total}</div>}
+<div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+<input type="text" placeholder='Escribí AUMENTAR para confirmar' value={ajusteConfirm} onChange={e => setAjusteConfirm(e.target.value)} style={{ ...S.input, width: "250px", margin: 0 }} />
+<button onClick={handleAplicarAjuste} disabled={ajusteBusy || ajusteConfirm.trim().toUpperCase() !== "AUMENTAR" || plan.filas.length === 0} style={{ ...S.btn, padding: "10px 20px", opacity: (ajusteBusy || ajusteConfirm.trim().toUpperCase() !== "AUMENTAR" || plan.filas.length === 0) ? 0.45 : 1 }}>{ajusteBusy ? "Actualizando..." : "Aplicar aumento de " + String(pct).replace(".", ",") + "%"}</button>
+</div>
+</>
+)}
+</div>
+);
+})()}
 {adminTab === "productos" && adminSub.productos === "masiva" && (
 <>
 <div style={{ ...S.adminCard, marginBottom: "24px" }}>
